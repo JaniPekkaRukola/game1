@@ -1,9 +1,10 @@
 float entity_selection_radius = 10.0f;
 const int tile_width = 8;
 
+const int player_pickup_radius = 20.0;
 const int player_health = 3;
-const int rock_health = 3;
-const int tree_health = 3;
+const int rock_health = 1;
+const int tree_health = 1;
 
 
 // inline float v2_length(Vector2 a) {
@@ -141,8 +142,15 @@ typedef struct Entity {
 
 #define MAX_ENTITY_COUNT 1024
 
+typedef struct ItemData {
+	// EntityArchetype type;
+	int amount;
+} ItemData;
+
+// WORLD
 typedef struct World {
 	Entity entities[MAX_ENTITY_COUNT];
+	ItemData inventory_items[ARCH_MAX];
 } World;
 World* world = 0;
 
@@ -271,6 +279,14 @@ int entry(int argc, char **argv) {
 
 	// :Create entities
 
+	// :init
+
+	// test item adding
+	{
+		world->inventory_items[arch_item_pine_wood].amount = 5;
+	}
+
+	
 	// Create player entity
 	Entity* player_en = entity_create();
 	setup_player(player_en);
@@ -326,7 +342,7 @@ int entry(int argc, char **argv) {
 		// reset world_frame
 		world_frame = (WorldFrame){0};
 
-		// : Timing
+		// :Timing
 		float64 now = os_get_current_time_in_seconds();
 		float64 delta_t = now - last_time;
 		last_time = now;
@@ -337,7 +353,7 @@ int entry(int argc, char **argv) {
 
 
 		
-		{	// : camera
+		{	// :camera
 			Vector2 target_pos = player_en->pos;
 			animate_v2_to_target(&camera_pos, target_pos, delta_t, 10.0f); // 4th value controls how smooth the camera transition is to the player
 
@@ -352,9 +368,8 @@ int entry(int argc, char **argv) {
 		int mouse_tile_y = world_pos_to_tile_pos(mouse_pos_world.y);
 		
 		
-		
-		{	// :Entity selection
-
+		// :Entity selection
+		{	
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
 			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
 
@@ -381,8 +396,8 @@ int entry(int argc, char **argv) {
 			}
 		}
 				
-
-		{	// : Tile-Grid Render
+		// :Tile-Grid Render
+		{	
 			// NOTE: rendering tiles has a big fkin impact on fps 
 			int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
 			int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
@@ -409,6 +424,26 @@ int entry(int argc, char **argv) {
 		}
 
 
+		// :update entities
+		{
+			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+				Entity* en = &world->entities[i];
+				if (en->is_valid) {
+
+					// item pick up
+					if (en->is_item) {
+						// TODO PHYSICS
+
+						if (fabsf(v2_dist(en->pos, player_en->pos)) < player_pickup_radius) {
+							world->inventory_items[en->arch].amount += 1;
+							entity_destroy(en);
+						}
+					}
+				}
+			}
+		}
+
+		// :player use/attack (clicky)
 		{
 			Entity* selected_en = world_frame.selected_entity;
 
@@ -444,7 +479,7 @@ int entry(int argc, char **argv) {
 			}
 		}
 
-		// : Entity Render
+		// :Entity Render
 		for (int i = 0; i < MAX_ENTITY_COUNT; i++)  {
 			Entity* en = &world->entities[i];
 			if (en->is_valid) {
@@ -493,7 +528,7 @@ int entry(int argc, char **argv) {
 		}
 
 
-		// : Input
+		// :Input
 		if (is_key_just_pressed(KEY_ESCAPE)){ // EXIT
 			window.should_close = true;
 		}
@@ -541,7 +576,7 @@ int entry(int argc, char **argv) {
 		}
 
 
-		// Sprint
+		// :Sprint
 		if (is_key_down(KEY_SHIFT)){
 			player_speed = 100.0;
 		}
@@ -549,7 +584,7 @@ int entry(int argc, char **argv) {
 			player_speed = 50.0;
 		}
 
-		// Key input
+		// Player movement
 		Vector2 input_axis = v2(0, 0);
 		if (is_key_down('A')){
 			input_axis.x -= 1.0;
@@ -572,7 +607,7 @@ int entry(int argc, char **argv) {
 
 		gfx_update();
 
-		// Timing
+		// :Timing
 		seconds_counter += delta_t;
 		frame_count += 1;
 		if (seconds_counter > 1.0){
