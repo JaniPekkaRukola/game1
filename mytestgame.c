@@ -22,19 +22,9 @@ Vector2 range2f_get_center(Range2f r) {
 
 // ^^^ engine changes
 
-
-int world_pos_to_tile_pos(float world_pos) {
-	return roundf(world_pos / (float)tile_width);
-}
-
-float tile_pos_to_world_pos(int tile_pos) {
-	return ((float)tile_pos * (float)tile_width);
-}
-
-Vector2 round_v2_to_tile(Vector2 world_pos) {
-	world_pos.x = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.x));
-	world_pos.y = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.y));
-	return world_pos;
+// 0 -> 1
+float sin_breathe(float time, float rate) {
+	return (sin(time * rate) + 1.0) / 2.0;
 }
 
 bool almost_equals(float a, float b, float epsilon) {
@@ -54,6 +44,26 @@ void animate_v2_to_target(Vector2* value, Vector2 target, float delta_t, float r
 	animate_f32_to_target(&(value->x), target.x, delta_t, rate);
 	animate_f32_to_target(&(value->y), target.y, delta_t, rate);
 }
+
+// ^^^ Generic utils
+
+
+
+int world_pos_to_tile_pos(float world_pos) {
+	return roundf(world_pos / (float)tile_width);
+}
+
+float tile_pos_to_world_pos(int tile_pos) {
+	return ((float)tile_pos * (float)tile_width);
+}
+
+Vector2 round_v2_to_tile(Vector2 world_pos) {
+	world_pos.x = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.x));
+	world_pos.y = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.y));
+	return world_pos;
+}
+
+
 
 typedef struct Sprite {
 	Gfx_Image* image;
@@ -126,6 +136,7 @@ typedef struct Entity {
 	SpriteID sprite_id;
 	int health;
 	bool destroyable;
+	bool is_item;
 } Entity;
 
 #define MAX_ENTITY_COUNT 1024
@@ -185,11 +196,13 @@ void setup_tree(Entity* en) {
 void setup_item_rock(Entity* en) {
 	en->arch = arch_item_rock;
 	en->sprite_id = SPRITE_item_rock;
+	en->is_item = true;
 }
 
 void setup_item_pine_wood(Entity* en) {
 	en->arch = arch_item_pine_wood;
 	en->sprite_id = SPRITE_item_pine_wood;
+	en->is_item = true;
 }
 
 // void setup_tree1(Entity* en) {
@@ -443,7 +456,22 @@ int entry(int argc, char **argv) {
 					{
 						Sprite* sprite = get_sprite(en->sprite_id);
 						Matrix4 xform = m4_scalar(1.0);
-						xform         = m4_translate(xform, v3(0, (float)tile_width * -0.5, 0));	// bring sprite down to bottom of Tile
+						if (en->is_item) {
+							xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down
+							
+							// shadow position
+							Vector2 position = en->pos;
+							position.x -= 3.5;
+							position.y -= 3.5;
+							
+							// item shadow
+							draw_circle(position, v2(7.0, 7.0), v4(0.1, 0.1, 0.1, 0.5));
+
+						}
+						if (!en->is_item) {
+							xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
+						}
+
 						xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
 						xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
 
