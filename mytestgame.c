@@ -1,27 +1,65 @@
-float entity_selection_radius = 10.0f;
+// ----- settings --------------------------------------------------------------------------------------
+
+float entity_selection_radius = 5.0f;
 const int tile_width = 8;
 
-const int player_pickup_radius = 20.0;
+const int player_pickup_radius = 15.0;
 const int player_health = 3;
 const int rock_health = 1;
 const int tree_health = 1;
+const int bush_health = 1;
+
+
+// ----- engine changes (by: randy) ----------------------------------------------------------------
+
+#define m4_identity m4_make_scale(v3(1, 1, 1))
+
+// "resizable" array helpers (by: randy)
+// void* array_add() {}
 
 
 // inline float v2_length(Vector2 a) {
 //     return sqrt(a.x * a.x + a.y * a.y);
 // }
+
+
 // randy: is this something that's usually standard in math libraries or am I tripping?
 inline float v2_dist(Vector2 a, Vector2 b) {
     return v2_length(v2_sub(a, b));
 }
 
-#define m4_identity m4_make_scale(v3(1, 1, 1))
 
-Vector2 range2f_get_center(Range2f r) {
-	return (Vector2) { (r.max.x - r.min.x) * 0.5 + r.min.x, (r.max.y - r.min.y) * 0.5 + r.min.y };
+Vector2 range2f_get_center(Range2f range) {
+	return (Vector2) {(range.max.x - range.min.x) * 0.5 + range.min.x, (range.max.y - range.min.y) * 0.5 + range.min.y};
 }
 
-// ^^^ engine changes
+
+
+
+// ----- the scuff zone (by: randy) --------------------------------------------------------------------
+
+Draw_Quad ndc_quad_to_screen_quad(Draw_Quad ndc_quad) {
+
+	// NOTE: we're assuming these are the screen space matricies (by: randy)
+	Matrix4 proj = draw_frame.projection;
+	Matrix4 view = draw_frame.view;
+	
+	Matrix4 ndc_to_screen_space = m4_identity;
+	ndc_to_screen_space = m4_mul(ndc_to_screen_space, m4_inverse(proj));
+	ndc_to_screen_space = m4_mul(ndc_to_screen_space, view);
+
+	ndc_quad.bottom_left = m4_transform		(ndc_to_screen_space, v4(v2_expand(ndc_quad.bottom_left), 0, 1)).xy;
+	ndc_quad.bottom_right = m4_transform	(ndc_to_screen_space, v4(v2_expand(ndc_quad.bottom_right), 0, 1)).xy;
+	ndc_quad.top_left = m4_transform		(ndc_to_screen_space, v4(v2_expand(ndc_quad.top_left), 0, 1)).xy;
+	ndc_quad.top_right = m4_transform		(ndc_to_screen_space, v4(v2_expand(ndc_quad.top_right), 0, 1)).xy;
+
+	return ndc_quad;
+}
+
+
+
+
+// ----- funky -----------------------------------------------------------------------------------------
 
 // 0 -> 1
 float sin_breathe(float time, float rate) {
@@ -45,6 +83,12 @@ void animate_v2_to_target(Vector2* value, Vector2 target, float delta_t, float r
 	animate_f32_to_target(&(value->x), target.x, delta_t, rate);
 	animate_f32_to_target(&(value->y), target.y, delta_t, rate);
 }
+
+Range2f quad_to_range(Draw_Quad quad) {
+	return (Range2f) {quad.bottom_left, quad.top_right};
+}
+
+
 
 // ^^^ Generic utils
 
@@ -77,10 +121,13 @@ typedef enum SpriteID {
 	SPRITE_tree1,
 	SPRITE_rock0,
 	SPRITE_rock1,
+	SPRITE_bush0,
 
 	// Items
 	SPRITE_item_rock,
 	SPRITE_item_pine_wood,
+	SPRITE_item_sprout,
+	SPRITE_item_berry,
 
 	SPRITE_MAX,
 } SpriteID;
@@ -94,7 +141,7 @@ Sprite* get_sprite(SpriteID id) {
 }
 
 Vector2 get_sprite_size(Sprite* sprite) {
-	return (Vector2) { sprite->image->width, sprite->image->height };
+	return (Vector2) {sprite->image->width, sprite->image->height};
 }
 
 
@@ -120,13 +167,27 @@ typedef enum EntityArchetype {
 	arch_nil = 0,
 	arch_rock = 1,
 	arch_tree = 2,
-	arch_player = 3,
+	arch_bush = 3,
+	arch_player = 4,
 
-	arch_item_rock = 4,
-	arch_item_pine_wood = 5,
+	arch_item_rock = 5,
+	arch_item_pine_wood = 6,
+	arch_item_sprout = 7,
+	arch_item_berry = 8,
 	ARCH_MAX,
 
 } EntityArchetype;
+
+// dont like this - jani
+SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
+	switch (arch) {
+		case arch_item_pine_wood: return SPRITE_item_pine_wood; break;
+		case arch_item_rock: return SPRITE_item_rock; break;
+		case arch_item_sprout: return SPRITE_item_sprout; break;
+		case arch_item_berry: return SPRITE_item_berry; break;
+		default: return 0;
+	}
+}
 
 // :entity
 typedef struct Entity {
@@ -177,8 +238,7 @@ void entity_destroy(Entity* entity) {
 	memset(entity, 0, sizeof(Entity));
 }
 
-
-// Entity setups
+// ----- :Entity setups --------------------------------------------------------------------------------
 void setup_player(Entity* en) {
 	en->arch = arch_player;
 	en->sprite_id = SPRITE_player;
@@ -200,6 +260,13 @@ void setup_tree(Entity* en) {
 	en->destroyable = true;
 }
 
+void setup_bush(Entity* en) {
+	en->arch = arch_bush;
+	en->sprite_id = SPRITE_bush0;
+	en->health = bush_health;
+	en->destroyable = true;
+}
+
 // Item setups
 void setup_item_rock(Entity* en) {
 	en->arch = arch_item_rock;
@@ -213,11 +280,41 @@ void setup_item_pine_wood(Entity* en) {
 	en->is_item = true;
 }
 
+void setup_item_sprout(Entity* en) {
+	en->arch = arch_item_sprout;
+	en->sprite_id = SPRITE_item_sprout;
+	en->is_item = true;
+}
+
+void setup_item_berry(Entity* en) {
+	en->arch = arch_item_berry;
+	en->sprite_id = SPRITE_item_berry;
+	en->is_item = true;
+}
+
 // void setup_tree1(Entity* en) {
 // 	en->arch = arch_tree;
 // 	en->sprite_id = SPRITE_tree1;
 // 	// en->sprite_id = SPRITE_tree1;
 // }
+
+
+// ----- coordinate stuff ------------------------------------------------------------------------------
+
+Vector2 get_mouse_pos_in_ndc() {
+	float mouse_x = input_frame.mouse_x;
+	float mouse_y = input_frame.mouse_y;
+	Matrix4 proj = draw_frame.projection;
+	Matrix4 view = draw_frame.view;
+	float window_w = window.width;
+	float window_h = window.height;
+
+	// Normalize the mouse coordinates
+	float ndc_x = (mouse_x / (window_w * 0.5f)) - 1.0f;
+	float ndc_y = (mouse_y / (window_h * 0.5f)) - 1.0f;
+
+	return (Vector2) {ndc_x, ndc_y};
+}
 
 
 Vector2 screen_to_world() {
@@ -261,15 +358,19 @@ int entry(int argc, char **argv) {
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
 
-	// Sprites
+	// :Load entity sprites
+	sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
 	sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
 	sprites[SPRITE_tree0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree0.png"), get_heap_allocator())};
 	sprites[SPRITE_tree1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree1.png"), get_heap_allocator())};
 	sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
+	sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
 
-	// Items
+	// :Load item sprites
 	sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
 	sprites[SPRITE_item_pine_wood] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_pine_wood.png"), get_heap_allocator())};
+	sprites[SPRITE_item_sprout] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_sprout.png"), get_heap_allocator())};
+	sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
 
 	// Font
 	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
@@ -284,10 +385,12 @@ int entry(int argc, char **argv) {
 	// test item adding
 	{
 		world->inventory_items[arch_item_pine_wood].amount = 5;
+		world->inventory_items[arch_item_rock].amount = 5;
+		world->inventory_items[arch_item_sprout].amount = 5;
 	}
 
 	
-	// Create player entity
+	// :Create player entity
 	Entity* player_en = entity_create();
 	setup_player(player_en);
 
@@ -303,17 +406,26 @@ int entry(int argc, char **argv) {
 	}	
 
 	// Create tree0 entities
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < 120; i++) {
 		Entity* en = entity_create();
 		setup_tree(en);
 		en->pos = v2(get_random_float32_in_range(-200, 200), get_random_float32_in_range(-200, 200));
 		en->pos = round_v2_to_tile(en->pos);
 		// en->pos.y -= tile_width * 0.5;	// bring sprite down to bottom of Tile (now done in sprite renderer)
-	}	
+	}
+
+	// Create bush entities
+	for (int i = 0; i < 15; i++) {
+		Entity* en = entity_create();
+		setup_bush(en);
+		en->pos = v2(get_random_float32_in_range(-200, 200), get_random_float32_in_range(-200, 200));
+		en->pos = round_v2_to_tile(en->pos);
+		// en->pos.y -= tile_width * 0.5;	// bring sprite down to bottom of Tile (now done in sprite renderer)
+	}
 
 
 	// // Create tree1 entities
-	// for (int i = 0; i < 100; i++) {
+	// for (int i = 0; i < 100; i++) {s
 	// 	Entity* en = entity_create();
 	// 	setup_tree1(en);
 	// 	en->pos = v2(get_random_float32_in_range(-200, 200), get_random_float32_in_range(-200, 200));
@@ -324,6 +436,7 @@ int entry(int argc, char **argv) {
 	float player_speed = 50.0;			// pixels per second
 	const float player_size_x = 10.0;	// player sprite size x (pixels)
 	const float player_size_y = 10.0;	// player sprite size y (pixels)
+	bool inventory_open = false;
 
 	// Timing
 	float64 seconds_counter = 0.0;
@@ -360,7 +473,7 @@ int entry(int argc, char **argv) {
 			draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0)); // View zoom (zooms so pixel art is the correct size)
 			draw_frame.view = m4_mul(draw_frame.view, m4_make_translation(v3(camera_pos.x, camera_pos.y, 0)));
 			draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(view_zoom, view_zoom, 1.0)));
-				
+			
 		}
 
 		Vector2 mouse_pos_world = screen_to_world();
@@ -470,6 +583,14 @@ int entry(int argc, char **argv) {
 								}
 							} break;
 
+							case arch_bush: {
+								{
+									Entity* en = entity_create();
+									setup_item_berry(en);
+									en->pos = selected_en->pos;
+								}
+							} break;
+
 							default: { } break;
 						}
 
@@ -479,7 +600,7 @@ int entry(int argc, char **argv) {
 			}
 		}
 
-		// :Entity Render
+		// :Render entities
 		for (int i = 0; i < MAX_ENTITY_COUNT; i++)  {
 			Entity* en = &world->entities[i];
 			if (en->is_valid) {
@@ -496,7 +617,7 @@ int entry(int argc, char **argv) {
 							
 							// shadow position
 							Vector2 position = en->pos;
-							position.x -= 3.5;
+							 position.x -= 3.5;
 							position.y -= 3.5;
 							
 							// item shadow
@@ -518,7 +639,7 @@ int entry(int argc, char **argv) {
 						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
 
 						if (IS_DEBUG){
-							draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
+							// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
 						}
 
 						break;
@@ -526,6 +647,239 @@ int entry(int argc, char **argv) {
 				}
 			}
 		}
+
+
+
+
+		// :inventory render test (randy's solution #2) (NOT centered inventory - status: ??)
+		{
+			if (inventory_open){
+			float width = 240.0;
+			float height = 135.0;
+
+			float pos_y = 95.0;
+
+			// Colors
+			Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+			Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.4);
+			Vector4 tooltip_bg = inventory_bg;
+			
+			float inventory_tile_size = 8.0;
+			float padding = 2.0;
+			const int icon_row_count = 8;
+
+			// float icon_width = inventory_tile_size * padding;
+			float icon_width = inventory_tile_size;
+			float box_width = icon_row_count * icon_width;
+			float x_start_pos = (width / 2.0) - (box_width / 2.0);
+
+
+			draw_frame.view = m4_scalar(1.0);
+			draw_frame.projection = m4_make_orthographic_projection(0.0, width, 0.0, height, -1, 10);
+
+			// get how many different items in inventory
+			int item_count = 0;
+			for (int i = 0; i < ARCH_MAX; i++) {
+				ItemData* item = &world->inventory_items[i];
+				if (item->amount > 0){
+					item_count += 1;
+					// printf("ITEM COUNT = %d", item_count);
+				}
+			}
+
+
+			// inventory background_box rendering
+			{
+				Matrix4 xform = m4_identity;
+				xform = m4_translate(xform, v3(x_start_pos, pos_y, 0.0));
+				draw_rect_xform(xform, v2(box_width, icon_width + padding), inventory_bg);
+			}
+
+			// inventory item rendering
+			int slot_index = 0;
+			for (int i = 0; i < ARCH_MAX; i++) {
+				ItemData* item = &world->inventory_items[i];
+				if (item->amount > 0){
+
+					float slot_index_offset = slot_index * icon_width;
+
+					Matrix4 xform = m4_scalar(1.0);
+					float pos_x = (padding * 0.5) + x_start_pos + slot_index_offset + (padding * 0.5) * slot_index;
+					xform = m4_translate(xform, v3(pos_x, pos_y + (padding * 0.5), 0));
+
+					Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+					
+					// draw icon background
+					// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
+
+					float is_selected_alpha = 0.0;
+
+					Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
+					Range2f icon_box = quad_to_range(*quad);
+					if (range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
+							is_selected_alpha = true;
+						}
+
+					// save xfrom for later
+					Matrix4 box_bottom_right_xform = xform;
+
+					// center sprite
+					xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
+
+
+					// Item selected (HOVERING)
+					if (is_selected_alpha){
+						// Scale item
+						// float scale_adjust = 0.5 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
+						float scale_adjust = 1.5;
+						xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
+
+
+					}
+
+					// item bobbing
+					// {
+					// 	float scale_adjust = 0.1 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
+					// 	xform = m4_scale(xform, v3(1 + scale_adjust, 1 + scale_adjust, 1));
+
+					// }
+
+					// rotation
+					// {
+					// 	float rotation_adjust = 0.25 * PI32 * sin_breathe(os_get_current_time_in_seconds(), 1.0);
+					// 	xform = m4_rotate_z(xform, rotation_adjust);
+
+					// }
+
+
+					xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
+
+
+					// draw sprite
+					draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+					// draw_text(font, sprint(temp_allocator, STR("%d"), item->amount), 40, v2(pos_x, pos_y), v2(0.1, 0.1), COLOR_WHITE);
+					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+
+					// tooltip
+					{
+						if (is_selected_alpha){
+							
+
+							Draw_Quad screen_quad = ndc_quad_to_screen_quad(*quad);
+							Range2f screen_range = quad_to_range(screen_quad);
+							Vector2 icon_center = range2f_get_center(screen_range);
+
+							Matrix4 xform = m4_scalar(1.0);
+
+							// icon_center
+							Vector2 tooltip_box_size = v2(40, 20);
+
+							xform = m4_translate(xform, v3(tooltip_box_size.x * -0.5, -tooltip_box_size.y - icon_width * 0.5 - padding * 0.5, 0));
+
+							xform = m4_translate(xform, v3(icon_center.x, icon_center.y, 0));
+
+							draw_rect_xform(xform, tooltip_box_size, tooltip_bg);
+						}
+					}
+
+					slot_index += 1;
+				}
+			}
+			}
+		}
+
+/*
+		// // :inventory render test (randy's solution #1) (centered inventory - status: WORKING nicely)
+		// {
+		// 	if (inventory_open){
+		// 	float width = 240.0;
+		// 	float height = 135.0;
+
+		// 	draw_frame.view = m4_scalar(1.0);
+		// 	draw_frame.projection = m4_make_orthographic_projection(0.0, width, 0.0, height, -1, 10);
+
+
+		// 	int item_count = 0;
+		// 	for (int i = 0; i < ARCH_MAX; i++) {
+		// 		ItemData* item = &world->inventory_items[i];
+		// 		if (item->amount > 0){
+		// 			item_count += 1;
+		// 		}
+		// 	}
+
+		// 	float inventory_tile_size = 8.0;
+		// 	float padding = 2.0;
+		// 	float icon_width = inventory_tile_size * padding;
+
+		// 	float box_width = item_count * icon_width;
+		// 	float x_start_pos = (width - box_width) / 2.0;
+		// 	// float x_start_pos = (width / 2.0) - (box_width / 2.0) + (icon_width * 0.5);
+
+		// 	int slot_index = 0;
+		// 	for (int i = 0; i < ARCH_MAX; i++) {
+		// 		ItemData* item = &world->inventory_items[i];
+		// 		if (item->amount > 0){
+
+		// 			float slot_index_offset = slot_index * icon_width;
+
+		// 			Matrix4 xform = m4_scalar(1.0);
+		// 			xform = m4_translate(xform, v3(x_start_pos + slot_index_offset, pos_y, 0));
+		// 			xform = m4_translate(xform, v3(4, 4, 0));
+		// 			draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), COLOR_WHITE);
+
+		// 			Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+
+		// 			draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+		// 			slot_index += 1;
+		// 		}
+		// 	}
+		// 	}
+		// }
+
+
+
+		// inventory render test (my solution)
+		{
+			if (IS_DEBUG){
+				int size_x = 100;
+				int size_y = 40;
+				float pos_x = camera_pos.x - (0.5*size_x);
+				float pos_y = camera_pos.y + size_y * 0.5;
+
+				// draw inventory
+				draw_rect(v2(pos_x, pos_y) , v2(size_x, size_y), v4(0, 0, 0, 0.3));
+
+				// draw item
+				for (int i = 0; i < MAX_ENTITY_COUNT; i++)  {
+					// Entity* en = &world->entities[i];
+					ItemData* item = &world->inventory_items[i];
+					// if (en->is_valid && en->is_item) {
+					if (item->amount > 0) {
+						Sprite* sprite = get_sprite(en->sprite_id);
+						Matrix4 xform = m4_scalar(1.0);
+						xform         = m4_translate(xform, v3(pos_x, pos_y, 0));
+						xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+						// draw_text(font, sprint(temp_allocator, STR("%i"), i), 40, v2((i * 2) + pos_x, pos_y), v2(0.1, 0.1), v4(1,1,1,1));
+						
+						
+					// ItemData item = world->inventory_items[i];
+					// if (item.amount > 0){
+					// 	draw_text(font, sprint(temp_allocator, STR("%d"), i), 40, v2((i * 2) + pos_x, pos_y), v2(0.1, 0.1), v4(1,1,1,1));
+					}
+
+				}
+
+			}
+		}
+		
+
+*/
+
+
+		
 
 
 		// :Input
@@ -542,8 +896,13 @@ int entry(int argc, char **argv) {
 		}
 
 
-		if (is_key_just_pressed(MOUSE_FIRST)){
-			printf("TEST");
+		if (is_key_just_pressed(KEY_TAB)) {
+			if (!inventory_open) {
+				inventory_open = true;
+			}
+			else{
+				inventory_open = false;
+			}
 		}
 
 
