@@ -91,11 +91,6 @@ Range2f quad_to_range(Draw_Quad quad) {
 }
 
 
-
-// ^^^ Generic utils
-
-
-
 int world_pos_to_tile_pos(float world_pos) {
 	return roundf(world_pos / (float)tile_width);
 }
@@ -111,11 +106,7 @@ Vector2 round_v2_to_tile(Vector2 world_pos) {
 }
 
 
-
-typedef struct Sprite {
-	Gfx_Image* image;
-	// Vector2 size;
-} Sprite;
+// ::SPRITE ---------------------------
 typedef enum SpriteID {
 	SPRITE_nil,
 	SPRITE_player,
@@ -131,13 +122,28 @@ typedef enum SpriteID {
 	SPRITE_item_sprout,
 	SPRITE_item_berry,
 
+	// buildings
+	SPRITE_building_furnace,
+	// SPRITE_building_workbench,
+
 	SPRITE_MAX,
 } SpriteID;
+
+typedef struct Sprite {
+	Gfx_Image* image;
+	// Vector2 size;
+} Sprite;
+
 Sprite sprites[SPRITE_MAX];
 
 Sprite* get_sprite(SpriteID id) {
 	if (id >= 0 && id < SPRITE_MAX) {
-		return &sprites[id];
+		Sprite* sprite = &sprites[id];
+		if (sprite->image) {
+			return sprite;
+		} else {
+			return &sprites[0];
+		}
 	}
 	return &sprites[0];
 }
@@ -147,6 +153,7 @@ Vector2 get_sprite_size(Sprite* sprite) {
 }
 
 
+// SPRITE struct (not in use) --------------
 // typedef struct Item {
 // 	// ...
 // } Item;
@@ -165,44 +172,28 @@ Vector2 get_sprite_size(Sprite* sprite) {
 // }
 
 
+// ::ENTITY --------------------------------
 typedef enum EntityArchetype {
-	arch_nil = 0,
-	arch_rock = 1,
-	arch_tree = 2,
-	arch_bush = 3,
-	arch_player = 4,
+	ARCH_nil = 0,
+	ARCH_rock = 1,
+	ARCH_tree = 2,
+	ARCH_bush = 3,
+	ARCH_player = 4,
 
-	arch_item_rock = 5,
-	arch_item_pine_wood = 6,
-	arch_item_sprout = 7,
-	arch_item_berry = 8,
+	// items
+	ARCH_item_rock = 5,
+	ARCH_item_pine_wood = 6,
+	ARCH_item_sprout = 7,
+	ARCH_item_berry = 8,
+
+	// buildings
+	ARCH_furnace = 9,
+	ARCH_item_furnace = 10,
+	// ARCH_workbench = 11,
+
 	ARCH_MAX,
 
 } EntityArchetype;
-
-// dont like this - jani
-SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
-	switch (arch) {
-		case arch_item_pine_wood: return SPRITE_item_pine_wood; break;
-		case arch_item_rock: return SPRITE_item_rock; break;
-		case arch_item_sprout: return SPRITE_item_sprout; break;
-		case arch_item_berry: return SPRITE_item_berry; break;
-		default: return 0;
-	}
-}
-
-// donnt like this - jani
-string get_archetype_name(EntityArchetype arch) {
-	switch (arch) {
-		case arch_item_pine_wood: return STR("Pine Wood");
-		case arch_item_rock: return STR("Rock");
-		case arch_item_sprout: return STR("Sprout");
-		case arch_item_berry: return STR("Berry");
-		default: return STR("nill");
-	}
-}
-
-
 
 typedef struct Entity {
 	bool is_valid;
@@ -217,26 +208,71 @@ typedef struct Entity {
 
 #define MAX_ENTITY_COUNT 1024
 
+// dont like this - jani
+SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
+	switch (arch) {
+		case ARCH_item_pine_wood: return SPRITE_item_pine_wood; break;
+		case ARCH_item_rock: return SPRITE_item_rock; break;
+		case ARCH_item_sprout: return SPRITE_item_sprout; break;
+		case ARCH_item_berry: return SPRITE_item_berry; break;
+		case ARCH_item_furnace: return SPRITE_building_furnace; break;
+		default: return 0;
+	}
+}
+
+// donnt like this - jani
+string get_archetype_name(EntityArchetype arch) {
+	switch (arch) {
+		case ARCH_item_pine_wood: return STR("Pine Wood");
+		case ARCH_item_rock: return STR("Rock");
+		case ARCH_item_sprout: return STR("Sprout");
+		case ARCH_item_berry: return STR("Berry");
+		case ARCH_item_furnace: return STR("Furnace");
+		default: return STR("nill");
+	}
+}
+
+
+// ::ITEMDATA ------------------------------
 typedef struct ItemData {
-	// EntityArchetype type;
 	int amount;
 } ItemData;
 
+
+// ::BUILDINGS -----------------------------
+// typedef enum BuildingID {
+// 	BUILDING_nil,
+// 	BUILDING_furnace,	
+// 	BUILDING_workbench,
+// 	BUILDING_MAX,
+// } BuildingID;
+
+// typedef struct BuildingData {
+	
+// } BuildingData;
+
+// BuildingData buildings[BUILDING_MAX];
+
+
+// ::UX ------------------------------------
 typedef enum UXState {
 	UX_nil,
 	UX_inventory,
-	// UX_building,
+	UX_building,
 } UXState;
 
 
-// WORLD
+// ::WORLD ---------------------------------
 typedef struct World {
 	Entity entities[MAX_ENTITY_COUNT];
 	ItemData inventory_items[ARCH_MAX];
 	UXState ux_state;
 	float inventory_alpha;
 	float inventory_alpha_target;
+	float building_menu_alpha;
+	float building_menu_alpha_target;
 } World;
+
 World* world = 0;
 
 typedef struct WorldFrame {
@@ -244,6 +280,9 @@ typedef struct WorldFrame {
 } WorldFrame;
 WorldFrame world_frame;
 
+
+// :ENTITY create & destroy ----------------
+// should prolly move these into ::ENTITY above
 Entity* entity_create() {
 	Entity* entity_found = 0;
 	for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
@@ -262,22 +301,23 @@ void entity_destroy(Entity* entity) {
 	memset(entity, 0, sizeof(Entity));
 }
 
-// ----- :Entity setups --------------------------------------------------------------------------------
+
+// ----- ::SETUP entity --------------------------------------------------------------------------------
 void setup_player(Entity* en) {
-	en->arch = arch_player;
+	en->arch = ARCH_player;
 	en->sprite_id = SPRITE_player;
 	en->health = player_health;
 }
 
 void setup_rock(Entity* en) {
-	en->arch = arch_rock;
+	en->arch = ARCH_rock;
 	en->sprite_id = SPRITE_rock0;
 	en->health = rock_health;
 	en->destroyable = true;
 }
 
 void setup_tree(Entity* en) {
-	en->arch = arch_tree;
+	en->arch = ARCH_tree;
 	en->sprite_id = SPRITE_tree0;
 	// en->sprite_id = SPRITE_tree1;
 	en->health = tree_health;
@@ -285,33 +325,33 @@ void setup_tree(Entity* en) {
 }
 
 void setup_bush(Entity* en) {
-	en->arch = arch_bush;
+	en->arch = ARCH_bush;
 	en->sprite_id = SPRITE_bush0;
 	en->health = bush_health;
 	en->destroyable = true;
 }
 
-// Item setups
+// ----- ::SETUP item --------------------------------------------------------------------------------
 void setup_item_rock(Entity* en) {
-	en->arch = arch_item_rock;
+	en->arch = ARCH_item_rock;
 	en->sprite_id = SPRITE_item_rock;
 	en->is_item = true;
 }
 
 void setup_item_pine_wood(Entity* en) {
-	en->arch = arch_item_pine_wood;
+	en->arch = ARCH_item_pine_wood;
 	en->sprite_id = SPRITE_item_pine_wood;
 	en->is_item = true;
 }
 
 void setup_item_sprout(Entity* en) {
-	en->arch = arch_item_sprout;
+	en->arch = ARCH_item_sprout;
 	en->sprite_id = SPRITE_item_sprout;
 	en->is_item = true;
 }
 
 void setup_item_berry(Entity* en) {
-	en->arch = arch_item_berry;
+	en->arch = ARCH_item_berry;
 	en->sprite_id = SPRITE_item_berry;
 	en->is_item = true;
 }
@@ -321,6 +361,21 @@ void setup_item_berry(Entity* en) {
 // 	en->sprite_id = SPRITE_tree1;
 // 	// en->sprite_id = SPRITE_tree1;
 // }
+
+// ----- ::SETUP building --------------------------------------------------------------------------------
+void setup_furnace(Entity* en) {
+	en->arch = ARCH_furnace;
+	en->sprite_id = SPRITE_building_furnace;
+	en->is_item = false;
+	en->destroyable = true;
+	en->health = 10;
+}
+
+void setup_item_furnace(Entity* en) {
+	en->arch = ARCH_item_furnace;
+	en->sprite_id = SPRITE_building_furnace;
+	en->is_item = true;
+}
 
 
 // ----- coordinate stuff ------------------------------------------------------------------------------
@@ -385,6 +440,11 @@ int entry(int argc, char **argv) {
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
 
+	// Font
+	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
+	assert(font, "Failed loading arial.ttf, %d", GetLastError());
+	const u32 font_height = 48;
+
 	// :Load entity sprites
 	sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
 	sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
@@ -399,23 +459,42 @@ int entry(int argc, char **argv) {
 	sprites[SPRITE_item_sprout] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_sprout.png"), get_heap_allocator())};
 	sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
 
-	// Font
-	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
-	assert(font, "Failed loading arial.ttf, %d", GetLastError());
-	const u32 font_height = 48;
+	// :Load building sprites
+	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
 
-
-	// :Create entities
-
-	// :init
-
-	// test item adding
+	// @ship debug this off (by: randy)
 	{
-		// world->inventory_items[arch_item_pine_wood].amount = 5;
-		// world->inventory_items[arch_item_rock].amount = 5;
-		world->inventory_items[arch_item_sprout].amount = 2;
+		// crash when image fails to be setup properly (by: randy)
+			// not working for me (- jani)
+		// for (SpriteID i = 0; i < SPRITE_MAX; i++) {
+		// 	Sprite* sprite = &sprites[i];
+		// 	assert(sprite->image, "Sprite was not setup correctly");
+		// }
 	}
 
+
+	// :init
+	// tests:
+	// if (IS_DEBUG)
+	{
+		// test adding items to inventory
+		{
+			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
+			// world->inventory_items[ARCH_item_rock].amount = 5;
+			world->inventory_items[ARCH_item_sprout].amount = 2;
+		}
+
+		// test adding furnace to world
+		{
+			// setup furnace
+			Entity* en = entity_create();
+			setup_furnace(en);
+			en->pos = v2(-25, 0);
+			en->pos = round_v2_to_tile(en->pos);
+		}
+	}
+
+	// Create entities
 	
 	// :Create player entity
 	Entity* player_en = entity_create();
@@ -568,8 +647,9 @@ int entry(int argc, char **argv) {
 		}
 
 
-		// :update entities
+		// :update entities (:item pick up)
 		{
+			// bool is_pickup_text_visible = false;
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
 				Entity* en = &world->entities[i];
 				if (en->is_valid) {
@@ -581,7 +661,25 @@ int entry(int argc, char **argv) {
 						if (fabsf(v2_dist(en->pos, player_en->pos)) < player_pickup_radius) {
 							world->inventory_items[en->arch].amount += 1;
 							entity_destroy(en);
+
+							// is_pickup_text_visible = true;
 						}
+
+						// Vector4 col = v4(1, 1, 1, 1);
+
+						// // Render pickup-text
+						// if (is_pickup_text_visible)
+						// {
+						// 	printf("pickup text visible\n");
+						// 	if (col.a == 0.0){
+						// 		printf("disabling pickup text now\n");
+						// 		is_pickup_text_visible = false;
+						// 	}
+
+						// 	printf("col.a = %f\n", col.a);
+						// 	animate_f32_to_target(&col.a, 0.0, delta_t, 15.0);
+						// 	draw_text(font, STR("test"), font_height, v2(10, 10), v2(10, 10), col);
+						// }
 					}
 				}
 			}
@@ -598,7 +696,7 @@ int entry(int argc, char **argv) {
 					if (selected_en->health <= 0) {
 
 						switch (selected_en->arch) {
-							case arch_tree: {
+							case ARCH_tree: {
 								{
 									Entity* en = entity_create();
 									setup_item_pine_wood(en);
@@ -606,7 +704,7 @@ int entry(int argc, char **argv) {
 								}
 							} break;
 
-							case arch_rock: {
+							case ARCH_rock: {
 								{
 									Entity* en = entity_create();
 									setup_item_rock(en);
@@ -614,13 +712,21 @@ int entry(int argc, char **argv) {
 								}
 							} break;
 
-							case arch_bush: {
+							case ARCH_bush: {
 								{
 									Entity* en = entity_create();
 									setup_item_berry(en);
 									en->pos = selected_en->pos;
 								}
 							} break;
+
+							case ARCH_furnace: {
+								{
+									Entity* en = entity_create();
+									setup_item_furnace(en);
+									en->pos = selected_en->pos;
+								}
+							}
 
 							default: { } break;
 						}
@@ -854,53 +960,222 @@ int entry(int argc, char **argv) {
 			}
 
 
+			// :Building UI
+			{
+				// open building menu
+				if (is_key_just_pressed('C')) {
+					consume_key_just_pressed('C');
+					world->ux_state = (world->ux_state == UX_building ? UX_nil : UX_building);
+				}
+				world->building_menu_alpha_target = (world->ux_state == UX_building ? 1.0 : 0.0);
+				animate_f32_to_target(&world->building_menu_alpha, world->building_menu_alpha_target, delta_t, 15.0);
+				bool is_building_enabled = world->building_menu_alpha_target == 1.0;
+
+				// float x_middle = width * 0.5;
+				// float pos_y = 10;
+				// Vector2 slot_size = v2(8.0, 8.0);
+
+				
+				int building_count = 3;
+				float icon_size = 8.0;
+				float padding = 2.0;
+				float total_box_width = building_count * icon_size + (padding * (building_count + 1));
+
+				// draw a row of icons for build menu
+				if (world->building_menu_alpha_target == 1.0) { // when building menu is open
+					for (int i = 0; i < building_count; i++) {
+						Matrix4 xform = m4_identity;
+						float x0 = (width * 0.5) - (total_box_width * 0.5);
+						x0 += i * icon_size;
+						x0 += padding * (i+1);
+						xform = m4_translate(xform, v3(x0, 0 + padding, 0));
+						draw_rect_xform(xform, v2(icon_size, icon_size), COLOR_WHITE);
+					}
+				}
+
+				/*
+					// if (world->building_menu_alpha != 0.0)
+					if (world->building_menu_alpha_target != 0.0) // temp line for instant opening of the inventory, since global draw frame alpha is not a thing (yet)
+					{
+
+						// TODO: some opacity thing here (by: randy)
+
+						float pos_y = 95.0;
+
+						// Colors
+						Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+						Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.4);
+						Vector4 tooltip_bg = inventory_bg;
+						
+						float inventory_tile_size = 8.0;
+						float padding = 2.0;
+						const int icon_row_count = 8;
+
+						// float icon_width = inventory_tile_size * padding;
+						float icon_width = inventory_tile_size;
+						float box_width = icon_row_count * icon_width;
+						float x_start_pos = (width / 2.0) - (box_width / 2.0);
+
+						// get how many different items in inventory
+						int item_count = 0;
+						for (int i = 0; i < ARCH_MAX; i++) {
+							ItemData* item = &world->inventory_items[i];
+							if (item->amount > 0){
+								item_count += 1;
+								// printf("ITEM COUNT = %d", item_count);
+							}
+						}
+
+						// inventory background_box rendering
+						{
+							Matrix4 xform = m4_identity;
+							xform = m4_translate(xform, v3(x_start_pos, pos_y, 0.0));
+							draw_rect_xform(xform, v2(box_width, icon_width + padding), inventory_bg);
+						}
+
+						// inventory item rendering
+						int slot_index = 0;
+						for (int archetype_num = 0; archetype_num < ARCH_MAX; archetype_num++) {
+							ItemData* item = &world->inventory_items[archetype_num];
+							if (item->amount > 0){
+
+								float slot_index_offset = slot_index * icon_width;
+
+								Matrix4 xform = m4_scalar(1.0);
+								float pos_x = (padding * 0.5) + x_start_pos + slot_index_offset + (padding * 0.5) * slot_index;
+								xform = m4_translate(xform, v3(pos_x, pos_y + (padding * 0.5), 0));
+
+								Sprite* sprite = get_sprite(get_sprite_id_from_archetype(archetype_num));
+								
+								// draw icon background
+								// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
+
+								float is_selected_alpha = 0.0;
+
+								Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
+								Range2f icon_box = quad_to_range(*quad);
+								if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
+										is_selected_alpha = true;
+									}
+
+								// save xfrom for later
+								Matrix4 box_bottom_right_xform = xform;
+
+								// center sprite
+								xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
+
+
+								// Item selected (HOVERING)
+								if (is_selected_alpha){
+									// Scale item
+									// float scale_adjust = 0.5 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
+									float scale_adjust = 1.5;
+									xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
+
+
+								}
+
+								// item bobbing
+								// {
+								// 	float scale_adjust = 0.1 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
+								// 	xform = m4_scale(xform, v3(1 + scale_adjust, 1 + scale_adjust, 1));
+
+								// }
+
+								// rotation
+								// {
+								// 	float rotation_adjust = 0.25 * PI32 * sin_breathe(os_get_current_time_in_seconds(), 1.0);
+								// 	xform = m4_rotate_z(xform, rotation_adjust);
+
+								// }
+
+
+								xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
+
+
+								// draw sprite
+								draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+								// draw_text(font, sprint(temp_allocator, STR("%d"), item->amount), 40, v2(pos_x, pos_y), v2(0.1, 0.1), COLOR_WHITE);
+								draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+
+								// tooltip
+								{
+									if (is_selected_alpha){
+										
+										Draw_Quad screen_quad = ndc_quad_to_screen_quad(*quad);
+										Range2f screen_range = quad_to_range(screen_quad);
+										Vector2 icon_center = range2f_get_center(screen_range);
+
+										// icon_center
+										Vector2 tooltip_box_size = v2(40, 20);
+
+										Matrix4 xform = m4_scalar(1.0);
+										xform = m4_translate(xform, v3(tooltip_box_size.x * -0.5, -tooltip_box_size.y - icon_width * 0.5 - padding * 0.5, 0));
+										xform = m4_translate(xform, v3(icon_center.x, icon_center.y, 0));
+
+										// tooltip bg box
+										draw_rect_xform(xform, tooltip_box_size, tooltip_bg);
+
+										// string txt = STR("%s");
+										string title = sprint(temp_allocator, STR("%s"), get_archetype_name(archetype_num));
+
+										// draw text
+										Gfx_Text_Metrics metrics = measure_text(font, title, font_height, v2(0.1, 0.1));
+										Vector2 draw_pos = icon_center;
+										draw_pos = v2_sub(draw_pos, metrics.visual_pos_min);
+										draw_pos = v2_add(draw_pos, v2_mul(metrics.visual_size, v2(-0.5, -1.0))); // TOP CENTER
+
+										draw_pos = v2_add(draw_pos, v2(0, icon_width * -0.5));
+										draw_pos = v2_add(draw_pos, v2(0, -2.0)); // padding
+
+										draw_text(font, title, font_height, draw_pos, v2(0.1, 0.1), COLOR_WHITE);
+
+									}
+								}
+
+								slot_index += 1;
+							}
+						}
+					}
+				*/
+				
+			}
+
 			// :Render hotbar
 			if (IS_DEBUG)
 			{
-				// window size (figure out a better way of getting these)
-				float width = 240.0;
-				float height = 135.0;
-
 				float slot_size = 8.0;
 				float slot_index = 1;
-				int padding = 15.0;
+				int padding = 4.0;
+				int slot_count = 9;
 
-				Vector2 hotbar_box_size = v2(80, 10);
-				Vector2 hotbar_tile = v2(8, 8);
-
-				float x_start_pos = (width * 0.5) - (hotbar_box_size.x * 0.5);
-
-				draw_frame.view = m4_scalar(1.0);
-				draw_frame.projection = m4_make_orthographic_projection(0.0, width, 0.0, height, -1, 10);
+				Vector2 hotbar_box_size = v2(slot_count * slot_size + (padding * (slot_count + 1)), 10);
 
 				// Colors
-				Vector4 hotbar_border_color = v4(1.0, 1.0, 1.0, 0.2);
-				Vector4 hotbar_bg_color = v4(0.0, 0.0, 0.0, 0.4);
+				Vector4 hotbar_border_color = v4(0.8, 0.8, 0.8, 1);
+				Vector4 hotbar_bg_color = v4(0.1, 0.1, 0.1, 0.4);
 				
-
-
-				// Draw hotbar background
-				// Matrix4 xform = m4_identity;
-				// xform = m4_translate(xform, v3((width * 0.5) - (hotbar_box_size.x * 0.5), 2, 0.0));
-				// draw_rect_xform(xform, v2(hotbar_box_size.x, hotbar_box_size.y), hotbar_bg_color);
-
+				// Draw hotbar
 				float pos_y = 2;
-				Vector4 col = v4(1,1,1,1);
-				for (int i = 0; i <= 9; i++) {
+				for (int i = 0; i < slot_count; i++) {
 
-					// float pos_x = (width * 0.5) - (hotbar_box_size.x * 0.5);
-					float pos_x = x_start_pos;
+					float pos_x = (width * 0.5) - (hotbar_box_size.x * 0.5);
 					pos_x += (slot_size * i);
-					pos_x += padding;
+					pos_x += padding * (i+1);
 
 					Matrix4 xform = m4_identity;
 					xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
-					draw_rect_xform(xform, v2(slot_size, slot_size), col);
 
-					col = v4_add(col, v4(-0.1, -0.1, -0.1, 0));
+					Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
+					xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
+
+					// draw hotbar border
+					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
+					// draw hotbar slot
+					draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
 
 				}
-
 			}
 		}
 
@@ -997,10 +1272,10 @@ int entry(int argc, char **argv) {
 
 
 		// :Input
-		if (is_key_just_pressed(KEY_ESCAPE)){ // EXIT
+		if (is_key_just_pressed('X')){ // EXIT
 			window.should_close = true;
 		}
-		if (is_key_just_pressed('Q')){
+		if (is_key_just_pressed('T')){
 			if (IS_DEBUG){
 				IS_DEBUG = false;
 			}
@@ -1036,14 +1311,8 @@ int entry(int argc, char **argv) {
 						}
 						break;
 					}
-					case (INPUT_EVENT_KEY):
-					{
-						break;
-					}
-					case (INPUT_EVENT_TEXT):
-					{
-						break;
-					}
+					case (INPUT_EVENT_KEY):{break;}
+					case (INPUT_EVENT_TEXT):{break;}
 				}
 			}
 		}
