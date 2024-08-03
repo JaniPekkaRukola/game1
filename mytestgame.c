@@ -1,22 +1,28 @@
-// ----- settings --------------------------------------------------------------------------------------
+// ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
 
 float entity_selection_radius = 5.0f;
-const int tile_width = 8;
-
 const int player_pickup_radius = 15.0;
-const int player_health = 3;
+int player_health = 3;
 const int rock_health = 1;
 const int tree_health = 1;
 const int bush_health = 1;
+const int tile_width = 8;
 
 const Vector4 item_shadow_color = {0, 0, 0, 0.1};
 
-// ::Global app stuff
+// rendering layers
+const s32 layer_ui = 20;
+const s32 layer_world = 10;
+
+// Global app stuff
 float64 delta_t;
 Gfx_Font* font;
 u32 font_height = 48;
+float screen_width = 240.0;
+float screen_height = 135.0;
+
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 
@@ -195,10 +201,11 @@ typedef enum EntityArchetype {
 
 	// buildings
 	ARCH_furnace = 9,
-	ARCH_workbench = 10,
-	ARCH_chest = 11,
-	// ARCH_item_furnace = 10,
-	// ARCH_workbench = 11,
+	ARCH_item_furnace = 10,
+	ARCH_workbench = 11,
+	ARCH_item_workbench = 12,
+	ARCH_chest = 13,
+	ARCH_item_chest = 14,
 
 	ARCH_MAX,
 
@@ -224,7 +231,11 @@ SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
 		case ARCH_item_rock: return SPRITE_item_rock; break;
 		case ARCH_item_sprout: return SPRITE_item_sprout; break;
 		case ARCH_item_berry: return SPRITE_item_berry; break;
-		// case ARCH_item_furnace: return SPRITE_building_furnace; break;
+
+		// buildings as items
+		case ARCH_item_furnace: return SPRITE_building_furnace; break;
+		case ARCH_item_workbench: return SPRITE_building_workbench; break;
+		case ARCH_item_chest: return SPRITE_building_chest; break;
 		default: return 0;
 	}
 }
@@ -236,7 +247,11 @@ string get_archetype_name(EntityArchetype arch) {
 		case ARCH_item_rock: return STR("Rock");
 		case ARCH_item_sprout: return STR("Sprout");
 		case ARCH_item_berry: return STR("Berry");
-		// case ARCH_item_furnace: return STR("Furnace");
+
+		// building names
+		case ARCH_item_furnace: return STR("Furnace");
+		case ARCH_item_workbench: return STR("Workbench");
+		case ARCH_item_chest: return STR("Chest");
 		default: return STR("nill");
 	}
 }
@@ -300,6 +315,7 @@ typedef struct WorldFrame {
 	Entity* selected_entity;
 	Matrix4 world_projection;
 	Matrix4 world_view;
+	bool hover_consumed;
 } WorldFrame;
 WorldFrame world_frame;
 
@@ -391,16 +407,53 @@ void setup_furnace(Entity* en) {
 	en->sprite_id = SPRITE_building_furnace;
 	en->is_item = false;
 	en->destroyable = true;
-	en->health = 10;
+	en->health = 3;
 }
 
 void setup_item_furnace(Entity* en) {
-	// en->arch = ARCH_item_furnace;
-	en->arch = ARCH_nil;
+	en->arch = ARCH_item_furnace;
 	en->sprite_id = SPRITE_building_furnace;
 	en->is_item = true;
 }
 
+void setup_workbench(Entity* en) {
+	en->arch = ARCH_workbench;
+	en->sprite_id = SPRITE_building_workbench;
+	en->is_item = false;
+	en->destroyable = true;
+	en->health = 3;
+}
+
+void setup_item_workbench(Entity* en) {
+	en->arch = ARCH_item_workbench;
+	en->sprite_id = SPRITE_building_workbench;
+	en->is_item = true;
+}
+
+void setup_chest(Entity* en) {
+	en->arch = ARCH_chest;
+	en->sprite_id = SPRITE_building_chest;
+	en->is_item = false;
+	en->destroyable = true;
+	en->health = 3;
+}
+
+void setup_item_chest(Entity* en) {
+	en->arch = ARCH_item_chest;
+	en->sprite_id = SPRITE_building_chest;
+	en->is_item = true;
+}
+
+
+// entity setup automation
+void entity_setup(Entity* en, EntityArchetype id) {
+	switch (id) {
+		case ARCH_furnace: setup_furnace(en); break;
+		case ARCH_workbench: setup_workbench(en); break;
+		case ARCH_chest: setup_chest(en); break;
+		default: log_error("Missing entity_setup case entry"); break;
+	}
+}
 
 // ----- coordinate stuff ------------------------------------------------------------------------------|
 
@@ -442,10 +495,6 @@ Vector2 get_mouse_pos_in_world_space() {
 	return (Vector2){ world_pos.x, world_pos.y};
 }
 
-float screen_width = 240.0;
-float screen_height = 135.0;
-
-// TODO:
 void set_screen_space() {
 	draw_frame.view = m4_scalar(1.0);
 	draw_frame.projection = m4_make_orthographic_projection(0.0, screen_width, 0.0, screen_height, -1, 10);
@@ -461,9 +510,12 @@ void set_world_space() {
 // ----- ::FUNC Dump (name by randy) -------------------------------------------------------------------|
 
 // inventory render (randy's solution #2) (NOT centered inventory - status: WORKING)
+// :Render UI
 void render_ui()
 {
 	set_screen_space();
+	push_z_layer(layer_ui);
+	
 
 	// :Inventory UI || :Render Inventory UI
 
@@ -664,6 +716,7 @@ void render_ui()
 
 				if (range2f_contains(box, get_mouse_pos_in_ndc())){
 
+					world_frame.hover_consumed = true;
 
 					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
 						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
@@ -677,23 +730,37 @@ void render_ui()
 	}
 
 
-	// :Build mode || :placement mode
+	// :Placement mode || :Build mode
 	// TODO: alpha animation for place mode
 	if (world->ux_state == UX_place_mode)
 	{
-		Vector2 mouse_pos_world = get_mouse_pos_in_world_space();
-
 		set_world_space();
+
 		{
-			// mouse_pos_world;
+			Vector2 mouse_pos_world = get_mouse_pos_in_world_space();
 			BuildingData building = get_building_data(world->placing_building);
 			Sprite* icon = get_sprite(building.icon);
 
+			Vector2 pos = mouse_pos_world;
+			pos = round_v2_to_tile(pos);
+
 			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, v3(mouse_pos_world.x, mouse_pos_world.y, 0));
+			xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+
+			xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile
 			xform = m4_translate(xform, v3(get_sprite_size(icon).x * -0.5, 0.0, 0));
 
-			draw_image_xform(icon->image, xform, get_sprite_size(icon), COLOR_WHITE);
+			// draw a ghost image on cursor
+			Vector4 color = v4(1, 1, 1, 0.7);
+			draw_image_xform(icon->image, xform, get_sprite_size(icon), color);
+
+			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
+				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+				Entity* en = entity_create();
+				entity_setup(en, building.to_build);
+				en->pos = pos;
+				world->ux_state = 0;
+			}
 
 		}
 		set_screen_space();
@@ -737,6 +804,7 @@ void render_ui()
 	}
 
 	set_world_space();
+	pop_z_layer();
 }
 
 
@@ -818,10 +886,10 @@ int entry(int argc, char **argv)
 		{
 			
 			// setup furnace
-			Entity* en = entity_create();
-			setup_furnace(en);
-			en->pos = v2(-25, 0);
-			en->pos = round_v2_to_tile(en->pos);
+			// Entity* en = entity_create();
+			// setup_furnace(en);
+			// en->pos = v2(-25, 0);
+			// en->pos = round_v2_to_tile(en->pos);
 		}
 	}
 
@@ -893,8 +961,9 @@ int entry(int argc, char **argv)
 		last_time = now;
 		os_update(); 
 
+		// :Frame :update
+		draw_frame.enable_z_sorting = true;
 		world_frame.world_projection = m4_make_orthographic_projection(window.width * -0.5, window.width * 0.5, window.height * -0.5, window.height * 0.5, -1, 10);
-
 
 		// :camera
 		{
@@ -907,6 +976,7 @@ int entry(int argc, char **argv)
 		}
 
 		set_world_space();
+		push_z_layer(layer_world);
 
 		Vector2 mouse_pos_world = get_mouse_pos_in_world_space();
 		int mouse_tile_x = world_pos_to_tile_pos(mouse_pos_world.x);
@@ -916,6 +986,7 @@ int entry(int argc, char **argv)
 		render_ui();
 
 		// :Entity selection
+		if (!world_frame.hover_consumed)
 		{	
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
 			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
@@ -1052,7 +1123,23 @@ int entry(int argc, char **argv)
 									setup_item_furnace(en);
 									en->pos = selected_en->pos;
 								}
-							}
+							} break;
+
+							case ARCH_workbench: {
+								{
+									Entity* en = entity_create();
+									setup_item_workbench(en);
+									en->pos = selected_en->pos;
+								}
+							} break;
+
+							case ARCH_chest: {
+								{
+									Entity* en = entity_create();
+									setup_item_chest(en);
+									en->pos = selected_en->pos;
+								}
+							} break;
 
 							default: { } break;
 						}
@@ -1205,8 +1292,6 @@ int entry(int argc, char **argv)
 		
 
 */
-
-
 
 
 		// :Input
