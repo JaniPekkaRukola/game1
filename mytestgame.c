@@ -121,12 +121,20 @@ Vector2 round_v2_to_tile(Vector2 world_pos) {
 // ::SPRITE ---------------------------|
 typedef enum SpriteID {
 	SPRITE_nil,
+
+	// Entities
 	SPRITE_player,
 	SPRITE_tree0,
 	SPRITE_tree1,
+	SPRITE_tree2,
+	SPRITE_tree3,
 	SPRITE_rock0,
 	SPRITE_rock1,
+	SPRITE_rock2,
+	SPRITE_rock3,
 	SPRITE_bush0,
+	SPRITE_tall_grass0,
+	SPRITE_tall_grass1,
 
 	// Items
 	SPRITE_item_rock,
@@ -342,6 +350,7 @@ void entity_destroy(Entity* entity) {
 
 
 // ----- ::SETUP entity --------------------------------------------------------------------------------|
+// @reminder gotta remember to modify the range variale in "get_random_int_in_range" based on the amount of different variations per sprite
 void setup_player(Entity* en) {
 	en->arch = ARCH_player;
 	en->sprite_id = SPRITE_player;
@@ -350,15 +359,22 @@ void setup_player(Entity* en) {
 
 void setup_rock(Entity* en) {
 	en->arch = ARCH_rock;
-	en->sprite_id = SPRITE_rock0;
+	int random = get_random_int_in_range(0,3);
+	if (random == 0){en->sprite_id = SPRITE_rock0;}
+	if (random == 1){en->sprite_id = SPRITE_rock1;}
+	if (random == 2){en->sprite_id = SPRITE_rock2;}
+	if (random == 3){en->sprite_id = SPRITE_rock3;}
 	en->health = rock_health;
 	en->destroyable = true;
 }
 
 void setup_tree(Entity* en) {
 	en->arch = ARCH_tree;
-	en->sprite_id = SPRITE_tree0;
-	// en->sprite_id = SPRITE_tree1;
+	int random = get_random_int_in_range(0,3);
+	if (random == 0){en->sprite_id = SPRITE_tree0;}
+	if (random == 1){en->sprite_id = SPRITE_tree1;}
+	if (random == 2){en->sprite_id = SPRITE_tree2;}
+	if (random == 3){en->sprite_id = SPRITE_tree3;}
 	en->health = tree_health;
 	en->destroyable = true;
 }
@@ -394,12 +410,6 @@ void setup_item_berry(Entity* en) {
 	en->sprite_id = SPRITE_item_berry;
 	en->is_item = true;
 }
-
-// void setup_tree1(Entity* en) {
-// 	en->arch = arch_tree;
-// 	en->sprite_id = SPRITE_tree1;
-// 	// en->sprite_id = SPRITE_tree1;
-// }
 
 // ----- ::SETUP building -----------------------------------------------------------------------------|
 void setup_furnace(Entity* en) {
@@ -807,6 +817,36 @@ void render_ui()
 	pop_z_layer();
 }
 
+// ----- ::Create entities -----------------------------------------------------------------------------|
+void create_trees(int amount, int range) {
+	// Create tree entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_tree(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
+void create_rocks(int amount, int range) {
+	// Create rock entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_rock(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}	
+}
+
+void create_bushes(int amount, int range) {
+	// Create bush entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_bush(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
 
 // ----- SETUP -----------------------------------------------------------------------------------------|
 int entry(int argc, char **argv) 
@@ -832,10 +872,17 @@ int entry(int argc, char **argv)
 	// :Load entity sprites
 	sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
 	sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
-	sprites[SPRITE_tree0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree3-1.png"), get_heap_allocator())};
+	sprites[SPRITE_tree0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree0.png"), get_heap_allocator())};
 	sprites[SPRITE_tree1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree1.png"), get_heap_allocator())};
+	sprites[SPRITE_tree2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree2.png"), get_heap_allocator())};
+	sprites[SPRITE_tree3] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree3.png"), get_heap_allocator())};
 	sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
+	sprites[SPRITE_rock1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock1.png"), get_heap_allocator())};
+	sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
+	sprites[SPRITE_rock3] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock3.png"), get_heap_allocator())};
 	sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
+	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
+	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
 
 	// :Load item sprites
 	sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
@@ -868,7 +915,6 @@ int entry(int argc, char **argv)
 
 
 
-
 	// :INIT
 
 	// tests:
@@ -893,40 +939,14 @@ int entry(int argc, char **argv)
 		}
 	}
 
-	// Create entities
-	
 	// :Create player entity
 	Entity* player_en = entity_create();
 	setup_player(player_en);
 
-
-	// Create rock entities
-	for (int i = 0; i < 10; i++) {
-		Entity* en = entity_create();
-		setup_rock(en);
-		en->pos = v2(get_random_float32_in_range(-200, 200), get_random_float32_in_range(-200, 200));
-		en->pos = round_v2_to_tile(en->pos);
-		// en->pos.y -= tile_width * 0.5;	// bring sprite down to bottom of Tile (now done in sprite renderer)
-		
-	}	
-
-	// Create tree0 entities
-	for (int i = 0; i < 120; i++) {
-		Entity* en = entity_create();
-		setup_tree(en);
-		en->pos = v2(get_random_float32_in_range(-200, 200), get_random_float32_in_range(-200, 200));
-		en->pos = round_v2_to_tile(en->pos);
-		// en->pos.y -= tile_width * 0.5;	// bring sprite down to bottom of Tile (now done in sprite renderer)
-	}
-
-	// Create bush entities
-	for (int i = 0; i < 15; i++) {
-		Entity* en = entity_create();
-		setup_bush(en);
-		en->pos = v2(get_random_float32_in_range(-200, 200), get_random_float32_in_range(-200, 200));
-		en->pos = round_v2_to_tile(en->pos);
-		// en->pos.y -= tile_width * 0.5;	// bring sprite down to bottom of Tile (now done in sprite renderer)
-	}
+	// create entities (amount, range (from 0,0))
+	create_rocks(25, 200);
+	create_trees(100, 200);
+	create_bushes(15, 200);
 
 
 	// Player variables
