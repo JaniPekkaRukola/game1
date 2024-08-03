@@ -193,78 +193,6 @@ Vector2 get_sprite_size(Sprite* sprite) {
 // 	return &items[0];
 // }
 
-// Biome struct test --------------------------------|
-typedef struct BiomeData {
-	string name;
-	Vector2 size;
-
-	bool spawn_animals;
-	bool spawn_water;
-	float water_weight;
-
-	Vector4 grass_color;
-	Vector4 leaves_color;
-
-	// trees
-	bool spawn_pine_trees;
-	float pine_tree_weight;
-	bool spawn_spruce_trees;
-	float spruce_tree_weight;
-	bool spawn_birch_trees;
-	float birch_tree_weight;
-	bool spawn_palm_trees;
-	float palm_tree_weight;
-
-	bool spawn_rocks;
-	float rocks_weight;
-	bool spawn_mushrooms;
-	float mushrooms_weight;
-	bool spawn_twigs;
-	float twigs_weight;
-	bool spawn_berries;
-	float berries_weight;
-
-	// fossils
-	bool spawn_fossils;
-	float fossil_weight;
-	int fossil_rarity_level;
-
-} BiomeData;
-
-// this is an example
-void setup_biome_forest(BiomeData* biome) {
-	biome->name = STR("Forest");
-	biome->size = v2(200, 200);
-	biome->spawn_animals = false;
-	biome->spawn_water = false;
-	biome->grass_color = v4(0.32, 0.97, 0.62, 1);
-	biome->leaves_color	= v4(0, 1, 0, 1);
-
-	// trees
-	biome->spawn_pine_trees = true;
-	biome->pine_tree_weight = 0.9;
-	biome->spawn_spruce_trees = true;
-	biome->spruce_tree_weight = 1;
-	biome->spawn_birch_trees = false;
-	biome->birch_tree_weight = 0;
-	biome->spawn_palm_trees = false;
-	biome->palm_tree_weight = 0;
-
-	// entities
-	biome->spawn_rocks = true;
-	biome->rocks_weight = 1;
-	biome->spawn_mushrooms = true;
-	biome->mushrooms_weight = 1;
-	biome->spawn_twigs = true;
-	biome->twigs_weight = 1;
-	biome->spawn_berries = true;
-	biome->berries_weight = 1;
-
-	// fossils
-	biome->spawn_fossils = true;
-	biome->fossil_weight = 1;
-	biome->fossil_rarity_level = 2;
-}
 
 // ::ENTITY --------------------------------|
 typedef enum EntityArchetype {
@@ -377,6 +305,9 @@ typedef enum UXState {
 	UX_inventory,
 	UX_building,
 	UX_place_mode,
+	// UX_map,
+	// UX_settings,
+	// UX_menu,
 } UXState;
 
 
@@ -947,6 +878,94 @@ void create_twigs(int amount, int range) {
 	}
 }
 
+
+// Biome struct test --------------------------------|
+typedef struct BiomeData {
+	string name;
+	Vector2 size;
+
+	bool spawn_animals;
+	bool spawn_water;
+	float water_weight;
+
+	Vector4 grass_color;
+	// string grass_color;
+	// s64 grass_color;
+	Vector4 leaves_color;
+
+	// trees
+	bool spawn_pine_trees;
+	float pine_tree_weight;
+	bool spawn_spruce_trees;
+	float spruce_tree_weight;
+	bool spawn_birch_trees;
+	float birch_tree_weight;
+	bool spawn_palm_trees;
+	float palm_tree_weight;
+
+	bool spawn_rocks;
+	float rocks_weight;
+	bool spawn_mushrooms;
+	float mushrooms_weight;
+	bool spawn_twigs;
+	float twigs_weight;
+	bool spawn_berries;
+	float berries_weight;
+
+	// fossils
+	bool spawn_fossils;
+	float fossil_weight;
+	int fossil_rarity_level;
+
+} BiomeData;
+
+// this is an example
+void setup_biome_forest(BiomeData* biome) {
+	biome->name = STR("Forest");
+	biome->size = v2(200, 200);
+	biome->spawn_animals = false;
+	biome->spawn_water = false;
+	biome->grass_color = v4(0.32, 0.97, 0.62, 1);
+	// biome->grass_color = (s64)"#20613e";
+	// biome->grass_color = v4(1,0,0,1);
+	biome->leaves_color	= v4(0, 1, 0, 1);
+
+	// trees
+	biome->spawn_pine_trees = true;
+	biome->pine_tree_weight = 100;
+	biome->spawn_spruce_trees = true;
+	biome->spruce_tree_weight = 10;
+	biome->spawn_birch_trees = false;
+	biome->birch_tree_weight = 0;
+	biome->spawn_palm_trees = false;
+	biome->palm_tree_weight = 0;
+
+	// entities
+	biome->spawn_rocks = true;
+	biome->rocks_weight = 25;
+	biome->spawn_mushrooms = true;
+	biome->mushrooms_weight = 1;
+	biome->spawn_twigs = true;
+	biome->twigs_weight = 3;
+	biome->spawn_berries = true;
+	biome->berries_weight = 3;
+
+	// fossils
+	biome->spawn_fossils = true;
+	biome->fossil_weight = 1;
+	biome->fossil_rarity_level = 2;
+}
+
+void spawn_biome(BiomeData* biome) 
+{
+	if (biome->spawn_pine_trees) {create_trees((int)biome->pine_tree_weight, biome->size.x); }
+	if (biome->spawn_rocks) {create_rocks((int)biome->rocks_weight, biome->size.x); }
+	if (biome->spawn_berries) {create_bushes((int)biome->berries_weight, biome->size.x); }
+	if (biome->spawn_twigs) {create_twigs((int)biome->twigs_weight, biome->size.x); }
+	// window.clear_color = hex_to_rgba(biome->grass_color);
+	// window.clear_color = biome->grass_color;
+}
+
 // ----- SETUP -----------------------------------------------------------------------------------------|
 int entry(int argc, char **argv) 
 {
@@ -959,6 +978,7 @@ int entry(int argc, char **argv)
 
 	// bg color
 	window.clear_color = hex_to_rgba(0x43693aff);
+	// window.clear_color = v4(1,1,1,1);
 
 	// Memory
 	world = alloc(get_heap_allocator(), sizeof(World));
@@ -1043,11 +1063,18 @@ int entry(int argc, char **argv)
 	Entity* player_en = entity_create();
 	setup_player(player_en);
 
+	// setup forest test
+	BiomeData* forest = 0;
+	forest = alloc(get_heap_allocator(), sizeof(BiomeData));
+	memset(forest, 0, sizeof(BiomeData));
+	setup_biome_forest(forest);
+	spawn_biome(forest);
+
 	// create entities (amount, range (from 0,0))
-	create_rocks(25, 200);
-	create_trees(100, 200);
-	create_bushes(15, 200);
-	create_twigs(5, 200);
+	// create_rocks(25, 200);
+	// create_trees(100, 200);
+	// create_bushes(15, 200);
+	// create_twigs(5, 200);
 
 
 	// Player variables
