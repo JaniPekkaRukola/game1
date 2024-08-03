@@ -141,6 +141,7 @@ typedef enum SpriteID {
 	SPRITE_item_pine_wood,
 	SPRITE_item_sprout,
 	SPRITE_item_berry,
+	SPRITE_item_twig,
 
 	// buildings
 	SPRITE_building_furnace,
@@ -192,6 +193,78 @@ Vector2 get_sprite_size(Sprite* sprite) {
 // 	return &items[0];
 // }
 
+// Biome struct test --------------------------------|
+typedef struct BiomeData {
+	string name;
+	Vector2 size;
+
+	bool spawn_animals;
+	bool spawn_water;
+	float water_weight;
+
+	Vector4 grass_color;
+	Vector4 leaves_color;
+
+	// trees
+	bool spawn_pine_trees;
+	float pine_tree_weight;
+	bool spawn_spruce_trees;
+	float spruce_tree_weight;
+	bool spawn_birch_trees;
+	float birch_tree_weight;
+	bool spawn_palm_trees;
+	float palm_tree_weight;
+
+	bool spawn_rocks;
+	float rocks_weight;
+	bool spawn_mushrooms;
+	float mushrooms_weight;
+	bool spawn_twigs;
+	float twigs_weight;
+	bool spawn_berries;
+	float berries_weight;
+
+	// fossils
+	bool spawn_fossils;
+	float fossil_weight;
+	int fossil_rarity_level;
+
+} BiomeData;
+
+// this is an example
+void setup_biome_forest(BiomeData* biome) {
+	biome->name = STR("Forest");
+	biome->size = v2(200, 200);
+	biome->spawn_animals = false;
+	biome->spawn_water = false;
+	biome->grass_color = v4(0.32, 0.97, 0.62, 1);
+	biome->leaves_color	= v4(0, 1, 0, 1);
+
+	// trees
+	biome->spawn_pine_trees = true;
+	biome->pine_tree_weight = 0.9;
+	biome->spawn_spruce_trees = true;
+	biome->spruce_tree_weight = 1;
+	biome->spawn_birch_trees = false;
+	biome->birch_tree_weight = 0;
+	biome->spawn_palm_trees = false;
+	biome->palm_tree_weight = 0;
+
+	// entities
+	biome->spawn_rocks = true;
+	biome->rocks_weight = 1;
+	biome->spawn_mushrooms = true;
+	biome->mushrooms_weight = 1;
+	biome->spawn_twigs = true;
+	biome->twigs_weight = 1;
+	biome->spawn_berries = true;
+	biome->berries_weight = 1;
+
+	// fossils
+	biome->spawn_fossils = true;
+	biome->fossil_weight = 1;
+	biome->fossil_rarity_level = 2;
+}
 
 // ::ENTITY --------------------------------|
 typedef enum EntityArchetype {
@@ -199,21 +272,23 @@ typedef enum EntityArchetype {
 	ARCH_rock = 1,
 	ARCH_tree = 2,
 	ARCH_bush = 3,
-	ARCH_player = 4,
+	ARCH_twig = 4,
+	ARCH_player = 5,
 
 	// items
-	ARCH_item_rock = 5,
-	ARCH_item_pine_wood = 6,
-	ARCH_item_sprout = 7,
-	ARCH_item_berry = 8,
+	ARCH_item_rock = 6,
+	ARCH_item_pine_wood = 7,
+	ARCH_item_sprout = 8,
+	ARCH_item_berry = 9,
+	ARCH_item_twig = 10,
 
 	// buildings
-	ARCH_furnace = 9,
-	ARCH_item_furnace = 10,
-	ARCH_workbench = 11,
-	ARCH_item_workbench = 12,
-	ARCH_chest = 13,
-	ARCH_item_chest = 14,
+	ARCH_furnace = 11,
+	ARCH_item_furnace = 12,
+	ARCH_workbench = 13,
+	ARCH_item_workbench = 14,
+	ARCH_chest = 15,
+	ARCH_item_chest = 16,
 
 	ARCH_MAX,
 
@@ -232,13 +307,13 @@ typedef struct Entity {
 
 #define MAX_ENTITY_COUNT 1024
 
-// dont like this - jani
 SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
 	switch (arch) {
 		case ARCH_item_pine_wood: return SPRITE_item_pine_wood; break;
 		case ARCH_item_rock: return SPRITE_item_rock; break;
 		case ARCH_item_sprout: return SPRITE_item_sprout; break;
 		case ARCH_item_berry: return SPRITE_item_berry; break;
+		case ARCH_twig: return SPRITE_item_twig; break;
 
 		// buildings as items
 		case ARCH_item_furnace: return SPRITE_building_furnace; break;
@@ -248,13 +323,13 @@ SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
 	}
 }
 
-// dont like this - jani
 string get_archetype_name(EntityArchetype arch) {
 	switch (arch) {
 		case ARCH_item_pine_wood: return STR("Pine Wood");
 		case ARCH_item_rock: return STR("Rock");
 		case ARCH_item_sprout: return STR("Sprout");
 		case ARCH_item_berry: return STR("Berry");
+		case ARCH_twig: return STR("Twig");
 
 		// building names
 		case ARCH_item_furnace: return STR("Furnace");
@@ -386,6 +461,14 @@ void setup_bush(Entity* en) {
 	en->destroyable = true;
 }
 
+void setup_twig(Entity* en) {
+	en->arch = ARCH_twig;
+	en->sprite_id = SPRITE_item_twig;
+	en->health = 1;
+	en->destroyable = true;
+}
+
+
 // ----- ::SETUP item --------------------------------------------------------------------------------|
 void setup_item_rock(Entity* en) {
 	en->arch = ARCH_item_rock;
@@ -408,6 +491,12 @@ void setup_item_sprout(Entity* en) {
 void setup_item_berry(Entity* en) {
 	en->arch = ARCH_item_berry;
 	en->sprite_id = SPRITE_item_berry;
+	en->is_item = true;
+}
+
+void setup_item_twig(Entity* en) {
+	en->arch = ARCH_twig;
+	en->sprite_id = SPRITE_item_twig;
 	en->is_item = true;
 }
 
@@ -848,6 +937,16 @@ void create_bushes(int amount, int range) {
 	}
 }
 
+void create_twigs(int amount, int range) {
+	// Create twig entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_twig(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
 // ----- SETUP -----------------------------------------------------------------------------------------|
 int entry(int argc, char **argv) 
 {
@@ -889,6 +988,7 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_item_pine_wood] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_pine_wood.png"), get_heap_allocator())};
 	sprites[SPRITE_item_sprout] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_sprout.png"), get_heap_allocator())};
 	sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
+	sprites[SPRITE_item_twig] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_twig.png"), get_heap_allocator())};
 
 	// :Load building sprites
 	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
@@ -947,6 +1047,7 @@ int entry(int argc, char **argv)
 	create_rocks(25, 200);
 	create_trees(100, 200);
 	create_bushes(15, 200);
+	create_twigs(5, 200);
 
 
 	// Player variables
@@ -1133,6 +1234,14 @@ int entry(int argc, char **argv)
 								{
 									Entity* en = entity_create();
 									setup_item_berry(en);
+									en->pos = selected_en->pos;
+								}
+							} break;
+
+							case ARCH_twig: {
+								{
+									Entity* en = entity_create();
+									setup_item_twig(en);
 									en->pos = selected_en->pos;
 								}
 							} break;
