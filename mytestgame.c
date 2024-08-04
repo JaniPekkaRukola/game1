@@ -37,6 +37,48 @@ float screen_height = 135.0;
 // }
 
 
+
+// Yoinked Range.c stuff
+typedef struct Range1f {
+  float min;
+  float max;
+} Range1f;
+// ...
+
+typedef struct Range2f {
+  Vector2 min;
+  Vector2 max;
+} Range2f;
+inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
+
+Range2f range2f_shift(Range2f r, Vector2 shift) {
+  r.min = v2_add(r.min, shift);
+  r.max = v2_add(r.max, shift);
+  return r;
+}
+
+Range2f range2f_make_bottom_center(Vector2 size) {
+  Range2f range = {0};
+  range.max = size;
+  range = range2f_shift(range, v2(size.x * -0.5, 0.0));
+  return range;
+}
+
+Vector2 range2f_size(Range2f range) {
+  Vector2 size = {0};
+  size = v2_sub(range.min, range.max);
+  size.x = fabsf(size.x);
+  size.y = fabsf(size.y);
+  return size;
+}
+
+bool range2f_contains(Range2f range, Vector2 v) {
+  return v.x >= range.min.x && v.x <= range.max.x && v.y >= range.min.y && v.y <= range.max.y;
+}
+
+
+
+
 // randy: is this something that's usually standard in math libraries or am I tripping?
 inline float v2_dist(Vector2 a, Vector2 b) {
     return v2_length(v2_sub(a, b));
@@ -46,9 +88,6 @@ inline float v2_dist(Vector2 a, Vector2 b) {
 Vector2 range2f_get_center(Range2f range) {
 	return (Vector2) {(range.max.x - range.min.x) * 0.5 + range.min.x, (range.max.y - range.min.y) * 0.5 + range.min.y};
 }
-
-
-
 
 // ----- the scuff zone (by: randy) --------------------------------------------------------------------|
 
@@ -143,6 +182,9 @@ typedef enum SpriteID {
 	SPRITE_item_berry,
 	SPRITE_item_twig,
 
+	// fossils
+	SPRITE_item_fossil0,
+
 	// buildings
 	SPRITE_building_furnace,
 	SPRITE_building_workbench,
@@ -218,6 +260,8 @@ typedef enum EntityArchetype {
 	ARCH_chest = 15,
 	ARCH_item_chest = 16,
 
+	ARCH_item_fossil = 17,
+
 	ARCH_MAX,
 
 } EntityArchetype;
@@ -242,6 +286,7 @@ SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
 		case ARCH_item_sprout: return SPRITE_item_sprout; break;
 		case ARCH_item_berry: return SPRITE_item_berry; break;
 		case ARCH_twig: return SPRITE_item_twig; break;
+		case ARCH_item_fossil: return SPRITE_item_fossil0; break;
 
 		// buildings as items
 		case ARCH_item_furnace: return SPRITE_building_furnace; break;
@@ -258,6 +303,7 @@ string get_archetype_name(EntityArchetype arch) {
 		case ARCH_item_sprout: return STR("Sprout");
 		case ARCH_item_berry: return STR("Berry");
 		case ARCH_twig: return STR("Twig");
+		case ARCH_item_fossil: return STR("Fossil");
 
 		// building names
 		case ARCH_item_furnace: return STR("Furnace");
@@ -428,6 +474,12 @@ void setup_item_berry(Entity* en) {
 void setup_item_twig(Entity* en) {
 	en->arch = ARCH_twig;
 	en->sprite_id = SPRITE_item_twig;
+	en->is_item = true;
+}
+
+void setup_item_fossil(Entity* en) {
+	en->arch = ARCH_item_fossil;
+	en->sprite_id = SPRITE_item_fossil0;
 	en->is_item = true;
 }
 
@@ -966,6 +1018,98 @@ void spawn_biome(BiomeData* biome)
 	// window.clear_color = biome->grass_color;
 }
 
+
+// ::LOOT ----------------------------------|
+typedef struct LootItem {
+	string *name;
+	EntityArchetype arch;
+	float baseDropChance;
+	struct LootItem *next;
+} LootItem;
+
+typedef struct LootTable {
+	LootItem *head;
+	int itemCount;
+} LootTable;
+
+LootTable* createLootTable() {
+	// LootTable *table = (LootTable *)malloc(sizeof(LootTable));
+	LootTable *table = alloc(get_heap_allocator(), sizeof(LootTable));
+
+	table->head = NULL;
+	table->itemCount = 0;
+	return table;
+}
+
+// void addItemToLootTable(LootTable *table, const char *name, float baseDropChance) {
+void addItemToLootTable(LootTable *table, string *name, EntityArchetype id, float baseDropChance) {
+    // LootItem *newItem = (LootItem *)malloc(sizeof(LootItem));
+	LootItem *newItem = alloc(get_heap_allocator(), sizeof(LootItem));
+
+    newItem->name = name;
+    newItem->baseDropChance = baseDropChance;
+    newItem->next = table->head;
+	newItem->arch = id;
+    table->head = newItem;
+    table->itemCount++;
+
+	printf("[LOOTTABLE]: ADDED '%s' TO LOOT TABLE, Table size = %d\n", name, table->itemCount);
+}
+
+// @PIN1: maybe take arch as input and decide what loot table to use based on it. so instead of taking "LootTable*" in, take "arch"
+void generateLoot(LootTable* table, float luckModifier, Vector2 pos) {
+	LootItem* current = table->head;
+	int x_shift = 0;		// if multiple drops. this variable shifts the items abit on the x-axis.
+	while(current != NULL) {
+		float adjustedChance = current->baseDropChance * (1 + luckModifier);
+		if (get_random_float32() < (adjustedChance / 100.0)) {
+			// printf("Dropped: %s\n", current->name);
+
+			switch (current->arch) {
+				case ARCH_item_rock: {
+					{
+						Entity* en = entity_create();
+						setup_item_rock(en);
+						pos.x += x_shift;
+						en->pos = pos;
+					}
+				} break;
+				case ARCH_item_fossil: {
+					{
+						Entity* en = entity_create();
+						setup_item_fossil(en);
+						pos.x += x_shift;
+						en->pos = pos;
+					}
+				} break;
+
+				default: {log_error("Can't spawn an item. switch defaulted");} break;
+			}
+
+			x_shift -= 5;
+		}
+		current = current->next;
+	}
+}
+
+
+// free memory (use when loot table is no longer needed -> never use?)
+// {
+	// void freeLootTable(LootTable *table) {
+	//     LootItem *current = table->head;
+	//     while (current != NULL) {
+	//         LootItem *toFree = current;
+	//         current = current->next;
+	//         free(toFree->name);
+	//         free(toFree);
+	//     }
+	//     free(table);
+	// }
+// }
+
+
+
+
 // ----- SETUP -----------------------------------------------------------------------------------------|
 int entry(int argc, char **argv) 
 {
@@ -973,7 +1117,9 @@ int entry(int argc, char **argv)
 	window.title = STR("Game");
 	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
 	window.scaled_height = 720; 
-	window.x = window.width * 0.5;		// window.x = 200; // default value
+
+	// window spawn position
+	window.x = window.width * 0.5 + 350;		// window.x = 200; // default value // +350 so i can see console
 	window.y = window.height * 0.5;		// window.y = 200; // default value
 
 	// bg color
@@ -1009,6 +1155,7 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_item_sprout] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_sprout.png"), get_heap_allocator())};
 	sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
 	sprites[SPRITE_item_twig] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_twig.png"), get_heap_allocator())};
+	sprites[SPRITE_item_fossil0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil0.png"), get_heap_allocator())};
 
 	// :Load building sprites
 	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
@@ -1035,9 +1182,8 @@ int entry(int argc, char **argv)
 
 
 
-	// :INIT
 
-	// tests:
+	// :TESTS
 	// if (IS_DEBUG)
 	{
 		// test adding items to inventory
@@ -1059,6 +1205,18 @@ int entry(int argc, char **argv)
 		}
 	}
 
+
+	// test adding stuff to loot table (can't be in a scope)
+	LootTable *lootTable_rock = createLootTable();
+	addItemToLootTable(lootTable_rock, &STR("Stone"), ARCH_item_rock, 100.0);
+	addItemToLootTable(lootTable_rock, &STR("Fossil"), ARCH_item_fossil, 10.0);
+	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
+
+
+
+
+
+	// :INIT
 	// :Create player entity
 	Entity* player_en = entity_create();
 	setup_player(player_en);
@@ -1240,6 +1398,8 @@ int entry(int argc, char **argv)
 					selected_en->health -= 1;
 					if (selected_en->health <= 0) {
 
+						// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
+						// and in the generateLoot func decide what loot table to use based on the passed arch 
 						switch (selected_en->arch) {
 							case ARCH_tree: {
 								{
@@ -1251,9 +1411,10 @@ int entry(int argc, char **argv)
 
 							case ARCH_rock: {
 								{
-									Entity* en = entity_create();
-									setup_item_rock(en);
-									en->pos = selected_en->pos;
+									// Entity* en = entity_create();
+									// setup_item_rock(en);
+									// en->pos = selected_en->pos;
+									generateLoot(lootTable_rock, 0, selected_en->pos);
 								}
 							} break;
 
@@ -1486,27 +1647,15 @@ int entry(int argc, char **argv)
 
 
 		// :Sprint
-		if (is_key_down(KEY_SHIFT)){
-			player_speed = 100.0;
-		}
-		else{
-			player_speed = 50.0;
-		}
+		if (is_key_down(KEY_SHIFT)){ player_speed = 100.0;}
+		else { player_speed = 50.0;}
 
 		// Player movement
 		Vector2 input_axis = v2(0, 0);
-		if (is_key_down('A')){
-			input_axis.x -= 1.0;
-		}
-		if (is_key_down('D')){
-			input_axis.x += 1.0;
-		}
-		if (is_key_down('S')){
-			input_axis.y -= 1.0;
-		}
-		if (is_key_down('W')){
-			input_axis.y += 1.0;
-		}
+		if (is_key_down('W')){input_axis.y += 1.0;}
+		if (is_key_down('A')){input_axis.x -= 1.0;}
+		if (is_key_down('S')){input_axis.y -= 1.0;}
+		if (is_key_down('D')){input_axis.x += 1.0;}
 
 		// bugfix (diagonal speed)
 		input_axis = v2_normalize(input_axis);
@@ -1525,6 +1674,5 @@ int entry(int argc, char **argv)
 			frame_count = 0;
 		}
 	}
-
 	return 0;
 }
