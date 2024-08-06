@@ -958,8 +958,14 @@ void render_ui()
 				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
 
 
-				// draw icon
 				Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+				
+				// center sprite
+				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
+
+				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
+
+				// draw icon
 				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
 
 				slot_index++;
