@@ -1,5 +1,8 @@
 {
-  "C_Cpp.errorSquiggles": "disabled",
+  "editor.fontSize": 16,
+  "editor.minimap.scale": 2,
+  "window.zoomLevel": -1,
+  "C_Cpp.errorSquiggles": "enabled",
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
   "C_Cpp_Runner.debuggerPath": "gdb",

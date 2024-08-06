@@ -22,7 +22,7 @@ Gfx_Font* font;
 u32 font_height = 48;
 float screen_width = 240.0;
 float screen_height = 135.0;
-
+int selected_slot = 0;
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 
@@ -182,8 +182,15 @@ typedef enum SpriteID {
 	SPRITE_item_berry,
 	SPRITE_item_twig,
 
+	// tools
+	SPRITE_tool_pickaxe,
+
 	// fossils
 	SPRITE_item_fossil0,
+	SPRITE_item_fossil1,
+	SPRITE_item_fossil2,
+
+
 
 	// buildings
 	SPRITE_building_furnace,
@@ -260,7 +267,10 @@ typedef enum EntityArchetype {
 	ARCH_chest = 15,
 	ARCH_item_chest = 16,
 
-	ARCH_item_fossil = 17,
+	ARCH_item_fossil0 = 17,
+	ARCH_item_fossil1 = 18,
+	ARCH_item_fossil2 = 19,
+	ARCH_tool_pickaxe = 20,
 
 	ARCH_MAX,
 
@@ -286,7 +296,10 @@ SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
 		case ARCH_item_sprout: return SPRITE_item_sprout; break;
 		case ARCH_item_berry: return SPRITE_item_berry; break;
 		case ARCH_twig: return SPRITE_item_twig; break;
-		case ARCH_item_fossil: return SPRITE_item_fossil0; break;
+		case ARCH_item_fossil0: return SPRITE_item_fossil0; break;
+		case ARCH_item_fossil1: return SPRITE_item_fossil1; break;
+		case ARCH_item_fossil2: return SPRITE_item_fossil2; break;
+		case ARCH_tool_pickaxe: return SPRITE_tool_pickaxe; break;
 
 		// buildings as items
 		case ARCH_item_furnace: return SPRITE_building_furnace; break;
@@ -303,7 +316,10 @@ string get_archetype_name(EntityArchetype arch) {
 		case ARCH_item_sprout: return STR("Sprout");
 		case ARCH_item_berry: return STR("Berry");
 		case ARCH_twig: return STR("Twig");
-		case ARCH_item_fossil: return STR("Fossil");
+		case ARCH_item_fossil0: return STR("Ammonite Fossil");
+		case ARCH_item_fossil1: return STR("Bone Fossil");
+		case ARCH_item_fossil2: return STR("Fang Fossil");
+		case ARCH_tool_pickaxe: return STR("Pickaxe");
 
 		// building names
 		case ARCH_item_furnace: return STR("Furnace");
@@ -317,7 +333,24 @@ string get_archetype_name(EntityArchetype arch) {
 // ::ITEMDATA ------------------------------|
 typedef struct ItemData {
 	int amount;
+	string name;
 } ItemData;
+
+// ::TOOLDATA ------------------------------|
+typedef enum ToolID {
+	TOOL_nil,
+	TOOL_pickaxe,
+	TOOL_axe,
+
+	TOOL_MAX,
+}ToolID;
+
+typedef struct ToolData {
+	string name;
+	string tooltip;
+	int durability;
+	int miningLevel;
+} ToolData;
 
 
 // ::BUILDINGS -----------------------------|
@@ -477,9 +510,21 @@ void setup_item_twig(Entity* en) {
 	en->is_item = true;
 }
 
-void setup_item_fossil(Entity* en) {
-	en->arch = ARCH_item_fossil;
+void setup_item_fossil0(Entity* en) {
+	en->arch = ARCH_item_fossil0;
 	en->sprite_id = SPRITE_item_fossil0;
+	en->is_item = true;
+}
+
+void setup_item_fossil1(Entity* en) {
+	en->arch = ARCH_item_fossil1;
+	en->sprite_id = SPRITE_item_fossil1;
+	en->is_item = true;
+}
+
+void setup_item_fossil2(Entity* en) {
+	en->arch = ARCH_item_fossil2;
+	en->sprite_id = SPRITE_item_fossil2;
 	en->is_item = true;
 }
 
@@ -635,10 +680,16 @@ void render_ui()
 
 		// get how many different items in inventory
 		int item_count = 0;
+		// int *item_arch_slots = NULL;
+		// item_arch_slots = alloc(get_heap_allocator(), sizeof(ARCH_MAX));
+		// item_arch_slots = realloc(item_arch_slots, sizeof(ARCH_MAX));
+		int item_arch_slots_index = 0;
 		for (int i = 0; i < ARCH_MAX; i++) {
 			ItemData* item = &world->inventory_items[i];
 			if (item->amount > 0){
 				item_count += 1;
+				// item_arch_slots[item_arch_slots_index] = i;
+				// item_arch_slots_index += 1;
 				// printf("ITEM COUNT = %d", item_count);
 			}
 		}
@@ -653,6 +704,8 @@ void render_ui()
 		// inventory item rendering
 		int slot_index = 0;
 		for (int archetype_num = 0; archetype_num < ARCH_MAX; archetype_num++) {
+		// for (int i = 0; i < item_count; i++) {
+			// int archetype_num = item_arch_slots[i];
 			ItemData* item = &world->inventory_items[archetype_num];
 			if (item->amount > 0){
 
@@ -672,10 +725,10 @@ void render_ui()
 				Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
 				Range2f icon_box = quad_to_range(*quad);
 				if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
-						is_selected_alpha = true;
-					}
+					is_selected_alpha = true;
+				}
 
-				// save xfrom for later
+				// save xfrom for later when drawing item counts
 				Matrix4 box_bottom_right_xform = xform;
 
 				// center sprite
@@ -754,6 +807,7 @@ void render_ui()
 				slot_index += 1;
 			}
 		}
+		// dealloc(get_heap_allocator(), item_arch_slots);
 	}
 
 
@@ -849,11 +903,12 @@ void render_ui()
 	}
 
 
-	// :Render hotbar
-	if (IS_DEBUG)
+	// :Render Hotbar || :Hotbar
+	// if (IS_DEBUG)
 	{
+		float icon_width = 8.0;
 		float slot_size = 8.0;
-		float slot_index = 1;
+		float slot_index = 0;
 		int padding = 4.0;
 		int slot_count = 9;
 
@@ -861,8 +916,100 @@ void render_ui()
 
 		// Colors
 		Vector4 hotbar_border_color = v4(0.8, 0.8, 0.8, 1);
-		Vector4 hotbar_bg_color = v4(0.1, 0.1, 0.1, 0.4);
-		
+		Vector4 hotbar_bg_color = v4(0.1, 0.1, 0.1, 1);
+		Vector4 hotbar_selected_slot_color = v4(1, 0, 0, 1);
+
+
+
+		// TEST 2 scuffed af
+
+		int slotcount = 9;
+		int pos_y = 2;
+
+		for (int i = 0; i < ARCH_MAX; i++) {
+			if (slot_index >= slotcount) {
+				break;
+			}
+			ItemData* item = &world->inventory_items[i];
+
+			ItemData* selected_item = item;
+
+			if (item->amount > 0){
+
+				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
+				pos_x += (slot_size * slot_index);
+				pos_x += padding * (slot_index + 1);
+
+				Matrix4 xform = m4_identity;
+				xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
+
+				Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
+				xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
+
+				// draw hotbar border
+				if (slot_index == selected_slot){
+					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
+
+				}
+				else{
+					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
+				}
+				// draw hotbar slot
+				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
+
+
+				// draw icon
+				Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+				slot_index++;
+			}
+		}
+
+		if (slot_index < slotcount) {
+			for (int i = slot_index; i < slotcount; i++) {
+				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
+				pos_x += (slot_size * slot_index);
+				pos_x += padding * (slot_index + 1);
+
+				Matrix4 xform = m4_identity;
+				xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
+
+				Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
+				xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
+
+				// draw hotbar border
+				if (slot_index == selected_slot){
+					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
+
+				}
+				else{
+					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
+				}
+				// draw hotbar slot
+				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
+
+				slot_index++;
+			}
+		}
+
+
+
+/*
+		// test
+		// get all items into a list
+		// ItemData* itemList = NULL;
+		// itemList = alloc(get_heap_allocator(), sizeof(ARCH_MAX));
+
+		// for (int i = 0; i < ARCH_MAX; i++) {
+		// 	ItemData* item = &world->inventory_items[i];
+		// 	if (item->amount > 0){
+		// 		itemList[i] = item;
+		// 	}
+		// 	// printf("ADDED %s to itemlist\n", world->inventory_items[i].name);
+		// }
+		// dealloc(get_heap_allocator(), itemList);
+
 		// Draw hotbar
 		float pos_y = 2;
 		for (int i = 0; i < slot_count; i++) {
@@ -882,7 +1029,59 @@ void render_ui()
 			// draw hotbar slot
 			draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
 
+			// draw icons
+			// for (int archetype_num = 0; archetype_num < ARCH_MAX; archetype_num++) {
+				// ItemData* item = &world->inventory_items[archetype_num];
+				ItemData* item = &world->inventory_items[i];
+				// Sprite* sprite = get_sprite(get_sprite_id_from_archetype(archetype_num));
+				Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+
+
+				// this is for interacting with the hotbar using the mouse cursor
+				// Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
+				// Range2f icon_box = quad_to_range(*quad);
+				// if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
+				// 	is_selected_alpha = true;
+				// }
+				// Item selected (HOVERING)
+				// if (is_selected_alpha){
+				// 	// Scale item
+				// 	// float scale_adjust = 0.5 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
+				// 	float scale_adjust = 1.5;
+				// 	xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
+
+
+				// }
+
+
+				// save xfrom for later when drawing item counts
+				// Matrix4 box_bottom_right_xform = xform;
+
+
+				// center sprite
+				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
+
+				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
+
+
+				// draw sprite
+				if (item->amount > 0){
+					draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+				}
+
+
+				// solutions:
+				// either save all the xforms and draw icons later
+				// or fix the whole inventory order shit
+
+
+
+				// draw item count
+				// draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+			// }
+
 		}
+*/
 	}
 
 	set_world_space();
@@ -947,32 +1146,37 @@ typedef struct BiomeData {
 
 	// trees
 	bool spawn_pine_trees;
-	float pine_tree_weight;
+	float spawn_pine_tree_weight;
 	bool spawn_spruce_trees;
-	float spruce_tree_weight;
+	float spawn_spruce_tree_weight;
 	bool spawn_birch_trees;
-	float birch_tree_weight;
+	float spawn_birch_tree_weight;
 	bool spawn_palm_trees;
-	float palm_tree_weight;
+	float spawn_palm_tree_weight;
 
 	bool spawn_rocks;
-	float rocks_weight;
+	float spawn_rocks_weight;
 	bool spawn_mushrooms;
-	float mushrooms_weight;
+	float spawn_mushrooms_weight;
 	bool spawn_twigs;
-	float twigs_weight;
+	float spawn_twigs_weight;
 	bool spawn_berries;
-	float berries_weight;
+	float spawn_berries_weight;
 
 	// fossils
 	bool spawn_fossils;
-	float fossil_weight;
+	float fossil0_drop_chance;
+	float fossil1_drop_chance;
+	float fossil2_drop_chance;
 	int fossil_rarity_level;
 
 } BiomeData;
 
 // this is an example
 void setup_biome_forest(BiomeData* biome) {
+	// spawn weigth = spawn amount
+	// drop chace = drop chance in %
+
 	biome->name = STR("Forest");
 	biome->size = v2(200, 200);
 	biome->spawn_animals = false;
@@ -984,36 +1188,38 @@ void setup_biome_forest(BiomeData* biome) {
 
 	// trees
 	biome->spawn_pine_trees = true;
-	biome->pine_tree_weight = 100;
+	biome->spawn_pine_tree_weight = 100;
 	biome->spawn_spruce_trees = true;
-	biome->spruce_tree_weight = 10;
+	biome->spawn_spruce_tree_weight = 10;
 	biome->spawn_birch_trees = false;
-	biome->birch_tree_weight = 0;
+	biome->spawn_birch_tree_weight = 0;
 	biome->spawn_palm_trees = false;
-	biome->palm_tree_weight = 0;
+	biome->spawn_palm_tree_weight = 0;
 
 	// entities
 	biome->spawn_rocks = true;
-	biome->rocks_weight = 25;
+	biome->spawn_rocks_weight = 75;
 	biome->spawn_mushrooms = true;
-	biome->mushrooms_weight = 1;
+	biome->spawn_mushrooms_weight = 1;
 	biome->spawn_twigs = true;
-	biome->twigs_weight = 3;
+	biome->spawn_twigs_weight = 3;
 	biome->spawn_berries = true;
-	biome->berries_weight = 3;
+	biome->spawn_berries_weight = 3;
 
 	// fossils
 	biome->spawn_fossils = true;
-	biome->fossil_weight = 1;
-	biome->fossil_rarity_level = 2;
+	biome->fossil0_drop_chance = 5;
+	biome->fossil1_drop_chance = 5;
+	biome->fossil2_drop_chance = 5;
+	// biome->fossil_rarity_level = 2;
 }
 
 void spawn_biome(BiomeData* biome) 
 {
-	if (biome->spawn_pine_trees) {create_trees((int)biome->pine_tree_weight, biome->size.x); }
-	if (biome->spawn_rocks) {create_rocks((int)biome->rocks_weight, biome->size.x); }
-	if (biome->spawn_berries) {create_bushes((int)biome->berries_weight, biome->size.x); }
-	if (biome->spawn_twigs) {create_twigs((int)biome->twigs_weight, biome->size.x); }
+	if (biome->spawn_pine_trees) {create_trees((int)biome->spawn_pine_tree_weight, biome->size.x); }
+	if (biome->spawn_rocks) {create_rocks((int)biome->spawn_rocks_weight, biome->size.x); }
+	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
+	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
 	// window.clear_color = hex_to_rgba(biome->grass_color);
 	// window.clear_color = biome->grass_color;
 }
@@ -1074,10 +1280,26 @@ void generateLoot(LootTable* table, float luckModifier, Vector2 pos) {
 						en->pos = pos;
 					}
 				} break;
-				case ARCH_item_fossil: {
+				case ARCH_item_fossil0: {
 					{
 						Entity* en = entity_create();
-						setup_item_fossil(en);
+						setup_item_fossil0(en);
+						pos.x += x_shift;
+						en->pos = pos;
+					}
+				} break;
+				case ARCH_item_fossil1: {
+					{
+						Entity* en = entity_create();
+						setup_item_fossil1(en);
+						pos.x += x_shift;
+						en->pos = pos;
+					}
+				} break;
+				case ARCH_item_fossil2: {
+					{
+						Entity* en = entity_create();
+						setup_item_fossil2(en);
 						pos.x += x_shift;
 						en->pos = pos;
 					}
@@ -1156,6 +1378,9 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
 	sprites[SPRITE_item_twig] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_twig.png"), get_heap_allocator())};
 	sprites[SPRITE_item_fossil0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil0.png"), get_heap_allocator())};
+	sprites[SPRITE_item_fossil1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil1.png"), get_heap_allocator())};
+	sprites[SPRITE_item_fossil2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil2.png"), get_heap_allocator())};
+	sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
 
 	// :Load building sprites
 	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
@@ -1189,8 +1414,9 @@ int entry(int argc, char **argv)
 		// test adding items to inventory
 		{
 			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
-			// world->inventory_items[ARCH_item_rock].amount = 5;
+			world->inventory_items[ARCH_item_rock].amount = 5;
 			world->inventory_items[ARCH_item_sprout].amount = 2;
+			world->inventory_items[ARCH_tool_pickaxe].amount = 1;
 		}
 
 		
@@ -1206,11 +1432,6 @@ int entry(int argc, char **argv)
 	}
 
 
-	// test adding stuff to loot table (can't be in a scope)
-	LootTable *lootTable_rock = createLootTable();
-	addItemToLootTable(lootTable_rock, &STR("Stone"), ARCH_item_rock, 100.0);
-	addItemToLootTable(lootTable_rock, &STR("Fossil"), ARCH_item_fossil, 10.0);
-	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
 
 
 
@@ -1227,6 +1448,17 @@ int entry(int argc, char **argv)
 	memset(forest, 0, sizeof(BiomeData));
 	setup_biome_forest(forest);
 	spawn_biome(forest);
+
+	// test adding stuff to loot table (can't be in a scope)
+	LootTable *lootTable_rock = createLootTable();
+	addItemToLootTable(lootTable_rock, &STR("Stone"), ARCH_item_rock, 100);
+	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ARCH_item_fossil0, forest->fossil0_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ARCH_item_fossil1, forest->fossil1_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ARCH_item_fossil2, forest->fossil2_drop_chance);
+	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
+
+
+
 
 	// create entities (amount, range (from 0,0))
 	// create_rocks(25, 200);
@@ -1645,6 +1877,16 @@ int entry(int argc, char **argv)
 			}
 		}
 
+		// numbers
+		if (is_key_just_pressed('1')) {selected_slot = 1 - 1;}
+		if (is_key_just_pressed('2')) {selected_slot = 2 - 1;}
+		if (is_key_just_pressed('3')) {selected_slot = 3 - 1;}
+		if (is_key_just_pressed('4')) {selected_slot = 4 - 1;}
+		if (is_key_just_pressed('5')) {selected_slot = 5 - 1;}
+		if (is_key_just_pressed('6')) {selected_slot = 6 - 1;}
+		if (is_key_just_pressed('7')) {selected_slot = 7 - 1;}
+		if (is_key_just_pressed('8')) {selected_slot = 8 - 1;}
+		if (is_key_just_pressed('9')) {selected_slot = 9 - 1;}
 
 		// :Sprint
 		if (is_key_down(KEY_SHIFT)){ player_speed = 100.0;}
