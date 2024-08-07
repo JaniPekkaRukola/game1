@@ -321,6 +321,7 @@ typedef enum BuildingID {
 typedef struct BuildingData {
 	EntityArchetype to_build;
 	SpriteID icon;
+	// BuildingID id;
 	// display name
 	// cost
 	// health
@@ -605,40 +606,16 @@ void setup_item(Entity* en, ItemID item_id) {
 	// }
 */
 // ----- ::SETUP building -----------------------------------------------------------------------------|
-void setup_furnace(Entity* en) {
-	en->arch = ARCH_building;
-	en->sprite_id = SPRITE_building_furnace;
-	en->is_item = false;
-	en->destroyable = true;
-	en->health = 3;
-}
 
 void setup_item_furnace(Entity* en) {
 	en->arch = ITEM_furnace;
 	en->sprite_id = SPRITE_building_furnace;
 	en->is_item = true;
 }
-
-void setup_workbench(Entity* en) {
-	en->arch = ARCH_building;
-	en->sprite_id = SPRITE_building_workbench;
-	en->is_item = false;
-	en->destroyable = true;
-	en->health = 3;
-}
-
 void setup_item_workbench(Entity* en) {
 	en->arch = ITEM_workbench;
 	en->sprite_id = SPRITE_building_workbench;
 	en->is_item = true;
-}
-
-void setup_chest(Entity* en) {
-	en->arch = ARCH_building;
-	en->sprite_id = SPRITE_building_chest;
-	en->is_item = false;
-	en->destroyable = true;
-	en->health = 3;
 }
 
 void setup_item_chest(Entity* en) {
@@ -659,14 +636,45 @@ void setup_item_chest(Entity* en) {
 // }
 
 // Building setup automation
-void building_setup(Entity* en, BuildingID id) {
+void setup_building(Entity* en, BuildingID id) {
 	switch (id) {
-		case BUILDING_furnace: setup_furnace(en); break;
-		case BUILDING_workbench: setup_workbench(en); break;
-		case BUILDING_chest: setup_chest(en); break;
+		case BUILDING_furnace: {
+			{
+				en->arch = ARCH_building;
+				en->sprite_id = SPRITE_building_furnace;
+				en->is_item = false;
+				en->destroyable = true;
+				en->health = 3;
+			}
+		} break;
+
+		case BUILDING_workbench: {
+			{
+				en->arch = ARCH_building;
+				en->sprite_id = SPRITE_building_workbench;
+				en->is_item = false;
+				en->destroyable = true;
+				en->health = 3;
+			}
+		} break;
+		case BUILDING_chest: {
+			{
+				en->arch = ARCH_building;
+				en->sprite_id = SPRITE_building_chest;
+				en->is_item = false;
+				en->destroyable = true;
+				en->health = 3;
+			}
+		} break;
+
+		// case BUILDING_furnace: setup_furnace(en); break;
+		// case BUILDING_workbench: setup_workbench(en); break;
+		// case BUILDING_chest: setup_chest(en); break;
 		default: log_error("Missing building_setup case entry"); break;
 	}
 }
+
+
 
 // ----- coordinate stuff ------------------------------------------------------------------------------|
 
@@ -972,7 +980,8 @@ void render_ui()
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 				Entity* en = entity_create();
 				// entity_setup(en, building.to_build);
-				building_setup(en, building.to_build);
+				// setup_building(en, building.to_build);
+				setup_building(en, world->placing_building);
 				en->pos = pos;
 				world->ux_state = 0;
 			}
@@ -1772,7 +1781,7 @@ int entry(int argc, char **argv)
 							case ARCH_building: {
 								{
 									// Entity* en = entity_create();
-									// setup_building(en);
+									// setup_building(en, );
 									// setup_item(en, get_sprite_id_from_archetype(ARCH_building));
 									// en->pos = selected_en->pos;
 									log_error(":spawn item, building is WIP");
