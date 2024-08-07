@@ -156,8 +156,11 @@ Vector2 round_v2_to_tile(Vector2 world_pos) {
 	return world_pos;
 }
 
-
 // ::SPRITE ---------------------------|
+typedef struct Sprite {
+	Gfx_Image* image;
+} Sprite;
+
 typedef enum SpriteID {
 	SPRITE_nil,
 
@@ -200,11 +203,6 @@ typedef enum SpriteID {
 	SPRITE_MAX,
 } SpriteID;
 
-typedef struct Sprite {
-	Gfx_Image* image;
-	// Vector2 size;
-} Sprite;
-
 Sprite sprites[SPRITE_MAX];
 
 Sprite* get_sprite(SpriteID id) {
@@ -222,60 +220,6 @@ Sprite* get_sprite(SpriteID id) {
 Vector2 get_sprite_size(Sprite* sprite) {
 	return (Vector2) {sprite->image->width, sprite->image->height};
 }
-
-
-
-// ::ENTITY --------------------------------|
-typedef enum EntityArchetype {
-	ARCH_nil = 0,
-	ARCH_rock = 1,
-	ARCH_tree = 2,
-	ARCH_bush = 3,
-	ARCH_twig = 4,
-	ARCH_player = 5,
-
-	ARCH_item = 6,
-	ARCH_tool = 7,
-	ARCH_building = 8,
-
-	// items
-	// ARCH_item_rock = 6,
-	// ARCH_item_pine_wood = 7,
-	// ARCH_item_sprout = 8,
-	// ARCH_item_berry = 9,
-	// ARCH_item_twig = 10,
-
-	// buildings
-	// ARCH_furnace = 11,
-	// ARCH_item_furnace = 12,
-	// ARCH_workbench = 13,
-	// ARCH_item_workbench = 14,
-	// ARCH_chest = 15,
-	// ARCH_item_chest = 16,
-
-	// ARCH_item_fossil0 = 17,
-	// ARCH_item_fossil1 = 18,
-	// ARCH_item_fossil2 = 19,
-
-	ARCH_MAX,
-
-} EntityArchetype;
-
-string get_archetype_pretty_name(EntityArchetype arch) {
-	switch (arch) {
-		// case ARCH_furnace: return STR("Furnace");
-		case ARCH_building: return STR("building");
-		// :arch
-		default: return STR("nil");
-	}
-}
-
-
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// TOP
-
 
 // ::ITEM ID -------------------------------|
 typedef enum ItemID {
@@ -295,6 +239,47 @@ typedef enum ItemID {
 	ITEM_MAX,
 } ItemID;
 
+typedef struct InventoryItemData {
+	int amount;
+} InventoryItemData;
+
+
+
+// ::ENTITY --------------------------------|
+typedef enum EntityArchetype {
+	ARCH_nil = 0,
+	ARCH_rock = 1,
+	ARCH_tree = 2,
+	ARCH_bush = 3,
+	ARCH_twig = 4,
+	ARCH_player = 5,
+
+	ARCH_item = 6,
+	ARCH_tool = 7,
+	ARCH_building = 8,
+/*
+	// items
+	// ARCH_item_rock = 6,
+	// ARCH_item_pine_wood = 7,
+	// ARCH_item_sprout = 8,
+	// ARCH_item_berry = 9,
+	// ARCH_item_twig = 10,
+
+	// buildings
+	// ARCH_furnace = 11,
+	// ARCH_item_furnace = 12,
+	// ARCH_workbench = 13,
+	// ARCH_item_workbench = 14,
+	// ARCH_chest = 15,
+	// ARCH_item_chest = 16,
+
+	// ARCH_item_fossil0 = 17,
+	// ARCH_item_fossil1 = 18,
+	// ARCH_item_fossil2 = 19,
+*/
+	ARCH_MAX,
+} EntityArchetype;
+
 typedef struct Entity {
 	bool is_valid;
 	EntityArchetype arch;
@@ -309,20 +294,6 @@ typedef struct Entity {
 
 #define MAX_ENTITY_COUNT 1024
 
-typedef struct InventoryItemData {
-	string name;
-	int amount;
-} InventoryItemData;
-
-
-// ::ITEMDATA ------------------------------|
-// typedef struct ItemData {
-// 	int amount;
-// 	string name;
-// 	string tooltip;
-// } ItemData;
-
-
 
 typedef struct ItemData {
 	string pretty_name;
@@ -332,45 +303,9 @@ typedef struct ItemData {
 	ItemID input[8];
 } ItemData;
 ItemData item_data[ITEM_MAX];
-// ItemData get_item_data(ItemID id) {
-// 	return item_data[id];
-// }
-
-// ItemID items[ITEM_MAX];
-// ItemID* get_item(ItemID id) {
-// 	if (id >= 0 && id < ITEM_MAX) {
-// 		return &items[id];
-// 	}
-// 	return &items[0];
-// }
-
-SpriteID get_sprite_id_from_item(ItemID item) {
-	switch (item) {
-		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
-		case ITEM_rock: return SPRITE_item_rock; break;
-		default: return 0;
-	}
+ItemData get_item_data(ItemID id) {
+	return item_data[id];
 }
-
-
-
-
-
-// ::TOOL DATA || ::TOOL ID -----------------------------|
-typedef struct ToolData {
-	string name;
-	string tooltip;
-	int durability;
-	int miningLevel;
-} ToolData;
-
-typedef enum ToolID {
-	TOOL_nil,
-	TOOL_pickaxe,
-	TOOL_axe,
-
-	TOOL_MAX,
-}ToolID;
 
 
 // ::BUILDINGS -----------------------------|
@@ -400,16 +335,69 @@ BuildingData get_building_data(BuildingID id) {
 
 
 
+string get_archetype_pretty_name(EntityArchetype arch) {
+	switch (arch) {
+		// case ARCH_furnace: return STR("Furnace");
+		case ARCH_building: return STR("building");
+		// :arch
+		default: return STR("nil");
+	}
+}
 
 
 
+// 
+	// ::ITEMDATA ------------------------------|
+	// typedef struct ItemData {
+	// 	int amount;
+	// 	string name;
+	// 	string tooltip;
+	// } ItemData;
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+	// ItemID items[ITEM_MAX];
+	// ItemID* get_item(ItemID id) {
+	// 	if (id >= 0 && id < ITEM_MAX) {
+	// 		return &items[id];
+	// 	}
+	// 	return &items[0];
+	// }
 
 
 
+SpriteID get_sprite_id_from_item(ItemID item) {
+	switch (item) {
+		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
+		case ITEM_rock: return SPRITE_item_rock; break;
+		case ITEM_twig: return SPRITE_item_twig; break;
+		case ITEM_sprout: return SPRITE_item_sprout; break;
+		case ITEM_berry: return SPRITE_item_berry; break;
+		case ITEM_furnace: return SPRITE_building_furnace; break;
+		case ITEM_workbench: return SPRITE_building_workbench; break;
+		case ITEM_chest: return SPRITE_building_chest; break;
+		case ITEM_fossil0: return SPRITE_item_fossil0; break;
+		case ITEM_fossil1: return SPRITE_item_fossil1; break;
+		case ITEM_fossil2: return SPRITE_item_fossil2; break;
+		default: return 0;
+	}
+}
+
+
+// ::TOOL DATA || ::TOOL ID -----------------------------|
+typedef struct ToolData {
+	string name;
+	string tooltip;
+	int durability;
+	int miningLevel;
+} ToolData;
+
+typedef enum ToolID {
+	TOOL_nil,
+	TOOL_pickaxe,
+	TOOL_axe,
+
+	TOOL_MAX,
+}ToolID;
 
 
 
@@ -470,26 +458,27 @@ void entity_destroy(Entity* entity) {
 }
 
 
-SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
-	switch (arch) {
-		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
-		case ITEM_rock: return SPRITE_item_rock; break;
-		case ITEM_sprout: return SPRITE_item_sprout; break;
-		case ITEM_berry: return SPRITE_item_berry; break;
-		// case ARCH_twig: return SPRITE_item_twig; break;
-		case ITEM_fossil0: return SPRITE_item_fossil0; break;
-		case ITEM_fossil1: return SPRITE_item_fossil1; break;
-		case ITEM_fossil2: return SPRITE_item_fossil2; break;
-		case ARCH_tool: return SPRITE_tool_pickaxe; break;
+// SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
+// 	switch (arch) {
+// 		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
+// 		case ITEM_rock: return SPRITE_item_rock; break;
+// 		case ITEM_sprout: return SPRITE_item_sprout; break;
+// 		case ITEM_berry: return SPRITE_item_berry; break;
+// 		// case ARCH_twig: return SPRITE_item_twig; break;
+// 		case ITEM_fossil0: return SPRITE_item_fossil0; break;
+// 		case ITEM_fossil1: return SPRITE_item_fossil1; break;
+// 		case ITEM_fossil2: return SPRITE_item_fossil2; break;
+// 		case ARCH_tool: return SPRITE_tool_pickaxe; break;
 
-		// buildings as items
-		case ARCH_building: return SPRITE_nil; break;
-		// case BUILDING_furnace: return SPRITE_building_furnace; break;
-		// case BUILDING_workbench: return SPRITE_building_workbench; break;
-		// case BUILDING_chest: return SPRITE_building_chest; break;
-		default: return 0;
-	}
-}
+// 		// buildings as items
+// 		case ARCH_building: return SPRITE_nil; break;
+// 		// case BUILDING_furnace: return SPRITE_building_furnace; break;
+// 		// case BUILDING_workbench: return SPRITE_building_workbench; break;
+// 		// case BUILDING_chest: return SPRITE_building_chest; break;
+// 		default: return 0;
+// 	}
+// }
+
 
 string get_archetype_name(EntityArchetype arch) {
 	switch (arch) {
@@ -777,18 +766,10 @@ void render_ui()
 
 		// get how many different items in inventory
 		int item_count = 0;
-		// int *item_arch_slots = NULL;
-		// item_arch_slots = alloc(get_heap_allocator(), sizeof(ARCH_MAX));
-		// item_arch_slots = realloc(item_arch_slots, sizeof(ARCH_MAX));
-		int item_arch_slots_index = 0;
-		for (int i = 0; i < ARCH_MAX; i++) {
-			// ItemData* item = &world->inventory_items[i];
+		for (int i = 0; i < ITEM_MAX; i++) {
 			InventoryItemData* item = &world->inventory_items[i];
 			if (item->amount > 0){
 				item_count += 1;
-				// item_arch_slots[item_arch_slots_index] = i;
-				// item_arch_slots_index += 1;
-				// printf("ITEM COUNT = %d", item_count);
 			}
 		}
 
@@ -799,11 +780,9 @@ void render_ui()
 			draw_rect_xform(xform, v2(box_width, icon_width + padding), inventory_bg);
 		}
 
-		// inventory item rendering
 		int slot_index = 0;
-		// for (int archetype_num = 0; archetype_num < ARCH_MAX; archetype_num++) {
+		// inventory item rendering
 		for (int i = 0; i < ITEM_MAX; i++) {
-			// int archetype_num = item_arch_slots[i];
 			// ItemData* item_data = get_item_data(i);
 			InventoryItemData* item = &world->inventory_items[i];
 			if (item->amount > 0){
@@ -813,7 +792,8 @@ void render_ui()
 				float pos_x = (padding * 0.5) + x_start_pos + slot_index_offset + (padding * 0.5) * slot_index;
 				xform = m4_translate(xform, v3(pos_x, pos_y + (padding * 0.5), 0));
 
-				Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+				// Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
 				
 				// draw icon background
 				// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
@@ -1057,7 +1037,7 @@ void render_ui()
 				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
 
 
-				Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
+				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
 
 				// center sprite
 				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
@@ -1332,7 +1312,8 @@ void spawn_biome(BiomeData* biome) {
 // ::LOOT ----------------------------------|
 typedef struct LootItem {
 	string *name;
-	EntityArchetype arch;
+	// EntityArchetype arch;
+	ItemID id;
 	float baseDropChance;
 	struct LootItem *next;
 } LootItem;
@@ -1359,7 +1340,7 @@ void addItemToLootTable(LootTable *table, string *name, EntityArchetype id, floa
     newItem->name = name;
     newItem->baseDropChance = baseDropChance;
     newItem->next = table->head;
-	newItem->arch = id;
+	newItem->id = id;
     table->head = newItem;
     table->itemCount++;
 
@@ -1375,7 +1356,7 @@ void generateLoot(LootTable* table, float luckModifier, Vector2 pos) {
 		if (get_random_float32() < (adjustedChance / 100.0)) {
 			// printf("Dropped: %s\n", current->name);
 
-			switch (current->arch) {
+			switch (current->id) {
 				case ITEM_rock: {
 					{
 						Entity* en = entity_create();
@@ -1577,11 +1558,19 @@ int entry(int argc, char **argv)
 	// create_twigs(5, 200);
 
 
+	// inventory test #2
+	// Inventory player_inventory;
+	// initInventory(&player_inventory);
+	// inventoryAddItem(&player_inventory, 1, "TEST", 10);
+
+
+
 	// Player variables
 	float player_speed = 50.0;			// pixels per second
 	const float player_size_x = 10.0;	// player sprite size x (pixels)
 	const float player_size_y = 10.0;	// player sprite size y (pixels)
 	bool inventory_open = false;
+	
 
 	// World variables
 	bool draw_grid = true;
@@ -1703,7 +1692,8 @@ int entry(int argc, char **argv)
 						// TODO PHYSICS
 
 						if (fabsf(v2_dist(en->pos, player_en->pos)) < player_pickup_radius) {
-							world->inventory_items[en->arch].amount += 1;
+							world->inventory_items[en->item_id].amount += 1;
+							// inventoryAddItem(&player_inventory, 1, STR(en->arch), 1);
 							entity_destroy(en);
 
 							// is_pickup_text_visible = true;
@@ -1730,7 +1720,7 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :player use/attack || :pickup item
+		// :player use/attack || :spawn item
 		{
 			Entity* selected_en = world_frame.selected_entity;
 
@@ -1785,6 +1775,7 @@ int entry(int argc, char **argv)
 									// setup_building(en);
 									// setup_item(en, get_sprite_id_from_archetype(ARCH_building));
 									// en->pos = selected_en->pos;
+									log_error(":spawn item, building is WIP");
 								}
 							}
 
@@ -1999,6 +1990,10 @@ int entry(int argc, char **argv)
 				}
 			}
 		}
+
+		// if (is_key_just_pressed('G')) {displayInventory(&player_inventory);}
+		if (is_key_just_pressed('G')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+
 
 		// numbers
 		if (is_key_just_pressed('1')) {selected_slot = 1 - 1;}
