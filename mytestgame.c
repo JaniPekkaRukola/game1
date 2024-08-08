@@ -10,6 +10,8 @@ const int tree_health = 1;
 const int bush_health = 1;
 const int tile_width = 8;
 
+// int icon_row_index = 1;
+
 const Vector4 item_shadow_color = {0, 0, 0, 0.1};
 
 // rendering layers
@@ -177,6 +179,7 @@ typedef enum SpriteID {
 	SPRITE_bush0,
 	SPRITE_tall_grass0,
 	SPRITE_tall_grass1,
+	SPRITE_mushroom0,
 
 	// Items
 	SPRITE_item_rock,
@@ -228,6 +231,7 @@ typedef enum ItemID {
 	ITEM_pine_wood,
 	ITEM_sprout,
 	ITEM_berry,
+	ITEM_mushroom0,
 	ITEM_twig,
 	ITEM_furnace,
 	ITEM_workbench,
@@ -257,6 +261,8 @@ typedef enum EntityArchetype {
 	ARCH_item = 6,
 	ARCH_tool = 7,
 	ARCH_building = 8,
+
+	ARCH_mushroom = 9,
 /*
 	// items
 	// ARCH_item_rock = 6,
@@ -373,6 +379,7 @@ SpriteID get_sprite_id_from_item(ItemID item) {
 		case ITEM_twig: return SPRITE_item_twig; break;
 		case ITEM_sprout: return SPRITE_item_sprout; break;
 		case ITEM_berry: return SPRITE_item_berry; break;
+		case ITEM_mushroom0: return SPRITE_mushroom0; break;
 		case ITEM_furnace: return SPRITE_building_furnace; break;
 		case ITEM_workbench: return SPRITE_building_workbench; break;
 		case ITEM_chest: return SPRITE_building_chest; break;
@@ -487,6 +494,7 @@ string get_archetype_name(EntityArchetype arch) {
 		case ITEM_rock: return STR("Rock");
 		case ITEM_sprout: return STR("Sprout");
 		case ITEM_berry: return STR("Berry");
+		case ITEM_mushroom0: return STR("Mushroom");
 		// case ARCH_twig: return STR("Twig");
 		case ITEM_fossil0: return STR("Ammonite Fossil");
 		case ITEM_fossil1: return STR("Bone Fossil");
@@ -543,6 +551,13 @@ void setup_bush(Entity* en) {
 void setup_twig(Entity* en) {
 	en->arch = ARCH_twig;
 	en->sprite_id = SPRITE_item_twig;
+	en->health = 1;
+	en->destroyable = true;
+}
+
+void setup_mushroom(Entity* en) {
+	en->arch = ARCH_mushroom;
+	en->sprite_id = SPRITE_mushroom0;
 	en->health = 1;
 	en->destroyable = true;
 }
@@ -756,21 +771,26 @@ void render_ui()
 
 		// TODO: some opacity thing here (by: randy)
 
-		float pos_y = 95.0;
+		float inventory_tile_size = 8.0;
+		float padding = 2.0;
+		const int max_icons_per_row = 9;
+		const int max_rows = 4;
 
 		// Colors
 		Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
-		Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.4);
+		Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.5);
 		Vector4 tooltip_bg = inventory_bg;
-		
-		float inventory_tile_size = 8.0;
-		float padding = 2.0;
-		const int icon_row_count = 8;
 
 		// float icon_width = inventory_tile_size * padding;
 		float icon_width = inventory_tile_size;
-		float box_width = icon_row_count * icon_width;
+		float box_width = (max_icons_per_row * icon_width) + ((max_icons_per_row * padding) + padding);
 		float x_start_pos = (screen_width / 2.0) - (box_width / 2.0);
+		float y_start_pos = 115.0;
+		float box_size_y = (icon_width + padding) * max_rows;
+
+		int slot_index = 0;
+		int icon_row_index = 0;
+
 
 		// get how many different items in inventory
 		int item_count = 0;
@@ -784,21 +804,28 @@ void render_ui()
 		// inventory background_box rendering
 		{
 			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, v3(x_start_pos, pos_y, 0.0));
-			draw_rect_xform(xform, v2(box_width, icon_width + padding), inventory_bg);
+			xform = m4_translate(xform, v3(x_start_pos, (y_start_pos - box_size_y) + icon_width + padding, 0.0));
+			draw_rect_xform(xform, v2(box_width, box_size_y), inventory_bg);
 		}
 
-		int slot_index = 0;
 		// inventory item rendering
 		for (int i = 0; i < ITEM_MAX; i++) {
+
+			// when row is full, jump to next row
+			if (slot_index >= max_icons_per_row){
+					slot_index = 0;
+					icon_row_index += 1;
+			}
+
 			// ItemData* item_data = get_item_data(i);
 			InventoryItemData* item = &world->inventory_items[i];
 			if (item->amount > 0){
 				float slot_index_offset = slot_index * icon_width;
 
 				Matrix4 xform = m4_scalar(1.0);
-				float pos_x = (padding * 0.5) + x_start_pos + slot_index_offset + (padding * 0.5) * slot_index;
-				xform = m4_translate(xform, v3(pos_x, pos_y + (padding * 0.5), 0));
+				float pos_x = (padding) + x_start_pos + slot_index_offset + (padding) * slot_index;
+				float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
+				xform = m4_translate(xform, v3(pos_x, pos_y, 0));
 
 				// Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
 				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
@@ -1014,7 +1041,7 @@ void render_ui()
 		int slotcount = 9;
 		int pos_y = 2;
 
-		for (int i = 0; i < ARCH_MAX; i++) {
+		for (int i = 0; i < ITEM_MAX; i++) {
 			if (slot_index >= slotcount) {
 				break;
 			}
@@ -1060,6 +1087,7 @@ void render_ui()
 			}
 		}
 
+		// draw the rest of the boxes
 		if (slot_index < slotcount) {
 			for (int i = slot_index; i < slotcount; i++) {
 				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
@@ -1223,6 +1251,16 @@ void create_twigs(int amount, int range) {
 	}
 }
 
+void create_mushrooms(int amount, int range) {
+	// Create mushroom entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_mushroom(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
 
 // Biome struct test --------------------------------|
 typedef struct BiomeData {
@@ -1234,8 +1272,6 @@ typedef struct BiomeData {
 	float water_weight;
 
 	Vector4 grass_color;
-	// string grass_color;
-	// s64 grass_color;
 	Vector4 leaves_color;
 
 	// trees
@@ -1272,17 +1308,16 @@ void setup_biome_forest(BiomeData* biome) {
 	// drop chace = drop chance in %
 
 	biome->name = STR("Forest");
-	biome->size = v2(200, 200);
+	biome->size = v2(400, 400);
 	biome->spawn_animals = false;
 	biome->spawn_water = false;
 	biome->grass_color = v4(0.32, 0.97, 0.62, 1);
-	// biome->grass_color = (s64)"#20613e";
-	// biome->grass_color = v4(1,0,0,1);
+	// biome->grass_color = v4(1, 0.97, 0.62, 1);
 	biome->leaves_color	= v4(0, 1, 0, 1);
 
 	// trees
 	biome->spawn_pine_trees = true;
-	biome->spawn_pine_tree_weight = 100;
+	biome->spawn_pine_tree_weight = 400;
 	biome->spawn_spruce_trees = true;
 	biome->spawn_spruce_tree_weight = 10;
 	biome->spawn_birch_trees = false;
@@ -1294,11 +1329,11 @@ void setup_biome_forest(BiomeData* biome) {
 	biome->spawn_rocks = true;
 	biome->spawn_rocks_weight = 75;
 	biome->spawn_mushrooms = true;
-	biome->spawn_mushrooms_weight = 1;
+	biome->spawn_mushrooms_weight = 10;
 	biome->spawn_twigs = true;
-	biome->spawn_twigs_weight = 3;
+	biome->spawn_twigs_weight = 10;
 	biome->spawn_berries = true;
-	biome->spawn_berries_weight = 3;
+	biome->spawn_berries_weight = 5;
 
 	// fossils
 	biome->spawn_fossils = true;
@@ -1313,6 +1348,7 @@ void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_rocks) {create_rocks((int)biome->spawn_rocks_weight, biome->size.x); }
 	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
 	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
+	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->spawn_mushrooms_weight, biome->size.x); }
 	// window.clear_color = hex_to_rgba(biome->grass_color);
 	// window.clear_color = biome->grass_color;
 }
@@ -1468,6 +1504,7 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
+	sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
 
 	// :Load item sprites
 	sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
@@ -1514,7 +1551,7 @@ int entry(int argc, char **argv)
 			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
 			world->inventory_items[ITEM_rock].amount = 5;
 			world->inventory_items[ITEM_sprout].amount = 2;
-			// world->inventory_items[ARCH_tool_pickaxe].amount = 1;
+			world->inventory_items[ARCH_tool_pickaxe].amount = 1;
 		}
 
 		
@@ -1769,6 +1806,14 @@ int entry(int argc, char **argv)
 								}
 							} break;
 
+							case ARCH_mushroom: {
+								{
+									Entity* en = entity_create();
+									setup_item(en, ITEM_mushroom0);
+									en->pos = selected_en->pos;
+								}
+							} break;
+
 							case ARCH_twig: {
 								{
 									Entity* en = entity_create();
@@ -1876,7 +1921,7 @@ int entry(int argc, char **argv)
 
 
 /*
-		// // :inventory render test (randy's solution #1) (centered inventory - status: WORKING nicely)
+		// // inventory render test (randy's solution #1) (centered inventory - status: WORKING nicely)
 		// {
 		// 	if (inventory_open){
 		// 	float width = 240.0;
