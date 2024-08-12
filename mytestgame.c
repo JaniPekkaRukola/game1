@@ -1,6 +1,7 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
+#define MAX_ENTITY_COUNT 1024
 
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
@@ -25,6 +26,8 @@ u32 font_height = 48;
 float screen_width = 240.0;
 float screen_height = 135.0;
 int selected_slot = 0;
+Vector2 entity_positions[MAX_ENTITY_COUNT];
+
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 
@@ -38,6 +41,19 @@ int selected_slot = 0;
 //     return sqrt(a.x * a.x + a.y * a.y);
 // }
 
+
+int compare_strings(string str, const char* cstr) {
+    u64 cstr_len = strlen(cstr);
+    if (str.count != cstr_len) {
+        return 0;
+    }
+    for (u64 i = 0; i < str.count; i++) {
+        if (str.data[i] != (u8)cstr[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
 
 
 // Yoinked Range.c stuff
@@ -77,8 +93,6 @@ Vector2 range2f_size(Range2f range) {
 bool range2f_contains(Range2f range, Vector2 v) {
   return v.x >= range.min.x && v.x <= range.max.x && v.y >= range.min.y && v.y <= range.max.y;
 }
-
-
 
 
 // randy: is this something that's usually standard in math libraries or am I tripping?
@@ -177,6 +191,7 @@ typedef enum SpriteID {
 	SPRITE_rock2,
 	SPRITE_rock3,
 	SPRITE_bush0,
+	SPRITE_bush1,
 	SPRITE_tall_grass0,
 	SPRITE_tall_grass1,
 	SPRITE_mushroom0,
@@ -224,6 +239,22 @@ Vector2 get_sprite_size(Sprite* sprite) {
 	return (Vector2) {sprite->image->width, sprite->image->height};
 }
 
+// ::TOOL DATA || ::TOOL ID -----------------------------|
+typedef struct ToolData {
+	string name;
+	string tooltip;
+	int durability;
+	int miningLevel;
+} ToolData;
+
+typedef enum ToolID {
+	TOOL_nil,
+	TOOL_pickaxe,
+	TOOL_axe,
+
+	TOOL_MAX,
+}ToolID;
+
 // ::ITEM ID -------------------------------|
 typedef enum ItemID {
 	ITEM_nil,
@@ -243,10 +274,24 @@ typedef enum ItemID {
 	ITEM_MAX,
 } ItemID;
 
+ItemID held_item;
+
 typedef struct InventoryItemData {
 	int amount;
+	string name;
+	bool valid;
+	SpriteID sprite_id;
+	// ToolID tool_id;
 } InventoryItemData;
 
+
+SpriteID get_sprite_id_from_tool(ToolID tool) {
+	switch (tool) {
+		case TOOL_pickaxe: return SPRITE_tool_pickaxe; break;
+		// case TOOL_axe: return SPRITE_tool_axe; break;
+		default: return 0; break;
+	}
+}
 
 
 // ::ENTITY --------------------------------|
@@ -296,9 +341,10 @@ typedef struct Entity {
 	int health;
 	bool destroyable;
 	bool is_item;
+	int rendering_prio;
 } Entity;
 
-#define MAX_ENTITY_COUNT 1024
+
 
 
 typedef struct ItemData {
@@ -313,6 +359,18 @@ ItemData get_item_data(ItemID id) {
 	return item_data[id];
 }
 
+string get_item_name_from_ItemID(ItemID arch) {
+	switch (arch){
+		case ITEM_rock:{return STR("Rock");break;}
+		case ITEM_sprout:{return STR("Sprout");break;}
+		case ITEM_pine_wood:{return STR("Pine wood");break;}
+		case ITEM_mushroom0:{return STR("Mushroom");break;}
+		default:{return STR("failed to get item name");break;}
+	}
+}
+
+
+InventoryItemData* selected_item;
 
 // ::BUILDINGS -----------------------------|
 // NOTE: randy: a 'resource' is a thing that we set up during startup, and is constant.
@@ -386,26 +444,12 @@ SpriteID get_sprite_id_from_item(ItemID item) {
 		case ITEM_fossil0: return SPRITE_item_fossil0; break;
 		case ITEM_fossil1: return SPRITE_item_fossil1; break;
 		case ITEM_fossil2: return SPRITE_item_fossil2; break;
-		default: return 0;
+		default: return 0; break;
 	}
 }
 
 
-// ::TOOL DATA || ::TOOL ID -----------------------------|
-typedef struct ToolData {
-	string name;
-	string tooltip;
-	int durability;
-	int miningLevel;
-} ToolData;
 
-typedef enum ToolID {
-	TOOL_nil,
-	TOOL_pickaxe,
-	TOOL_axe,
-
-	TOOL_MAX,
-}ToolID;
 
 
 
@@ -466,49 +510,73 @@ void entity_destroy(Entity* entity) {
 }
 
 
-// SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
-// 	switch (arch) {
-// 		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
-// 		case ITEM_rock: return SPRITE_item_rock; break;
-// 		case ITEM_sprout: return SPRITE_item_sprout; break;
-// 		case ITEM_berry: return SPRITE_item_berry; break;
-// 		// case ARCH_twig: return SPRITE_item_twig; break;
-// 		case ITEM_fossil0: return SPRITE_item_fossil0; break;
-// 		case ITEM_fossil1: return SPRITE_item_fossil1; break;
-// 		case ITEM_fossil2: return SPRITE_item_fossil2; break;
-// 		case ARCH_tool: return SPRITE_tool_pickaxe; break;
+/*
+	// SpriteID get_sprite_id_from_archetype(EntityArchetype arch) {
+	// 	switch (arch) {
+	// 		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
+	// 		case ITEM_rock: return SPRITE_item_rock; break;
+	// 		case ITEM_sprout: return SPRITE_item_sprout; break;
+	// 		case ITEM_berry: return SPRITE_item_berry; break;
+	// 		// case ARCH_twig: return SPRITE_item_twig; break;
+	// 		case ITEM_fossil0: return SPRITE_item_fossil0; break;
+	// 		case ITEM_fossil1: return SPRITE_item_fossil1; break;
+	// 		case ITEM_fossil2: return SPRITE_item_fossil2; break;
+	// 		case ARCH_tool: return SPRITE_tool_pickaxe; break;
 
-// 		// buildings as items
-// 		case ARCH_building: return SPRITE_nil; break;
-// 		// case BUILDING_furnace: return SPRITE_building_furnace; break;
-// 		// case BUILDING_workbench: return SPRITE_building_workbench; break;
-// 		// case BUILDING_chest: return SPRITE_building_chest; break;
-// 		default: return 0;
-// 	}
-// }
+	// 		// buildings as items
+	// 		case ARCH_building: return SPRITE_nil; break;
+	// 		// case BUILDING_furnace: return SPRITE_building_furnace; break;
+	// 		// case BUILDING_workbench: return SPRITE_building_workbench; break;
+	// 		// case BUILDING_chest: return SPRITE_building_chest; break;
+	// 		default: return 0;
+	// 	}
+	// }
+*/
 
-
+// this wont really work if i separate tools and buildings into their own structures
 string get_archetype_name(EntityArchetype arch) {
 	switch (arch) {
-		case ITEM_pine_wood: return STR("Pine Wood");
-		case ITEM_rock: return STR("Rock");
-		case ITEM_sprout: return STR("Sprout");
-		case ITEM_berry: return STR("Berry");
-		case ITEM_mushroom0: return STR("Mushroom");
-		// case ARCH_twig: return STR("Twig");
-		case ITEM_fossil0: return STR("Ammonite Fossil");
-		case ITEM_fossil1: return STR("Bone Fossil");
-		case ITEM_fossil2: return STR("Fang Fossil");
-		case ARCH_tool: return STR("Pickaxe");
+		case ITEM_pine_wood: return STR("Pine Wood"); break;
+		case ITEM_rock: return STR("Rock"); break;
+		case ITEM_sprout: return STR("Sprout"); break;
+		case ITEM_berry: return STR("Berry"); break;
+		case ITEM_mushroom0: return STR("Mushroom"); break;
+		// case ARCH_twig: return STR("Twig"); break;
+		case ITEM_fossil0: return STR("Ammonite Fossil"); break;
+		case ITEM_fossil1: return STR("Bone Fossil"); break;
+		case ITEM_fossil2: return STR("Fang Fossil"); break;
+		case ARCH_tool: return STR("Tool (WIP)"); break;
 
 		// building names
 		// case BUILDING_furnace: return STR("Furnace");
 		// case BUILDING_workbench: return STR("Workbench");
 		// case BUILDING_chest: return STR("Chest");
-		default: return STR("nill");
+		default: return STR("nill"); break;
 	}
 }
 
+string get_building_name(BuildingID id) {
+	switch (id) {
+		case BUILDING_furnace: return STR("Furnace"); break;
+		case BUILDING_workbench: return STR("Workbench"); break;
+		case BUILDING_chest: return STR("Chest"); break;
+		default: return STR("Error: Missing get_building_name case."); break;
+	}
+}
+
+string get_tool_name(ToolID id) {
+	switch (id) {
+		case TOOL_pickaxe: return STR("Pickaxe"); break;
+		case TOOL_axe: return STR("Axe"); break;
+		default: return STR("Error: Missing get_tool_name case."); break;
+	}
+}
+
+// ToolID get_tool_id_from_arch(ToolID id) {
+// 	switch (id) {
+// 		case TOOL_axe: return Tool_axe;
+// 	}
+// }
 
 
 // ----- ::SETUP entity --------------------------------------------------------------------------------|
@@ -543,7 +611,10 @@ void setup_tree(Entity* en) {
 
 void setup_bush(Entity* en) {
 	en->arch = ARCH_bush;
-	en->sprite_id = SPRITE_bush0;
+	int random = get_random_int_in_range(0,1);
+	if (random == 0){en->sprite_id = SPRITE_bush0;}
+	if (random == 1){en->sprite_id = SPRITE_bush1;}
+	// en->sprite_id = SPRITE_bush0;
 	en->health = bush_health;
 	en->destroyable = true;
 }
@@ -690,6 +761,15 @@ void setup_building(Entity* en, BuildingID id) {
 }
 
 
+// :SETUP TOOL TEST ------------------------------------------------------------------------------------|
+
+void setup_tool(Entity* en, ToolID tool_id) {
+	en->arch = ARCH_item;
+	en->sprite_id = get_sprite_id_from_tool(tool_id);
+	en->is_item = true;
+	en->item_id = tool_id;
+}
+
 
 // ----- coordinate stuff ------------------------------------------------------------------------------|
 
@@ -829,6 +909,10 @@ void render_ui()
 
 				// Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
 				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
+
+				// if (item->tool_id && item->tool_id != TOOL_nil){
+				// 	sprite = get_sprite(get_sprite_id_from_tool(i));
+				// }
 				
 				// draw icon background
 				// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
@@ -1047,8 +1131,6 @@ void render_ui()
 			}
 			InventoryItemData* item = &world->inventory_items[i];
 
-			ItemData* selected_item = item;
-
 			if (item->amount > 0){
 
 				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
@@ -1064,6 +1146,8 @@ void render_ui()
 				// draw hotbar border
 				if (slot_index == selected_slot){
 					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
+					selected_item = item;
+					selected_item->valid = true;
 
 				}
 				else{
@@ -1211,14 +1295,40 @@ void render_ui()
 }
 
 // ----- ::Create entities -----------------------------------------------------------------------------|
+
+
+void define_entity_positions(int range){
+	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+		float x = get_random_float32_in_range(-range, range);
+		float y = get_random_float32_in_range(-range, range);
+		entity_positions[i].x = x;
+		entity_positions[i].y = y;
+	}
+}
+
 void create_trees(int amount, int range) {
-	// Create tree entities
-	for (int i = 0; i < amount; i++) {
+// Creates trees
+// Wont allow multiple trees to spawn in the same tile
+
+	Vector2 tree_positions[amount];
+
+	for (int i = 0; i < amount; i++){
+		float x = get_random_float32_in_range(-range, range);
+		float y = get_random_float32_in_range(-range, range);
+		tree_positions[i] = v2(x,y);
+	}
+
+	for (int i = 0; i < amount; i++){
 		Entity* en = entity_create();
 		setup_tree(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
 		en->pos = round_v2_to_tile(en->pos);
+		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
 	}
+
+
+	// free the list of positions
+	memset(tree_positions, 0, sizeof(tree_positions));
 }
 
 void create_rocks(int amount, int range) {
@@ -1333,7 +1443,7 @@ void setup_biome_forest(BiomeData* biome) {
 	biome->spawn_twigs = true;
 	biome->spawn_twigs_weight = 10;
 	biome->spawn_berries = true;
-	biome->spawn_berries_weight = 5;
+	biome->spawn_berries_weight = 20;
 
 	// fossils
 	biome->spawn_fossils = true;
@@ -1502,6 +1612,7 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
 	sprites[SPRITE_rock3] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock3.png"), get_heap_allocator())};
 	sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
+	sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
 	sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
@@ -1549,9 +1660,21 @@ int entry(int argc, char **argv)
 		// test adding items to inventory
 		{
 			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
-			world->inventory_items[ITEM_rock].amount = 5;
-			world->inventory_items[ITEM_sprout].amount = 2;
-			world->inventory_items[ARCH_tool_pickaxe].amount = 1;
+			// world->inventory_items[ITEM_rock].amount = 5;
+			// world->inventory_items[ITEM_rock].name = STR("Rock");
+			// world->inventory_items[ITEM_rock].tool_id = TOOL_nil;
+
+			// world->inventory_items[ITEM_sprout].amount = 2;
+			// world->inventory_items[ITEM_sprout].name = STR("Sprout");
+			// world->inventory_items[ITEM_sprout].tool_id = TOOL_nil;
+			// world->inventory_items[ARCH_tool].amount = 1;
+			// world->inventory_items[TOOL_pickaxe].amount = 1;
+
+			// setup_tool(entity_create(), TOOL_pickaxe);
+			// world->inventory_items[TOOL_pickaxe].amount = 1;
+			// world->inventory_items[TOOL_pickaxe].tool_id = TOOL_pickaxe;
+			// world->inventory_items[TOOL_pickaxe].name = STR("Pickaxe");
+
 		}
 
 		
@@ -1573,6 +1696,9 @@ int entry(int argc, char **argv)
 
 
 	// :INIT
+
+	// define_entity_positions(200);
+
 	// :Create player entity
 	Entity* player_en = entity_create();
 	setup_player(player_en);
@@ -1602,13 +1728,6 @@ int entry(int argc, char **argv)
 	// create_trees(100, 200);
 	// create_bushes(15, 200);
 	// create_twigs(5, 200);
-
-
-	// inventory test #2
-	// Inventory player_inventory;
-	// initInventory(&player_inventory);
-	// inventoryAddItem(&player_inventory, 1, "TEST", 10);
-
 
 
 	// Player variables
@@ -1664,6 +1783,8 @@ int entry(int argc, char **argv)
 		Vector2 mouse_pos_world = get_mouse_pos_in_world_space();
 		int mouse_tile_x = world_pos_to_tile_pos(mouse_pos_world.x);
 		int mouse_tile_y = world_pos_to_tile_pos(mouse_pos_world.y);
+
+
 
 		// Render ui
 		render_ui();
@@ -1726,7 +1847,7 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :update entities (:item pick up)
+		// :update entities || :item pick up
 		{
 			// bool is_pickup_text_visible = false;
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
@@ -1739,6 +1860,11 @@ int entry(int argc, char **argv)
 
 						if (fabsf(v2_dist(en->pos, player_en->pos)) < player_pickup_radius) {
 							world->inventory_items[en->item_id].amount += 1;
+							world->inventory_items[en->item_id].name = get_item_name_from_ItemID(en->item_id);
+							world->inventory_items[en->item_id].sprite_id = en->sprite_id;
+							world->inventory_items[en->item_id].valid = true;
+
+							// printf("ADDED '%s' TO INVENTORY\n", get_item_name_from_ItemID(en->item_id));
 							// inventoryAddItem(&player_inventory, 1, STR(en->arch), 1);
 							entity_destroy(en);
 
@@ -1872,48 +1998,77 @@ int entry(int argc, char **argv)
 			if (en->is_valid) {
 				switch (en->arch) {
 
-					// case arch_player:
+					// :Render player
+					case ARCH_player: {
+							// render player
+							Sprite* sprite = get_sprite(en->sprite_id);
+							Matrix4 xform = m4_identity;
+
+							xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));
+							xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+							xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+
+							draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+							// :Render held item
+							if (selected_item != NULL && selected_item->valid){
+								// printf("render %s\n", selected_item->name);
+
+								Sprite* sprite_held_item = get_sprite(selected_item->sprite_id);
+								Matrix4 xform_held_item = m4_scalar(1.0);
+								xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
+								xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
+
+								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
+							}
+
+					}
 
 					default: 
 					{
-						Sprite* sprite = get_sprite(en->sprite_id);
-						Matrix4 xform = m4_scalar(1.0);
-						
-						// ITEM
-						if (en->is_item) {
-							xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down
+						if (en->arch != ARCH_player){
+
+
+							Sprite* sprite = get_sprite(en->sprite_id);
+							Matrix4 xform = m4_scalar(1.0);
 							
-							// shadow position
-							Vector2 position = en->pos;
-							position.x -= 3.5;
-							position.y -= 3.5;
+							// ITEM
+							if (en->is_item) {
+								xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down
+								
+								// shadow position
+								Vector2 position = en->pos;
+								position.x -= 3.5;
+								position.y -= 3.5;
+								
+								// item shadow
+								// draw_circle(position, v2(7.0, 7.0), v4(0.1, 0.1, 0.1, 0.5));
+								draw_circle(position, v2(7.0, 7.0), item_shadow_color);
+
+							}
 							
-							// item shadow
-							// draw_circle(position, v2(7.0, 7.0), v4(0.1, 0.1, 0.1, 0.5));
-							draw_circle(position, v2(7.0, 7.0), item_shadow_color);
+							// SPRITE
+							if (!en->is_item) {
+								xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
+							}
 
-						}
-						
-						// SPRITE
-						if (!en->is_item) {
-							xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
-						}
+							xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+							xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
 
-						xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-						xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+							Vector4 col = COLOR_WHITE;
+							if (world_frame.selected_entity == en){
+								col = v4(0.7, 0.7, 0.7, 1.0);
+							}
 
-						Vector4 col = COLOR_WHITE;
-						if (world_frame.selected_entity == en){
-							col = v4(0.7, 0.7, 0.7, 1.0);
-						}
+							draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
 
-						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+							if (IS_DEBUG){
+								// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
+							}
 
-						if (IS_DEBUG){
-							// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
+							break;
 						}
 
-						break;
 					}
 				}
 			}

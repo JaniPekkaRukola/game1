@@ -59,5 +59,6 @@
   "C_Cpp_Runner.showCompilationTime": true,
   "C_Cpp_Runner.useLinkTimeOptimization": false,
   "C_Cpp_Runner.msvcSecureNoWarnings": false,
-  "C_Cpp.errorSquiggles": "disabled"
+  "C_Cpp.errorSquiggles": "disabled",
+  "terminal.integrated.fontSize": 14
 }
