@@ -6,7 +6,7 @@ bool IS_DEBUG = false;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
 int player_health = 3;
-const int rock_health = 1;
+const int rock_health = 3;
 const int tree_health = 1;
 const int bush_health = 1;
 const int tile_width = 8;
@@ -251,7 +251,7 @@ typedef enum ToolID {
 	TOOL_nil,
 	TOOL_pickaxe,
 	TOOL_axe,
-
+	// etc
 	TOOL_MAX,
 }ToolID;
 
@@ -271,18 +271,15 @@ typedef enum ItemID {
 	ITEM_fossil1,
 	ITEM_fossil2,
 	ITEM_fossil3,
+
+	// tools (test)
+	ITEM_TOOL_pickaxe,
+	
 	ITEM_MAX,
 } ItemID;
 
 ItemID held_item;
 
-typedef struct InventoryItemData {
-	int amount;
-	string name;
-	bool valid;
-	SpriteID sprite_id;
-	// ToolID tool_id;
-} InventoryItemData;
 
 
 SpriteID get_sprite_id_from_tool(ToolID tool) {
@@ -292,7 +289,6 @@ SpriteID get_sprite_id_from_tool(ToolID tool) {
 		default: return 0; break;
 	}
 }
-
 
 // ::ENTITY --------------------------------|
 typedef enum EntityArchetype {
@@ -330,6 +326,16 @@ typedef enum EntityArchetype {
 */
 	ARCH_MAX,
 } EntityArchetype;
+
+typedef struct InventoryItemData {
+	int amount;
+	string name;
+	bool valid;
+	SpriteID sprite_id;
+	EntityArchetype arch;
+	ToolID tool_id;
+} InventoryItemData;
+
 
 typedef struct Entity {
 	bool is_valid;
@@ -765,6 +771,7 @@ void setup_building(Entity* en, BuildingID id) {
 
 // :SETUP TOOL TEST ------------------------------------------------------------------------------------|
 
+// not in use
 void setup_tool(Entity* en, ToolID tool_id) {
 	en->arch = ARCH_item;
 	en->sprite_id = get_sprite_id_from_tool(tool_id);
@@ -909,12 +916,12 @@ void render_ui()
 				float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
 				xform = m4_translate(xform, v3(pos_x, pos_y, 0));
 
-				// Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
 				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
 
-				// if (item->tool_id && item->tool_id != TOOL_nil){
-				// 	sprite = get_sprite(get_sprite_id_from_tool(i));
-				// }
+				if (item->arch == ARCH_tool){
+					sprite = get_sprite(item->sprite_id);
+				}
+
 				
 				// draw icon background
 				// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
@@ -989,6 +996,10 @@ void render_ui()
 						// string txt = STR("%s");
 						string title = sprint(temp_allocator, STR("%s"), get_archetype_name(i));
 
+						if (item->arch == ARCH_tool){
+							title = sprint(temp_allocator, STR("%s"), get_tool_name(item->tool_id));
+						}
+
 						// draw text
 						Gfx_Text_Metrics metrics = measure_text(font, title, font_height, v2(0.1, 0.1));
 						Vector2 draw_pos = icon_center;
@@ -1006,7 +1017,6 @@ void render_ui()
 				slot_index += 1;
 			}
 		}
-		// dealloc(get_heap_allocator(), item_arch_slots);
 	}
 
 
@@ -1138,6 +1148,11 @@ void render_ui()
 
 			if (item->amount > 0){
 				
+				// if (item->sprite_id == 20){
+				// 	printf("20--------------------------------------------\n");
+				// 	printf("%s\n", item->name);
+				// 	printf("arch = %d\n", item->arch);
+				// }
 
 				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
 				pos_x += (slot_size * slot_index);
@@ -1151,24 +1166,32 @@ void render_ui()
 
 				// draw hotbar border
 				if (slot_index == selected_slot){
+					// draw selected border
 					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
+
+					// update selected item
 					new_selected_item = item;
 				}
 				else{
+					// draw UNselected border
 					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
 				}
 
 				// draw hotbar slot
 				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
 
-				InventoryItemData* item = &world->inventory_items[slot_index];
-
-
+				// get the sprite of the item
 				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
 
-				// center sprite
+				// get the sprite of the item (if its a tool) its WIP shutup
+				if (item->arch == ARCH_tool){
+					sprite = get_sprite(item->sprite_id);
+				}
+
+				// center sprite to slot
 				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
 
+				// center sprite
 				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
 
 				// draw icon
@@ -1676,9 +1699,9 @@ int entry(int argc, char **argv)
 		// test adding items to inventory
 		{
 			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
-			// world->inventory_items[ITEM_rock].amount = 5;
-			// world->inventory_items[ITEM_rock].name = STR("Rock");
-			// world->inventory_items[ITEM_rock].tool_id = TOOL_nil;
+			world->inventory_items[ITEM_rock].amount = 5;
+			world->inventory_items[ITEM_rock].name = STR("Rock");
+			world->inventory_items[ITEM_rock].sprite_id = SPRITE_item_rock;
 
 			// world->inventory_items[ITEM_sprout].amount = 2;
 			// world->inventory_items[ITEM_sprout].name = STR("Sprout");
@@ -1687,9 +1710,12 @@ int entry(int argc, char **argv)
 			// world->inventory_items[TOOL_pickaxe].amount = 1;
 
 			// setup_tool(entity_create(), TOOL_pickaxe);
-			// world->inventory_items[TOOL_pickaxe].amount = 1;
-			// world->inventory_items[TOOL_pickaxe].tool_id = TOOL_pickaxe;
-			// world->inventory_items[TOOL_pickaxe].name = STR("Pickaxe");
+			world->inventory_items[ITEM_TOOL_pickaxe].amount = 1;
+			world->inventory_items[ITEM_TOOL_pickaxe].arch = ARCH_tool;
+			world->inventory_items[ITEM_TOOL_pickaxe].name = STR("Pickaxe");
+			world->inventory_items[ITEM_TOOL_pickaxe].sprite_id = SPRITE_tool_pickaxe;
+			world->inventory_items[ITEM_TOOL_pickaxe].tool_id = TOOL_pickaxe;
+			world->inventory_items[ITEM_TOOL_pickaxe].valid = true;
 
 		}
 
@@ -1906,9 +1932,10 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :player use/attack || :spawn item
+		// :player use || :player attack || :spawn item
 		{
 			Entity* selected_en = world_frame.selected_entity;
+			bool allow_destroy = false;
 
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
 				if (selected_en) {
@@ -1921,10 +1948,16 @@ int entry(int argc, char **argv)
 						switch (selected_en->arch) {
 							case ARCH_tree: {
 								{
-									Entity* en = entity_create();
-									// setup_item_pine_wood(en);
-									setup_item(en, ITEM_pine_wood);
-									en->pos = selected_en->pos;
+									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_axe){
+										Entity* en = entity_create();
+										// setup_item_pine_wood(en);
+										setup_item(en, ITEM_pine_wood);
+										en->pos = selected_en->pos;
+										allow_destroy = true;
+									}
+									else{
+										printf("WRONG TOOL\n");
+									}
 								}
 							} break;
 
@@ -1933,7 +1966,13 @@ int entry(int argc, char **argv)
 									// Entity* en = entity_create();
 									// setup_item_rock(en);
 									// en->pos = selected_en->pos;
-									generateLoot(lootTable_rock, 0, selected_en->pos);
+									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
+										generateLoot(lootTable_rock, 0, selected_en->pos);
+										allow_destroy = true;
+									}
+									else{
+										printf("WRONG TOOL\n");
+									}
 								}
 							} break;
 
@@ -1943,6 +1982,7 @@ int entry(int argc, char **argv)
 									// setup_item_berry(en);
 									setup_item(en, ITEM_berry);
 									en->pos = selected_en->pos;
+									allow_destroy = true;
 								}
 							} break;
 
@@ -1951,6 +1991,7 @@ int entry(int argc, char **argv)
 									Entity* en = entity_create();
 									setup_item(en, ITEM_mushroom0);
 									en->pos = selected_en->pos;
+									allow_destroy = true;
 								}
 							} break;
 
@@ -1960,6 +2001,7 @@ int entry(int argc, char **argv)
 									// setup_item_twig(en);
 									setup_item(en, ITEM_twig);
 									en->pos = selected_en->pos;
+									allow_destroy = true;
 								}
 							} break;
 
@@ -1970,6 +2012,7 @@ int entry(int argc, char **argv)
 									// setup_item(en, get_sprite_id_from_archetype(ARCH_building));
 									// en->pos = selected_en->pos;
 									log_error(":spawn item, building is WIP");
+									allow_destroy = true;
 								}
 							}
 
@@ -2000,7 +2043,9 @@ int entry(int argc, char **argv)
 							default: { } break;
 						}
 
-						entity_destroy(selected_en);
+						if (allow_destroy){
+							entity_destroy(selected_en);
+						}
 					}
 				}
 			}
