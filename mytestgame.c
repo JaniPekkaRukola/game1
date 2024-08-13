@@ -6,8 +6,8 @@ bool IS_DEBUG = false;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
 int player_health = 3;
-const int rock_health = 3;
-const int tree_health = 1;
+const int rock_health = 8;
+const int tree_health = 5;
 const int bush_health = 1;
 const int tile_width = 8;
 
@@ -205,7 +205,8 @@ typedef enum SpriteID {
 
 	// tools
 	SPRITE_tool_pickaxe,
-
+	SPRITE_tool_axe,
+	
 	// fossils
 	SPRITE_item_fossil0,
 	SPRITE_item_fossil1,
@@ -274,6 +275,7 @@ typedef enum ItemID {
 
 	// tools (test)
 	ITEM_TOOL_pickaxe,
+	ITEM_TOOL_axe,
 	
 	ITEM_MAX,
 } ItemID;
@@ -285,7 +287,7 @@ ItemID held_item;
 SpriteID get_sprite_id_from_tool(ToolID tool) {
 	switch (tool) {
 		case TOOL_pickaxe: return SPRITE_tool_pickaxe; break;
-		// case TOOL_axe: return SPRITE_tool_axe; break;
+		case TOOL_axe: return SPRITE_tool_axe; break;
 		default: return 0; break;
 	}
 }
@@ -972,8 +974,11 @@ void render_ui()
 				// draw sprite
 				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
 
+				// draw item count (except for tools)
 				// draw_text(font, sprint(temp_allocator, STR("%d"), item->amount), 40, v2(pos_x, pos_y), v2(0.1, 0.1), COLOR_WHITE);
-				draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+				if (item->arch != ARCH_tool){
+					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+				}
 
 				// tooltip
 				{
@@ -1161,6 +1166,9 @@ void render_ui()
 				Matrix4 xform = m4_identity;
 				xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
 
+				// save xfrom for later when drawing item counts
+				Matrix4 box_bottom_right_xform = xform;
+
 				Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
 				xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
 
@@ -1196,6 +1204,11 @@ void render_ui()
 
 				// draw icon
 				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+				// draw item count (except for tools)
+				if (item->arch != ARCH_tool){
+					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+				}
 
 				slot_index++;
 			}
@@ -1666,6 +1679,7 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_item_fossil1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil1.png"), get_heap_allocator())};
 	sprites[SPRITE_item_fossil2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil2.png"), get_heap_allocator())};
 	sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
+	sprites[SPRITE_tool_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
 
 	// :Load building sprites
 	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
@@ -1699,9 +1713,9 @@ int entry(int argc, char **argv)
 		// test adding items to inventory
 		{
 			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
-			world->inventory_items[ITEM_rock].amount = 5;
-			world->inventory_items[ITEM_rock].name = STR("Rock");
-			world->inventory_items[ITEM_rock].sprite_id = SPRITE_item_rock;
+			// world->inventory_items[ITEM_rock].amount = 5;
+			// world->inventory_items[ITEM_rock].name = STR("Rock");
+			// world->inventory_items[ITEM_rock].sprite_id = SPRITE_item_rock;
 
 			// world->inventory_items[ITEM_sprout].amount = 2;
 			// world->inventory_items[ITEM_sprout].name = STR("Sprout");
@@ -1716,6 +1730,13 @@ int entry(int argc, char **argv)
 			world->inventory_items[ITEM_TOOL_pickaxe].sprite_id = SPRITE_tool_pickaxe;
 			world->inventory_items[ITEM_TOOL_pickaxe].tool_id = TOOL_pickaxe;
 			world->inventory_items[ITEM_TOOL_pickaxe].valid = true;
+			
+			world->inventory_items[ITEM_TOOL_axe].amount = 1;
+			world->inventory_items[ITEM_TOOL_axe].arch = ARCH_tool;
+			world->inventory_items[ITEM_TOOL_axe].name = STR("Axe");
+			world->inventory_items[ITEM_TOOL_axe].sprite_id = SPRITE_tool_axe;
+			world->inventory_items[ITEM_TOOL_axe].tool_id = TOOL_axe;
+			world->inventory_items[ITEM_TOOL_axe].valid = true;
 
 		}
 
