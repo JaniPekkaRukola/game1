@@ -480,6 +480,8 @@ typedef struct World {
 
 World* world = 0;
 
+
+
 typedef struct WorldFrame {
 	Entity* selected_entity;
 	Matrix4 world_projection;
@@ -1107,7 +1109,7 @@ void render_ui()
 	{
 		float icon_width = 8.0;
 		float slot_size = 8.0;
-		float slot_index = 0;
+		int slot_index = 0;
 		int padding = 4.0;
 		int slot_count = 9;
 
@@ -1117,6 +1119,8 @@ void render_ui()
 		Vector4 hotbar_border_color = v4(0.8, 0.8, 0.8, 1);
 		Vector4 hotbar_bg_color = v4(0.1, 0.1, 0.1, 1);
 		Vector4 hotbar_selected_slot_color = v4(1, 0, 0, 1);
+
+		InventoryItemData* new_selected_item = NULL;
 
 
 
@@ -1129,9 +1133,11 @@ void render_ui()
 			if (slot_index >= slotcount) {
 				break;
 			}
+
 			InventoryItemData* item = &world->inventory_items[i];
 
 			if (item->amount > 0){
+				
 
 				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
 				pos_x += (slot_size * slot_index);
@@ -1146,15 +1152,16 @@ void render_ui()
 				// draw hotbar border
 				if (slot_index == selected_slot){
 					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
-					selected_item = item;
-					selected_item->valid = true;
-
+					new_selected_item = item;
 				}
 				else{
 					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
 				}
+
 				// draw hotbar slot
 				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
+
+				InventoryItemData* item = &world->inventory_items[slot_index];
 
 
 				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
@@ -1168,6 +1175,15 @@ void render_ui()
 				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
 
 				slot_index++;
+			}
+
+			// Update the selected item
+			if (new_selected_item) {
+				selected_item = new_selected_item;
+				selected_item->valid = true;
+			} else if (selected_item) {
+				selected_item->valid = false;
+				selected_item = NULL;
 			}
 		}
 
@@ -1580,7 +1596,7 @@ void generateLoot(LootTable* table, float luckModifier, Vector2 pos) {
 int entry(int argc, char **argv) 
 {
 	// Window
-	window.title = STR("Game");
+	window.title = STR("Game.");
 	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
 	window.scaled_height = 720; 
 
@@ -1688,8 +1704,6 @@ int entry(int argc, char **argv)
 			// en->pos = round_v2_to_tile(en->pos);
 		}
 	}
-
-
 
 
 
@@ -2012,7 +2026,6 @@ int entry(int argc, char **argv)
 
 							// :Render held item
 							if (selected_item != NULL && selected_item->valid){
-								// printf("render %s\n", selected_item->name);
 
 								Sprite* sprite_held_item = get_sprite(selected_item->sprite_id);
 								Matrix4 xform_held_item = m4_scalar(1.0);
