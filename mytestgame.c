@@ -3,6 +3,7 @@
 bool IS_DEBUG = false;
 #define MAX_ENTITY_COUNT 1024
 
+float render_distance = 150;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
 int player_health = 3;
@@ -284,13 +285,15 @@ ItemID held_item;
 
 
 
-SpriteID get_sprite_id_from_tool(ToolID tool) {
-	switch (tool) {
+SpriteID get_sprite_id_from_tool(ToolID tool_id) {
+	switch (tool_id) {
 		case TOOL_pickaxe: return SPRITE_tool_pickaxe; break;
 		case TOOL_axe: return SPRITE_tool_axe; break;
 		default: return 0; break;
 	}
 }
+
+
 
 // ::ENTITY --------------------------------|
 typedef enum EntityArchetype {
@@ -338,6 +341,34 @@ typedef struct InventoryItemData {
 	ToolID tool_id;
 } InventoryItemData;
 
+// ::BUILDINGS -----------------------------|
+// NOTE: randy: a 'resource' is a thing that we set up during startup, and is constant.
+typedef enum BuildingID {
+	BUILDING_nil,
+	BUILDING_furnace,	
+	BUILDING_workbench,
+	BUILDING_chest,
+	BUILDING_MAX,
+} BuildingID;
+
+typedef struct BuildingData {
+	EntityArchetype to_build;
+	SpriteID icon;
+	// BuildingID id;
+	// display name
+	// cost
+	// health
+	// etc
+} BuildingData;
+
+BuildingID get_sprite_id_from_building(BuildingID building_id) {
+	switch (building_id) {
+		case BUILDING_furnace: return SPRITE_building_furnace; break;
+		case BUILDING_workbench: return SPRITE_building_workbench; break;
+		case BUILDING_chest: return SPRITE_building_chest; break;
+		default: return 0; break;
+	}
+}
 
 typedef struct Entity {
 	bool is_valid;
@@ -350,7 +381,10 @@ typedef struct Entity {
 	bool destroyable;
 	bool is_item;
 	int rendering_prio;
+	BuildingID building_id;
 } Entity;
+
+
 
 
 
@@ -380,25 +414,8 @@ string get_item_name_from_ItemID(ItemID arch) {
 
 InventoryItemData* selected_item;
 
-// ::BUILDINGS -----------------------------|
-// NOTE: randy: a 'resource' is a thing that we set up during startup, and is constant.
-typedef enum BuildingID {
-	BUILDING_nil,
-	BUILDING_furnace,	
-	BUILDING_workbench,
-	BUILDING_chest,
-	BUILDING_MAX,
-} BuildingID;
 
-typedef struct BuildingData {
-	EntityArchetype to_build;
-	SpriteID icon;
-	// BuildingID id;
-	// display name
-	// cost
-	// health
-	// etc
-} BuildingData;
+
 
 BuildingData buildings[BUILDING_MAX];
 
@@ -499,6 +516,16 @@ typedef struct WorldFrame {
 WorldFrame world_frame;
 
 
+Vector2 get_player_pos(){
+	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+		Entity en = world->entities[i];
+		if (en.arch == ARCH_player){
+			return en.pos;
+		}
+	}
+	return v2(0,0);
+}
+
 // :ENTITY create & destroy ----------------|
 // should prolly move these into ::ENTITY above
 Entity* entity_create() {
@@ -591,10 +618,11 @@ string get_tool_name(ToolID id) {
 
 // ----- ::SETUP entity --------------------------------------------------------------------------------|
 // @reminder gotta remember to modify the range variale in "get_random_int_in_range" based on the amount of different variations per sprite
-void setup_player(Entity* en) {
+void setup_player(Entity* en, Vector2 pos) {
 	en->arch = ARCH_player;
 	en->sprite_id = SPRITE_player;
 	en->health = player_health;
+	en->pos = pos;
 }
 
 void setup_rock(Entity* en) {
@@ -652,57 +680,8 @@ void setup_item(Entity* en, ItemID item_id) {
 	en->is_item = true;
 	en->item_id = item_id;
 }
-/*
-	// void setup_item_rock(Entity* en) {
-	// 	en->arch = ARCH_item_rock;
-	// 	en->sprite_id = SPRITE_item_rock;
-	// 	en->is_item = true;
-	// }
 
-	// void setup_item_pine_wood(Entity* en) {
-	// 	en->arch = ARCH_item_pine_wood;
-	// 	en->sprite_id = SPRITE_item_pine_wood;
-	// 	en->is_item = true;
-	// }
-
-	// void setup_item_sprout(Entity* en) {
-	// 	en->arch = ARCH_item_sprout;
-	// 	en->sprite_id = SPRITE_item_sprout;
-	// 	en->is_item = true;
-	// }
-
-	// void setup_item_berry(Entity* en) {
-	// 	en->arch = ARCH_item_berry;
-	// 	en->sprite_id = SPRITE_item_berry;
-	// 	en->is_item = true;
-	// }
-
-	// void setup_item_twig(Entity* en) {
-	// 	en->arch = ARCH_twig;
-	// 	en->sprite_id = SPRITE_item_twig;
-	// 	en->is_item = true;
-	// }
-
-	// void setup_item_fossil0(Entity* en) {
-	// 	en->arch = ARCH_item_fossil0;
-	// 	en->sprite_id = SPRITE_item_fossil0;
-	// 	en->is_item = true;
-	// }
-
-	// void setup_item_fossil1(Entity* en) {
-	// 	en->arch = ARCH_item_fossil1;
-	// 	en->sprite_id = SPRITE_item_fossil1;
-	// 	en->is_item = true;
-	// }
-
-	// void setup_item_fossil2(Entity* en) {
-	// 	en->arch = ARCH_item_fossil2;
-	// 	en->sprite_id = SPRITE_item_fossil2;
-	// 	en->is_item = true;
-	// }
-*/
 // ----- ::SETUP building -----------------------------------------------------------------------------|
-
 void setup_item_furnace(Entity* en) {
 	en->arch = ITEM_furnace;
 	en->sprite_id = SPRITE_building_furnace;
@@ -719,17 +698,6 @@ void setup_item_chest(Entity* en) {
 	en->sprite_id = SPRITE_building_chest;
 	en->is_item = true;
 }
-
-
-// entity setup automation
-// void entity_setup(Entity* en, EntityArchetype id) {
-// 	switch (id) {
-// 		case ARCH_furnace: setup_furnace(en); break;
-// 		case ARCH_workbench: setup_workbench(en); break;
-// 		case ARCH_chest: setup_chest(en); break;
-// 		default: log_error("Missing entity_setup case entry"); break;
-// 	}
-// }
 
 // Building setup automation
 void setup_building(Entity* en, BuildingID id) {
@@ -763,13 +731,19 @@ void setup_building(Entity* en, BuildingID id) {
 			}
 		} break;
 
-		// case BUILDING_furnace: setup_furnace(en); break;
-		// case BUILDING_workbench: setup_workbench(en); break;
-		// case BUILDING_chest: setup_chest(en); break;
 		default: log_error("Missing building_setup case entry"); break;
 	}
 }
 
+// "Building as item" setup automation
+void setup_item_building(Entity* en, BuildingID building_id) {
+	en->arch = ARCH_item;
+	en->sprite_id = get_sprite_id_from_building(building_id);
+	en->is_item = true;
+	en->building_id = building_id;
+	en->item_id = building_id;
+	// en->render_sprite = true;
+}
 
 // :SETUP TOOL TEST ------------------------------------------------------------------------------------|
 
@@ -1762,7 +1736,7 @@ int entry(int argc, char **argv)
 
 	// :Create player entity
 	Entity* player_en = entity_create();
-	setup_player(player_en);
+	setup_player(player_en, v2(0, 0));
 
 	// setup forest test
 	BiomeData* forest = 0;
@@ -1869,6 +1843,7 @@ int entry(int argc, char **argv)
 
 					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
 
+					// :select entity
 					if (dist < entity_selection_radius) {
 						if (!world_frame.selected_entity || (dist < smallest_dist)) {
 							world_frame.selected_entity = en;
@@ -1953,7 +1928,7 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :player use || :player attack || :spawn item
+		// :player use || :attack || :spawn item
 		{
 			Entity* selected_en = world_frame.selected_entity;
 			bool allow_destroy = false;
@@ -1961,8 +1936,6 @@ int entry(int argc, char **argv)
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
 				if (selected_en) {
 					consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-					selected_en->health -= 1;
-					if (selected_en->health <= 0) {
 
 						// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
 						// and in the generateLoot func decide what loot table to use based on the passed arch 
@@ -1970,30 +1943,29 @@ int entry(int argc, char **argv)
 							case ARCH_tree: {
 								{
 									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_axe){
-										Entity* en = entity_create();
-										// setup_item_pine_wood(en);
-										setup_item(en, ITEM_pine_wood);
-										en->pos = selected_en->pos;
-										allow_destroy = true;
+										selected_en->health -= 1;
+										if (selected_en->health <= 0) {
+											Entity* en = entity_create();
+											// setup_item_pine_wood(en);
+											setup_item(en, ITEM_pine_wood);
+											en->pos = selected_en->pos;
+											allow_destroy = true;
+										}
 									}
-									else{
-										printf("WRONG TOOL\n");
-									}
+									else{printf("WRONG TOOL\n");}
 								}
 							} break;
 
 							case ARCH_rock: {
 								{
-									// Entity* en = entity_create();
-									// setup_item_rock(en);
-									// en->pos = selected_en->pos;
 									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
-										generateLoot(lootTable_rock, 0, selected_en->pos);
-										allow_destroy = true;
+										selected_en->health -= 1;
+										if (selected_en->health <= 0) {
+											generateLoot(lootTable_rock, 0, selected_en->pos);
+											allow_destroy = true;
+										}
 									}
-									else{
-										printf("WRONG TOOL\n");
-									}
+									else{printf("WRONG TOOL\n");}
 								}
 							} break;
 
@@ -2028,38 +2000,14 @@ int entry(int argc, char **argv)
 
 							case ARCH_building: {
 								{
-									// Entity* en = entity_create();
-									// setup_building(en, );
-									// setup_item(en, get_sprite_id_from_archetype(ARCH_building));
-									// en->pos = selected_en->pos;
-									log_error(":spawn item, building is WIP");
+									Entity* en = entity_create();
+									setup_item_building(en, selected_en->building_id);
+									printf("SELECTED EN BUILDING ID = %d\n", en->building_id);
+									en->pos = selected_en->pos;
 									allow_destroy = true;
+
 								}
 							}
-
-							// case ARCH_furnace: {
-							// 	{
-							// 		Entity* en = entity_create();
-							// 		setup_item_furnace(en);
-							// 		en->pos = selected_en->pos;
-							// 	}
-							// } break;
-
-							// case ARCH_workbench: {
-							// 	{
-							// 		Entity* en = entity_create();
-							// 		setup_item_workbench(en);
-							// 		en->pos = selected_en->pos;
-							// 	}
-							// } break;
-
-							// case ARCH_chest: {
-							// 	{
-							// 		Entity* en = entity_create();
-							// 		setup_item_chest(en);
-							// 		en->pos = selected_en->pos;
-							// 	}
-							// } break;
 
 							default: { } break;
 						}
@@ -2069,7 +2017,6 @@ int entry(int argc, char **argv)
 						}
 					}
 				}
-			}
 		}
 
 		// :Render entities
@@ -2080,6 +2027,7 @@ int entry(int argc, char **argv)
 
 					// :Render player
 					case ARCH_player: {
+						{
 							// render player
 							Sprite* sprite = get_sprite(en->sprite_id);
 							Matrix4 xform = m4_identity;
@@ -2100,6 +2048,7 @@ int entry(int argc, char **argv)
 
 								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
 							}
+						}
 
 					}
 
@@ -2107,47 +2056,53 @@ int entry(int argc, char **argv)
 					{
 						if (en->arch != ARCH_player){
 
+							float entity_dist = fabsf(v2_dist(en->pos, get_player_pos()));
 
-							Sprite* sprite = get_sprite(en->sprite_id);
-							Matrix4 xform = m4_scalar(1.0);
-							
-							// ITEM
-							if (en->is_item) {
-								xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down
+							if (entity_dist <= render_distance){
+
+								Sprite* sprite = get_sprite(en->sprite_id);
+								Matrix4 xform = m4_scalar(1.0);
 								
-								// shadow position
-								Vector2 position = en->pos;
-								position.x -= 3.5;
-								position.y -= 3.5;
+								// ITEM
+								if (en->is_item) {
+									xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down
+									
+									// shadow position
+									Vector2 position = en->pos;
+									position.x -= 3.5;
+									position.y -= 3.5;
+									
+									// item shadow
+									// draw_circle(position, v2(7.0, 7.0), v4(0.1, 0.1, 0.1, 0.5));
+									draw_circle(position, v2(7.0, 7.0), item_shadow_color);
+
+								}
 								
-								// item shadow
-								// draw_circle(position, v2(7.0, 7.0), v4(0.1, 0.1, 0.1, 0.5));
-								draw_circle(position, v2(7.0, 7.0), item_shadow_color);
+								// SPRITE
+								if (!en->is_item) {
+									xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
+								}
+								if (en->building_id){
+									printf("BUILDING\n");
+								}
 
+								xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+								xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+
+								Vector4 col = COLOR_WHITE;
+								if (world_frame.selected_entity == en){
+									col = v4(0.7, 0.7, 0.7, 1.0);
+								}
+
+								draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+
+								if (IS_DEBUG){
+									// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
+								}
+
+								break;
 							}
-							
-							// SPRITE
-							if (!en->is_item) {
-								xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
-							}
-
-							xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-							xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
-
-							Vector4 col = COLOR_WHITE;
-							if (world_frame.selected_entity == en){
-								col = v4(0.7, 0.7, 0.7, 1.0);
-							}
-
-							draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
-
-							if (IS_DEBUG){
-								// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
-							}
-
-							break;
 						}
-
 					}
 				}
 			}
