@@ -3,10 +3,13 @@
 bool IS_DEBUG = false;
 #define MAX_ENTITY_COUNT 1024
 
-bool print_fps = false;
+bool print_fps = true;
 bool enable_tooltip = true;
 bool render_hotbar = true;
-float render_distance = 150;
+float render_distance = 175;		// 170 is pretty good
+
+// PLAYER
+float player_speed = 50.0;			// pixels per second
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
 
@@ -17,8 +20,7 @@ const int tree_health = 5;
 const int bush_health = 1;
 const int tile_width = 8;
 
-// int icon_row_index = 1;
-
+// COLORS
 const Vector4 item_shadow_color = {0, 0, 0, 0.1};
 
 // rendering layers
@@ -579,6 +581,7 @@ Vector2 get_player_pos(){
 			return en.pos;
 		}
 	}
+	log_error("Couldn't get player pos\n");
 	return v2(0,0);
 }
 
@@ -1031,11 +1034,66 @@ void render_ui()
 						*dragging_now = *item;
 
 						if (dragging_now != NULL){
-							delete_item_from_inventory(dragging_now->item_id, dragging_now->amount);
-							printf("Deleted item '%s' from inventory\n", dragging_now->name);
+							printf("Deleted item '%s' from inventory\n", item->name);
+							printf("TEST ITEM AMOUNT %d\n", item->amount);
+							delete_item_from_inventory(item->item_id, item->amount);
 						}
 					}
 				}
+
+		// printf("DEBUG TIME\n");
+		// printf("Dragging_now:\nDRAGGING = %d\n", dragging);
+		// printf("Name = %s\n", dragging_now->name);
+		// printf("Amount = %d\n", dragging_now->amount);
+		
+		// printf("\n");
+
+		// printf("ITEM:\nDRAGGING = %d\n", dragging);
+		// printf("Name = %s\n", item->name);
+		// printf("Amount = %d\n", item->amount);
+
+		// printf("\n----------------------------------------------\n");
+		
+		
+		
+	
+// TODO: FIX
+/*
+	this is the terminal debug output when dragging ONLY pine wood (10) and releasing into inventory quickly
+	these prints come from under rendering ghost image below
+	wtf
+
+	Deleted item 'Pine wood' from inventory
+	TEST ITEM AMOUNT 10
+	DRAGGING NAME = Pine wood
+	DRAGGING NOW AMOUNT = 10
+	--------------
+	DRAGGING NAME = Pine wood
+	DRAGGING NOW AMOUNT = 10
+	--------------
+	DRAGGING NAME = Pine wood
+	DRAGGING NOW AMOUNT = 10
+	--------------
+	DRAGGING NAME = Pine wood
+	DRAGGING NOW AMOUNT = 10
+	--------------
+	Deleted item 'Pickaxe' from inventory
+	TEST ITEM AMOUNT 1
+	DRAGGING NAME = Pickaxe
+	DRAGGING NOW AMOUNT = 1
+	--------------
+	DRAGGING NAME = Pickaxe
+	DRAGGING NOW AMOUNT = 1
+	--------------
+	DRAGGING NAME = Pickaxe
+	DRAGGING NOW AMOUNT = 1
+	--------------
+	Deleted item 'AXE' from inventory
+	TEST ITEM AMOUNT 1
+	DRAGGING NAME = AXE
+	DRAGGING NOW AMOUNT = 1
+*/
+
 
 				// :DRAGGING
 				{
@@ -1058,7 +1116,10 @@ void render_ui()
 						draw_image_xform(icon_drag->image, xform2, get_sprite_size(icon_drag), COLOR_WHITE);
 
 
+						printf("DRAGGING NAME = %s\n", dragging_now->name);
 						printf("DRAGGING NOW AMOUNT = %d\n", dragging_now->amount);
+						printf("--------------\n");
+						
 
 						// draw item count
 						if (dragging_now != NULL && dragging_now->arch != ARCH_tool){
@@ -1436,8 +1497,8 @@ void render_ui()
 // }
 
 void create_trees(int amount, int range) {
-// Creates trees
-// Wont allow multiple trees to spawn in the same tile
+	// Creates trees
+	// Wont allow multiple trees to spawn in the same tile
 
 	Vector2 tree_positions[amount];
 
@@ -1715,11 +1776,13 @@ int entry(int argc, char **argv)
 
 	// window spawn position
 	window.x = window.width * 0.5 + 350;		// window.x = 200; // default value // +350 so i can see console
-	window.y = window.height * 0.5;		// window.y = 200; // default value
+	window.y = window.height * 0.5;				// window.y = 200; // default value
 
 	// bg color
 	window.clear_color = hex_to_rgba(0x43693aff);
 	// window.clear_color = v4(1,1,1,1);
+
+	// window.enable_vsync = true;
 
 	// Memory
 	world = alloc(get_heap_allocator(), sizeof(World));
@@ -1785,31 +1848,15 @@ int entry(int argc, char **argv)
 
 
 	// :TESTS
-	// if (IS_DEBUG)
 	{
-		// test adding items to inventory
 		{
-			// world->inventory_items[ARCH_item_pine_wood].amount = 5;
-			// world->inventory_items[ITEM_rock].amount = 5;
-			// world->inventory_items[ITEM_rock].name = STR("Rock");
-			// world->inventory_items[ITEM_rock].sprite_id = SPRITE_item_rock;
-
-			// world->inventory_items[ITEM_sprout].amount = 2;
-			// world->inventory_items[ITEM_sprout].name = STR("Sprout");
-			// world->inventory_items[ITEM_sprout].tool_id = TOOL_nil;
-			// world->inventory_items[ARCH_tool].amount = 1;
-			// world->inventory_items[TOOL_pickaxe].amount = 1;
-
-			// setup_tool(entity_create(), TOOL_pickaxe);
-
-
+			// test adding items to inventory
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
 			add_item_to_inventory(ITEM_TOOL_axe, STR("AXE"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
 			add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
 			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 
 		}
-
 		
 		// test adding furnace to world
 		{
@@ -1851,22 +1898,8 @@ int entry(int argc, char **argv)
 	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
 
 
-	{
-		// item_data[ITEM_rock] = (ItemData){ .pretty_name=STR("Rock"),};
-	}
-
-	// create entities (amount, range (from 0,0))
-	// create_rocks(25, 200);
-	// create_trees(100, 200);
-	// create_bushes(15, 200);
-	// create_twigs(5, 200);
-
-
 	// Player variables
-	float player_speed = 50.0;			// pixels per second
-	const float player_size_x = 10.0;	// player sprite size x (pixels)
-	const float player_size_y = 10.0;	// player sprite size y (pixels)
-	bool inventory_open = false;
+	// bool inventory_open = false;		// not in use
 	
 
 	// World variables
@@ -1959,12 +1992,13 @@ int entry(int argc, char **argv)
 			int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
 			int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
 			int tile_radius_x = 18;
-			int tile_radius_y = 10;
+			int tile_radius_y = 12;
 
 			for (int x = player_tile_x - tile_radius_x; x < player_tile_x + tile_radius_x; x++){
 				for (int y = player_tile_y - tile_radius_y; y < player_tile_y + tile_radius_y; y++){
 					if ((x +(y % 2 == 0) ) % 2 == 0) {
 						Vector4 col = v4(0.1, 0.1, 0.1, 0.1);
+						// Vector4 col = forest->grass_color;
 						float x_pos = x * tile_width;
 						float y_pos = y * tile_width;
 						if (x == mouse_tile_x && y == mouse_tile_y) {
@@ -2057,10 +2091,12 @@ int entry(int argc, char **argv)
 							case ARCH_rock: {
 								{
 									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
+										play_one_audio_clip(STR("res/sounds/metal_hit1.wav"));
 										selected_en->health -= 1;
 										if (selected_en->health <= 0) {
 											generateLoot(lootTable_rock, 0, selected_en->pos);
 											allow_destroy = true;
+											play_one_audio_clip(STR("res/sounds/rock_breaking1.wav"));
 										}
 									}
 									else{printf("WRONG TOOL\n");}
@@ -2145,6 +2181,12 @@ int entry(int argc, char **argv)
 								xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
 
 								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
+							}
+
+							// draw debug text
+							if (IS_DEBUG){
+								xform = m4_translate(xform, v3(-3.5, -3, 0));
+								draw_text_xform(font, STR("DEBUG"), font_height, xform, v2(0.1, 0.1), COLOR_RED);
 							}
 						}
 
@@ -2311,30 +2353,42 @@ int entry(int argc, char **argv)
 			}
 		}
 
-		if (is_key_just_pressed('H')){
-			delete_item_from_inventory(ITEM_rock, 1);
-		}
+		// if (is_key_just_pressed('H')){
+		// 	delete_item_from_inventory(ITEM_rock, 1);
+		// }
 
 		// Mousewheel ZOOM (debug for now)
-		if (IS_DEBUG){
-			for (u64 i = 0; i < input_frame.number_of_events; i++) {
-				Input_Event e = input_frame.events[i];
-				switch (e.kind) {
-					case (INPUT_EVENT_SCROLL):
-					{
-						if (e.yscroll > 0){
-							view_zoom -= 0.01;
-						}
+		// if (IS_DEBUG){
+		for (u64 i = 0; i < input_frame.number_of_events; i++) {
+			Input_Event e = input_frame.events[i];
+			switch (e.kind) {
+				case (INPUT_EVENT_SCROLL):
+				{
+					if (e.yscroll > 0){
+						if (IS_DEBUG){view_zoom -= 0.01;}
 						else{
-							view_zoom += 0.01;
+							selected_slot -= 1;
+							if (selected_slot < 0){
+								selected_slot = 8;
+							}
 						}
-						break;
 					}
-					case (INPUT_EVENT_KEY):{break;}
-					case (INPUT_EVENT_TEXT):{break;}
+					else{
+						if (IS_DEBUG){view_zoom += 0.01;}
+						else{
+							selected_slot += 1;
+							if (selected_slot > 8){
+								selected_slot = 0;
+							}
+						}
+					}
+					break;
 				}
+				case (INPUT_EVENT_KEY):{break;}
+				case (INPUT_EVENT_TEXT):{break;}
 			}
-		}
+			}
+		// }
 
 		// if (is_key_just_pressed('G')) {displayInventory(&player_inventory);}
 		if (is_key_just_pressed('G')) {generateLoot(lootTable_rock, 100, v2(0,0));}
