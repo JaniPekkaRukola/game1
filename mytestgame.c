@@ -3,9 +3,14 @@
 bool IS_DEBUG = false;
 #define MAX_ENTITY_COUNT 1024
 
+bool print_fps = false;
+bool enable_tooltip = true;
+bool render_hotbar = true;
 float render_distance = 150;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
+
+// health
 int player_health = 3;
 const int rock_health = 8;
 const int tree_health = 5;
@@ -27,7 +32,8 @@ u32 font_height = 48;
 float screen_width = 240.0;
 float screen_height = 135.0;
 int selected_slot = 0;
-Vector2 entity_positions[MAX_ENTITY_COUNT];
+// Vector2 entity_positions[MAX_ENTITY_COUNT]; // not in use
+bool dragging = false;
 
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
@@ -222,7 +228,7 @@ typedef enum SpriteID {
 
 	SPRITE_MAX,
 } SpriteID;
-
+Sprite* icon_drag = NULL;
 Sprite sprites[SPRITE_MAX];
 
 Sprite* get_sprite(SpriteID id) {
@@ -238,7 +244,13 @@ Sprite* get_sprite(SpriteID id) {
 }
 
 Vector2 get_sprite_size(Sprite* sprite) {
-	return (Vector2) {sprite->image->width, sprite->image->height};
+	if (sprite != NULL){
+		return (Vector2) {sprite->image->width, sprite->image->height};
+	}
+	else{
+		log_error("ERROR @ get_sprite_size. sprite is NULL\n");
+		return v2(0,0);
+	}
 }
 
 // ::TOOL DATA || ::TOOL ID -----------------------------|
@@ -277,6 +289,11 @@ typedef enum ItemID {
 	// tools (test)
 	ITEM_TOOL_pickaxe,
 	ITEM_TOOL_axe,
+
+	// buildings (test)
+	ITEM_BUILDING_furnace,
+	ITEM_BUILDING_workbench,
+	ITEM_BUILDING_chest,
 	
 	ITEM_MAX,
 } ItemID;
@@ -339,7 +356,13 @@ typedef struct InventoryItemData {
 	SpriteID sprite_id;
 	EntityArchetype arch;
 	ToolID tool_id;
+	ItemID item_id;
 } InventoryItemData;
+
+// InventoryItemData* dragging_now = NULL;		// when dragging the item is deleted from inventory and saved into this variable
+// InventoryItemData* item = &world->inventory_items[i]; // reference
+InventoryItemData* dragging_now;
+ 
 
 // ::BUILDINGS -----------------------------|
 // NOTE: randy: a 'resource' is a thing that we set up during startup, and is constant.
@@ -351,7 +374,7 @@ typedef enum BuildingID {
 	BUILDING_MAX,
 } BuildingID;
 
-typedef struct BuildingData {
+typedef struct BuildingData { 
 	EntityArchetype to_build;
 	SpriteID icon;
 	// BuildingID id;
@@ -361,7 +384,7 @@ typedef struct BuildingData {
 	// etc
 } BuildingData;
 
-BuildingID get_sprite_id_from_building(BuildingID building_id) {
+SpriteID get_sprite_id_from_building(BuildingID building_id) {
 	switch (building_id) {
 		case BUILDING_furnace: return SPRITE_building_furnace; break;
 		case BUILDING_workbench: return SPRITE_building_workbench; break;
@@ -374,6 +397,8 @@ typedef struct Entity {
 	bool is_valid;
 	EntityArchetype arch;
 	ItemID item_id;
+	BuildingID building_id;
+	ToolID tool_id;
 	Vector2 pos;
 	bool render_sprite;
 	SpriteID sprite_id;
@@ -381,7 +406,6 @@ typedef struct Entity {
 	bool destroyable;
 	bool is_item;
 	int rendering_prio;
-	BuildingID building_id;
 } Entity;
 
 
@@ -515,6 +539,16 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 	world->inventory_items[item].sprite_id = sprite_id;
 	world->inventory_items[item].tool_id = tool_id;
 	world->inventory_items[item].valid = valid;
+	world->inventory_items[item].item_id = item;
+}
+
+void add_item_to_inventory_quick(InventoryItemData* item){
+	if (item != NULL){
+		add_item_to_inventory(item->item_id, item->name, item->amount, item->arch, item->sprite_id, item->tool_id, item->valid);
+	}
+	else{
+		log_error("Failed to add item to inventory @ 'add_item_to_inventory_quick'\n");
+	}
 }
 
 void delete_item_from_inventory(ItemID item, int amount){
@@ -525,6 +559,7 @@ void delete_item_from_inventory(ItemID item, int amount){
 	else{
 		world->inventory_items[item].amount	-= amount;
 	}
+	dealloc(temp_allocator, &item);
 }
 
 
@@ -592,7 +627,7 @@ void entity_destroy(Entity* entity) {
 */
 
 // this wont really work if i separate tools and buildings into their own structures
-string get_archetype_name(EntityArchetype arch) {
+string get_archetype_name(ItemID arch) {
 	switch (arch) {
 		case ITEM_pine_wood: return STR("Pine Wood"); break;
 		case ITEM_rock: return STR("Rock"); break;
@@ -704,18 +739,21 @@ void setup_item(Entity* en, ItemID item_id) {
 
 // ----- ::SETUP building -----------------------------------------------------------------------------|
 void setup_item_furnace(Entity* en) {
-	en->arch = ITEM_furnace;
+	en->arch = ARCH_building;
+	en->building_id = BUILDING_furnace;
 	en->sprite_id = SPRITE_building_furnace;
 	en->is_item = true;
 }
 void setup_item_workbench(Entity* en) {
-	en->arch = ITEM_workbench;
+	en->arch = ARCH_building;
+	en->building_id = BUILDING_workbench;
 	en->sprite_id = SPRITE_building_workbench;
 	en->is_item = true;
 }
 
 void setup_item_chest(Entity* en) {
-	en->arch = ITEM_chest;
+	en->arch = ARCH_building;
+	en->building_id = BUILDING_chest;
 	en->sprite_id = SPRITE_building_chest;
 	en->is_item = true;
 }
@@ -762,7 +800,10 @@ void setup_item_building(Entity* en, BuildingID building_id) {
 	en->sprite_id = get_sprite_id_from_building(building_id);
 	en->is_item = true;
 	en->building_id = building_id;
-	en->item_id = building_id;
+	
+	// TODO: fix this
+	en->item_id = ITEM_BUILDING_furnace;
+
 	// en->render_sprite = true;
 }
 
@@ -773,7 +814,10 @@ void setup_tool(Entity* en, ToolID tool_id) {
 	en->arch = ARCH_item;
 	en->sprite_id = get_sprite_id_from_tool(tool_id);
 	en->is_item = true;
-	en->item_id = tool_id;
+
+	// TODO: fix this
+	// en->item_id = tool_id;
+	en->tool_id = tool_id;
 }
 
 
@@ -835,9 +879,10 @@ void set_world_space() {
 // :Render UI
 void render_ui()
 {
+	// InventoryItemData* dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
+
 	set_screen_space();
 	push_z_layer(layer_ui);
-	
 
 	// :Inventory UI || :Render Inventory UI
 
@@ -888,14 +933,22 @@ void render_ui()
 		}
 
 		// inventory background_box rendering
-		{
-			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, v3(x_start_pos, (y_start_pos - box_size_y) + icon_width + padding, 0.0));
-			draw_rect_xform(xform, v2(box_width, box_size_y), inventory_bg);
-		}
+		// {
+			Matrix4 xform_inventory_box = m4_identity;
+			xform_inventory_box = m4_translate(xform_inventory_box, v3(x_start_pos, (y_start_pos - box_size_y) + icon_width + padding, 0.0));
+			draw_rect_xform(xform_inventory_box, v2(box_width, box_size_y), inventory_bg);
+		// }
 
 		// inventory item rendering
 		for (int i = 0; i < ITEM_MAX; i++) {
+
+			Matrix4 xform = m4_identity;
+			Matrix4 xform2 = m4_identity;
+			Matrix4 box_bottom_right_xform = m4_identity;
+			Sprite* sprite = NULL;
+			Draw_Quad* quad = NULL;
+			float is_selected_alpha = 0.0;
+			Sprite* icon = NULL;
 
 			// when row is full, jump to next row
 			if (slot_index >= max_icons_per_row){
@@ -908,13 +961,16 @@ void render_ui()
 			if (item->amount > 0){
 				float slot_index_offset = slot_index * icon_width;
 
-				Matrix4 xform = m4_scalar(1.0);
+				// Matrix4 xform = m4_scalar(1.0);
+				xform = m4_identity;
 				float pos_x = (padding) + x_start_pos + slot_index_offset + (padding) * slot_index;
 				float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
 				xform = m4_translate(xform, v3(pos_x, pos_y, 0));
 
+				// get sprite
 				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
 
+				// update sprite if its a tool (temp solution)
 				if (item->arch == ARCH_tool){
 					sprite = get_sprite(item->sprite_id);
 				}
@@ -923,8 +979,7 @@ void render_ui()
 				// draw icon background
 				// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
 
-				float is_selected_alpha = 0.0;
-
+				// quad for checking if mouse is ontop item
 				Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
 				Range2f icon_box = quad_to_range(*quad);
 				if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
@@ -932,24 +987,116 @@ void render_ui()
 				}
 
 				// save xfrom for later when drawing item counts
-				Matrix4 box_bottom_right_xform = xform;
+				// Matrix4 box_bottom_right_xform = xform;
+				box_bottom_right_xform = xform;
 
 				// center sprite
 				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
 
+				// ITEM DRAGGING LOGIC:
+				// ------------------------------------------------------------------------------------------------|
+				// check if cursor is on item
+				// check if mouse1 clicked
+				//		- true: 
+				// 			- save item to another variable
+				// 			- delete original item
+				// 			- draw ghost item on cursor with item count
+				// 	check if mouse1 is released
+				// 		- true:
+				// 			- check if inside inventory
+				// 				- true
+				// 					put item back into inventory using the saved item
+				// 				- false
+				// 					spawn item on the world (next to player?) (cooldown on picking it up again?)
+				// 		- false:
+				// 			- continue dragging
+				// ------------------------------------------------------------------------------------------------|
 
 				// Item selected (HOVERING)
 				if (is_selected_alpha){
 					// Scale item
 					// float scale_adjust = 0.5 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
 					float scale_adjust = 1.5;
-					xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
+					Matrix4 xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
 
-					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+					// get the icon under cursor
+					icon_drag = get_sprite(item->sprite_id);
+
+					// start dragging item
+					if (is_key_down(MOUSE_BUTTON_LEFT)){	// this runs only once when mousebutton is pressed
 						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+						dragging = true;
+
+						// save the item to another variable (stfu)
+						*dragging_now = *item;
+
+						if (dragging_now != NULL){
+							delete_item_from_inventory(dragging_now->item_id, dragging_now->amount);
+							printf("Deleted item '%s' from inventory\n", dragging_now->name);
+						}
+					}
+				}
+
+				// :DRAGGING
+				{
+					if (dragging){
+						Vector2 mouse_pos_screen = get_mouse_pos_in_ndc();
+						mouse_pos_screen = v2(mouse_pos_screen.x * (0.5 * screen_width) + (0.5 * screen_width), mouse_pos_screen.y * (0.5 * screen_height) + (0.5 * screen_height));
+
+						xform2 = m4_identity;
+						xform2 = m4_translate(xform2, v3(mouse_pos_screen.x, mouse_pos_screen.y, 0));
+
+						Matrix4 box_bottom_right_xform2 = xform2;
+
+						box_bottom_right_xform2 = m4_translate(box_bottom_right_xform2, v3(get_sprite_size(icon_drag).x * -0.5, get_sprite_size(icon_drag).y * -0.5, 0));
+
+						// center icon sprite
+						xform2 = m4_translate(xform2, v3(get_sprite_size(icon_drag).x * -0.5, get_sprite_size(icon_drag).y * -0.5, 0));
+
+						// draw ghost image on cursor
+						Vector4 color = v4(1, 1, 1, 0.7);
+						draw_image_xform(icon_drag->image, xform2, get_sprite_size(icon_drag), COLOR_WHITE);
+
+
+						printf("DRAGGING NOW AMOUNT = %d\n", dragging_now->amount);
+
+						// draw item count
+						if (dragging_now != NULL && dragging_now->arch != ARCH_tool){
+							draw_text_xform(font, sprint(temp_allocator, STR("%d"), dragging_now->amount), 40, box_bottom_right_xform2, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+						}
+
+						if (is_key_up(MOUSE_BUTTON_LEFT)){
+							// quad for checking if mouse is ontop item
+							Draw_Quad* quad_inventory_box = draw_rect_xform(xform_inventory_box, v2(box_width, box_size_y), v4(0,0,0,0));
+							Range2f range_inventory_box = quad_to_range(*quad_inventory_box);
+
+							// check if released into inventory
+							if (range2f_contains(range_inventory_box, get_mouse_pos_in_ndc())) {
+								printf("RELEASED INTO INVENTORY\n");
+								add_item_to_inventory_quick(dragging_now);
+								printf("Added item '%s' into inventory\n", dragging_now->name);
+								// dragging_now = NULL;
+								dragging = false;
+							}
+							else{
+								printf("RELEASED INTO WORLD\n");
+								// dragging_now = NULL;
+								dragging = false;
+							}
+						}
+
 					}
 
 				}
+
+				// end dragging item
+				if (is_key_up(MOUSE_BUTTON_LEFT)){
+					dragging = false;
+					// dragging_now = NULL;
+				}
+
+
+
 				// prevent clicking entities under the inventory (WIP)
 				// TODO: needs to calculate if cursor is in the inventory box
 				// else{
@@ -972,9 +1119,12 @@ void render_ui()
 				// 	xform = m4_rotate_z(xform, rotation_adjust);
 				// }
 
+				sprite = get_sprite(get_sprite_id_from_item(i));
+				if (item->arch == ARCH_tool){
+					sprite = get_sprite(item->sprite_id);
+				}
 
 				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
-
 
 				// draw sprite
 				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
@@ -986,8 +1136,17 @@ void render_ui()
 				}
 
 				// tooltip
+				if (enable_tooltip)
 				{
 					if (is_selected_alpha){
+
+
+						float slot_index_offset = slot_index * icon_width;
+						Matrix4 xform = m4_identity;
+						float pos_x = (padding) + x_start_pos + slot_index_offset + (padding) * slot_index;
+						float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
+						xform = m4_translate(xform, v3(pos_x, pos_y, 0));
+						Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
 						
 						Draw_Quad screen_quad = ndc_quad_to_screen_quad(*quad);
 						Range2f screen_range = quad_to_range(screen_quad);
@@ -996,12 +1155,12 @@ void render_ui()
 						// icon_center
 						Vector2 tooltip_box_size = v2(40, 20);
 
-						Matrix4 xform = m4_scalar(1.0);
-						xform = m4_translate(xform, v3(tooltip_box_size.x * -0.5, -tooltip_box_size.y - icon_width * 0.5 - padding * 0.5, 0));
-						xform = m4_translate(xform, v3(icon_center.x, icon_center.y, 0));
+						Matrix4 xform_tooltip = m4_identity;
+						xform_tooltip = m4_translate(xform_tooltip, v3(tooltip_box_size.x * -0.5, -tooltip_box_size.y - icon_width * 0.5 - padding * 0.5, 0));
+						xform_tooltip = m4_translate(xform_tooltip, v3(icon_center.x, icon_center.y, 0));
 
 						// tooltip bg box
-						draw_rect_xform(xform, tooltip_box_size, tooltip_bg);
+						draw_rect_xform(xform_tooltip, tooltip_box_size, tooltip_bg);
 
 						// string txt = STR("%s");
 						string title = sprint(temp_allocator, STR("%s"), get_archetype_name(i));
@@ -1125,7 +1284,7 @@ void render_ui()
 
 
 	// :Render Hotbar || :Hotbar
-	// if (IS_DEBUG)
+	if (render_hotbar)
 	{
 		float icon_width = 8.0;
 		float slot_size = 8.0;
@@ -1258,93 +1417,6 @@ void render_ui()
 
 
 
-/*
-		// test
-		// get all items into a list
-		// ItemData* itemList = NULL;
-		// itemList = alloc(get_heap_allocator(), sizeof(ARCH_MAX));
-
-		// for (int i = 0; i < ARCH_MAX; i++) {
-		// 	ItemData* item = &world->inventory_items[i];
-		// 	if (item->amount > 0){
-		// 		itemList[i] = item;
-		// 	}
-		// 	// printf("ADDED %s to itemlist\n", world->inventory_items[i].name);
-		// }
-		// dealloc(get_heap_allocator(), itemList);
-
-		// Draw hotbar
-		float pos_y = 2;
-		for (int i = 0; i < slot_count; i++) {
-
-			float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
-			pos_x += (slot_size * i);
-			pos_x += padding * (i+1);
-
-			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
-
-			Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
-			xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
-
-			// draw hotbar border
-			draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
-			// draw hotbar slot
-			draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
-
-			// draw icons
-			// for (int archetype_num = 0; archetype_num < ARCH_MAX; archetype_num++) {
-				// ItemData* item = &world->inventory_items[archetype_num];
-				ItemData* item = &world->inventory_items[i];
-				// Sprite* sprite = get_sprite(get_sprite_id_from_archetype(archetype_num));
-				Sprite* sprite = get_sprite(get_sprite_id_from_archetype(i));
-
-
-				// this is for interacting with the hotbar using the mouse cursor
-				// Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
-				// Range2f icon_box = quad_to_range(*quad);
-				// if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
-				// 	is_selected_alpha = true;
-				// }
-				// Item selected (HOVERING)
-				// if (is_selected_alpha){
-				// 	// Scale item
-				// 	// float scale_adjust = 0.5 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
-				// 	float scale_adjust = 1.5;
-				// 	xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
-
-
-				// }
-
-
-				// save xfrom for later when drawing item counts
-				// Matrix4 box_bottom_right_xform = xform;
-
-
-				// center sprite
-				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
-
-				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
-
-
-				// draw sprite
-				if (item->amount > 0){
-					draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-				}
-
-
-				// solutions:
-				// either save all the xforms and draw icons later
-				// or fix the whole inventory order shit
-
-
-
-				// draw item count
-				// draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
-			// }
-
-		}
-*/
 	}
 
 	set_world_space();
@@ -1354,14 +1426,14 @@ void render_ui()
 // ----- ::Create entities -----------------------------------------------------------------------------|
 
 
-void define_entity_positions(int range){
-	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-		float x = get_random_float32_in_range(-range, range);
-		float y = get_random_float32_in_range(-range, range);
-		entity_positions[i].x = x;
-		entity_positions[i].y = y;
-	}
-}
+// void define_entity_positions(int range){
+// 	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+// 		float x = get_random_float32_in_range(-range, range);
+// 		float y = get_random_float32_in_range(-range, range);
+// 		entity_positions[i].x = x;
+// 		entity_positions[i].y = y;
+// 	}
+// }
 
 void create_trees(int amount, int range) {
 // Creates trees
@@ -1545,7 +1617,7 @@ LootTable* createLootTable() {
 }
 
 // void addItemToLootTable(LootTable *table, const char *name, float baseDropChance) {
-void addItemToLootTable(LootTable *table, string *name, EntityArchetype id, float baseDropChance) {
+void addItemToLootTable(LootTable *table, string *name, ItemID id, float baseDropChance) {
     // LootItem *newItem = (LootItem *)malloc(sizeof(LootItem));
 	LootItem *newItem = alloc(get_heap_allocator(), sizeof(LootItem));
 
@@ -1732,15 +1804,9 @@ int entry(int argc, char **argv)
 
 
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
-			add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-			
-
-			world->inventory_items[ITEM_TOOL_axe].amount = 1;
-			world->inventory_items[ITEM_TOOL_axe].arch = ARCH_tool;
-			world->inventory_items[ITEM_TOOL_axe].name = STR("Axe");
-			world->inventory_items[ITEM_TOOL_axe].sprite_id = SPRITE_tool_axe;
-			world->inventory_items[ITEM_TOOL_axe].tool_id = TOOL_axe;
-			world->inventory_items[ITEM_TOOL_axe].valid = true;
+			add_item_to_inventory(ITEM_TOOL_axe, STR("AXE"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
+			add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 
 		}
 
@@ -1757,6 +1823,7 @@ int entry(int argc, char **argv)
 	}
 
 
+	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
 
 
@@ -1860,7 +1927,8 @@ int entry(int argc, char **argv)
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
 			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
 
-			float smallest_dist = INFINITY;
+			// float smallest_dist = INFINITY; // compiler gives a warning
+			float smallest_dist = 9999999;
 
 
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++){
@@ -2306,7 +2374,9 @@ int entry(int argc, char **argv)
 		seconds_counter += delta_t;
 		frame_count += 1;
 		if (seconds_counter > 1.0){
-			log("fps: %i", frame_count);
+			if (print_fps){
+				log("fps: %i", frame_count);
+			}
 			seconds_counter = 0.0;
 			frame_count = 0;
 		}
