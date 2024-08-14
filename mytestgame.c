@@ -3,7 +3,7 @@
 bool IS_DEBUG = false;
 #define MAX_ENTITY_COUNT 1024
 
-bool print_fps = true;
+bool print_fps = false;
 bool enable_tooltip = true;
 bool render_hotbar = true;
 float render_distance = 175;		// 170 is pretty good
@@ -180,6 +180,34 @@ Vector2 round_v2_to_tile(Vector2 world_pos) {
 	world_pos.y = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.y));
 	return world_pos;
 }
+
+
+
+// ::AUDIO ---------------------------|
+typedef struct Audio {
+	Audio_Source source;
+	string name;
+	string path;
+	bool ok;
+	// AudioID id;
+} Audio;
+
+typedef enum AudioID{
+	AUDIO_nil,
+
+	AUDIO_hit_metal1,
+	AUDIO_hit_metal2,
+	AUDIO_rock_breaking1,
+
+
+	// swings
+	AUDIO_swing_slow,
+
+
+	AUDIO_MAX,
+} AudioID;
+
+Audio audioFiles[AUDIO_MAX];
 
 // ::SPRITE ---------------------------|
 typedef struct Sprite {
@@ -1764,6 +1792,13 @@ void generateLoot(LootTable* table, float luckModifier, Vector2 pos) {
 // }
 
 
+// :Audio player ----------------------------------|
+void setup_audio_player(){
+	Audio_Playback_Config config = {0};
+	config.volume                = 0.5;
+	config.playback_speed        = 1.0;
+	config.enable_spacialization = true;
+}
 
 
 // ----- SETUP -----------------------------------------------------------------------------------------|
@@ -1788,9 +1823,14 @@ int entry(int argc, char **argv)
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
 
+	// Audio
+	Audio_Player *audio_player = audio_player_get_one();
+
 	// Font
 	font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
 	assert(font, "Failed loading arial.ttf, %d", GetLastError());
+
+	// :LOAD RESOURCES --------------------------------->
 
 	// :Load entity sprites
 	sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
@@ -1818,6 +1858,8 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_item_fossil0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil0.png"), get_heap_allocator())};
 	sprites[SPRITE_item_fossil1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil1.png"), get_heap_allocator())};
 	sprites[SPRITE_item_fossil2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil2.png"), get_heap_allocator())};
+
+	// :Load tool sprites
 	sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
 	sprites[SPRITE_tool_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
 
@@ -1826,23 +1868,42 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_building_workbench] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_workbench.png"), get_heap_allocator())};
 	sprites[SPRITE_building_chest] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_chest.png"), get_heap_allocator())};
 
-	// @ship debug this off (by: randy)
+	// assert all sprites		@ship debug this off (by: randy)
 	{
 		// crash when image fails to be setup properly (by: randy)
-			// not working for me (- jani)
-		// for (SpriteID i = 0; i < SPRITE_MAX; i++) {
-		// 	Sprite* sprite = &sprites[i];
-		// 	assert(sprite->image, "Sprite was not setup correctly");
-		// }
+		for (SpriteID i = 0; i < SPRITE_MAX; i++) {
+			Sprite* sprite = &sprites[i];
+			assert(sprite->image, "Sprite was not setup correctly");
+		}
 	}
+
+
+	Audio_Source hit_metal1, hit_metal2, rock_breaking1, swing_slow;
+
+	// :Load audio
+	audioFiles[AUDIO_hit_metal1] = (Audio){.name=STR("Hit metal 1"),.ok=audio_open_source_load(&hit_metal1, STR("res/sounds/hit_metal1.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal1.wav"),.source=hit_metal1};
+	audioFiles[AUDIO_hit_metal2] = (Audio){.name=STR("Hit metal 2"),.ok=audio_open_source_load(&hit_metal2, STR("res/sounds/hit_metal2.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal2.wav"),.source=hit_metal2};
+	audioFiles[AUDIO_rock_breaking1] = (Audio){.name=STR("Rock Breaking 1"),.ok=audio_open_source_load(&rock_breaking1, STR("res/sounds/rock_breaking1.wav"), get_heap_allocator()),.path=STR("res/sounds/rock_breaking1.wav"),.source=rock_breaking1};
+	audioFiles[AUDIO_swing_slow] = (Audio){.name=STR("Swing slow"),.ok=audio_open_source_load(&swing_slow, STR("res/sounds/swing_slow.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_slow.wav"),.source=swing_slow};
+
+	// assert all audio files		@ship debug this off (by: jani)
+	{
+		for (AudioID i = 1; i < AUDIO_MAX; i++) {
+			Audio* audio = &audioFiles[i];
+			assert(audio->ok, "Audio was not setup correctly: '%s'", audio->name);
+			log_verbose("Audio file set up '%s'", audio->name);
+		}
+	}
+
 
 	// Building resource setup
 	{
-		// buildings[0] = ;
 		buildings[BUILDING_furnace] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_furnace};
 		buildings[BUILDING_workbench] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_workbench};
 		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_chest};
 	}
+
+
 
 
 
@@ -1872,7 +1933,7 @@ int entry(int argc, char **argv)
 
 	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
-
+	setup_audio_player();
 
 	// :INIT
 
@@ -2060,7 +2121,7 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :player use || :attack || :spawn item
+		// :player attack || :use || :spawn item
 		{
 			Entity* selected_en = world_frame.selected_entity;
 			bool allow_destroy = false;
@@ -2070,7 +2131,9 @@ int entry(int argc, char **argv)
 					consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 
 						// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
-						// and in the generateLoot func decide what loot table to use based on the passed arch 
+						// and in the generateLoot func decide what loot table to use based on the passed arch
+						if (selected_item != NULL){
+
 						switch (selected_en->arch) {
 							case ARCH_tree: {
 								{
@@ -2091,12 +2154,16 @@ int entry(int argc, char **argv)
 							case ARCH_rock: {
 								{
 									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
-										play_one_audio_clip(STR("res/sounds/metal_hit1.wav"));
+
+										Vector3 pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
+										play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, pos);
+										play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);
+
 										selected_en->health -= 1;
 										if (selected_en->health <= 0) {
 											generateLoot(lootTable_rock, 0, selected_en->pos);
 											allow_destroy = true;
-											play_one_audio_clip(STR("res/sounds/rock_breaking1.wav"));
+											play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, pos);
 										}
 									}
 									else{printf("WRONG TOOL\n");}
@@ -2145,6 +2212,8 @@ int entry(int argc, char **argv)
 
 							default: { } break;
 						}
+						}	// selected_item != NULL
+
 
 						if (allow_destroy){
 							entity_destroy(selected_en);
@@ -2392,6 +2461,7 @@ int entry(int argc, char **argv)
 
 		// if (is_key_just_pressed('G')) {displayInventory(&player_inventory);}
 		if (is_key_just_pressed('G')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+		if (is_key_just_pressed('E')) {setup_audio_player();}
 
 
 		// numbers
