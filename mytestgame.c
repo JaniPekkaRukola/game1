@@ -505,6 +505,27 @@ typedef struct World {
 
 World* world = 0;
 
+// add item to inventory. eg:
+// 		add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
+// 		add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid){
+	world->inventory_items[item].name = name;
+	world->inventory_items[item].amount = amount;
+	world->inventory_items[item].arch = arch;
+	world->inventory_items[item].sprite_id = sprite_id;
+	world->inventory_items[item].tool_id = tool_id;
+	world->inventory_items[item].valid = valid;
+}
+
+void delete_item_from_inventory(ItemID item, int amount){
+	if (world->inventory_items[item].amount <= 0){
+		world->inventory_items[item].amount = 0;
+		printf("Cant delete anymore items '(%s)' from inventory\n", world->inventory_items[item].name);
+	}
+	else{
+		world->inventory_items[item].amount	-= amount;
+	}
+}
 
 
 typedef struct WorldFrame {
@@ -924,21 +945,31 @@ void render_ui()
 					float scale_adjust = 1.5;
 					xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
 
+					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+					}
 
 				}
+				// prevent clicking entities under the inventory (WIP)
+				// TODO: needs to calculate if cursor is in the inventory box
+				// else{
+				// 	if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+				// 		consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+				// 	}
+				// }
+
 
 				// item bobbing
 				// {
 				// 	float scale_adjust = 0.1 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
 				// 	xform = m4_scale(xform, v3(1 + scale_adjust, 1 + scale_adjust, 1));
-
 				// }
+
 
 				// rotation
 				// {
 				// 	float rotation_adjust = 0.25 * PI32 * sin_breathe(os_get_current_time_in_seconds(), 1.0);
 				// 	xform = m4_rotate_z(xform, rotation_adjust);
-
 				// }
 
 
@@ -1698,13 +1729,12 @@ int entry(int argc, char **argv)
 			// world->inventory_items[TOOL_pickaxe].amount = 1;
 
 			// setup_tool(entity_create(), TOOL_pickaxe);
-			world->inventory_items[ITEM_TOOL_pickaxe].amount = 1;
-			world->inventory_items[ITEM_TOOL_pickaxe].arch = ARCH_tool;
-			world->inventory_items[ITEM_TOOL_pickaxe].name = STR("Pickaxe");
-			world->inventory_items[ITEM_TOOL_pickaxe].sprite_id = SPRITE_tool_pickaxe;
-			world->inventory_items[ITEM_TOOL_pickaxe].tool_id = TOOL_pickaxe;
-			world->inventory_items[ITEM_TOOL_pickaxe].valid = true;
+
+
+			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
+			add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
 			
+
 			world->inventory_items[ITEM_TOOL_axe].amount = 1;
 			world->inventory_items[ITEM_TOOL_axe].arch = ARCH_tool;
 			world->inventory_items[ITEM_TOOL_axe].name = STR("Axe");
@@ -2211,6 +2241,10 @@ int entry(int argc, char **argv)
 			else{
 				IS_DEBUG = true;
 			}
+		}
+
+		if (is_key_just_pressed('H')){
+			delete_item_from_inventory(ITEM_rock, 1);
 		}
 
 		// Mousewheel ZOOM (debug for now)
