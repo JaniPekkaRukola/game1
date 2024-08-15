@@ -202,6 +202,7 @@ typedef enum AudioID{
 
 	// swings
 	AUDIO_swing_slow,
+	AUDIO_swing_fast,
 
 
 	AUDIO_MAX,
@@ -538,6 +539,7 @@ typedef enum UXState {
 	UX_inventory,
 	UX_building,
 	UX_place_mode,
+	UX_chest,
 	// UX_map,
 	// UX_settings,
 	// UX_menu,
@@ -554,6 +556,8 @@ typedef struct World {
 	float inventory_alpha_target;
 	float building_menu_alpha;
 	float building_menu_alpha_target;
+	float chest_alpha;
+	float chest_alpha_target;
 	BuildingID placing_building;
 } World;
 
@@ -796,6 +800,7 @@ void setup_building(Entity* en, BuildingID id) {
 			{
 				en->arch = ARCH_building;
 				en->sprite_id = SPRITE_building_furnace;
+				en->building_id = id;
 				en->is_item = false;
 				en->destroyable = true;
 				en->health = 3;
@@ -806,6 +811,7 @@ void setup_building(Entity* en, BuildingID id) {
 			{
 				en->arch = ARCH_building;
 				en->sprite_id = SPRITE_building_workbench;
+				en->building_id = id;
 				en->is_item = false;
 				en->destroyable = true;
 				en->health = 3;
@@ -815,6 +821,7 @@ void setup_building(Entity* en, BuildingID id) {
 			{
 				en->arch = ARCH_building;
 				en->sprite_id = SPRITE_building_chest;
+				en->building_id = id;
 				en->is_item = false;
 				en->destroyable = true;
 				en->health = 3;
@@ -915,7 +922,7 @@ void render_ui()
 	set_screen_space();
 	push_z_layer(layer_ui);
 
-	// :Inventory UI || :Render Inventory UI
+	// NOTE: should this (the inventory rendering) be put into a scope?
 
 	// open inventory
 	if (is_key_just_pressed(KEY_TAB)) {
@@ -928,6 +935,7 @@ void render_ui()
 	bool is_inventory_enabled = world->inventory_alpha_target == 1.0;
 
 	// if (world->inventory_alpha != 0.0)
+	// :Inventory UI || :Render Inventory UI
 	if (world->inventory_alpha_target != 0.0) // temp line for instant opening of the inventory, since global draw frame alpha is not a thing (yet)
 	{
 
@@ -1085,42 +1093,42 @@ void render_ui()
 		
 		
 	
-// TODO: FIX
-/*
-	this is the terminal debug output when dragging ONLY pine wood (10) and releasing into inventory quickly
-	these prints come from under rendering ghost image below
-	wtf
+			// TODO: FIX
+			/*
+				this is the terminal debug output when dragging ONLY pine wood (10) and releasing into inventory quickly
+				these prints come from under rendering ghost image below
+				wtf
 
-	Deleted item 'Pine wood' from inventory
-	TEST ITEM AMOUNT 10
-	DRAGGING NAME = Pine wood
-	DRAGGING NOW AMOUNT = 10
-	--------------
-	DRAGGING NAME = Pine wood
-	DRAGGING NOW AMOUNT = 10
-	--------------
-	DRAGGING NAME = Pine wood
-	DRAGGING NOW AMOUNT = 10
-	--------------
-	DRAGGING NAME = Pine wood
-	DRAGGING NOW AMOUNT = 10
-	--------------
-	Deleted item 'Pickaxe' from inventory
-	TEST ITEM AMOUNT 1
-	DRAGGING NAME = Pickaxe
-	DRAGGING NOW AMOUNT = 1
-	--------------
-	DRAGGING NAME = Pickaxe
-	DRAGGING NOW AMOUNT = 1
-	--------------
-	DRAGGING NAME = Pickaxe
-	DRAGGING NOW AMOUNT = 1
-	--------------
-	Deleted item 'AXE' from inventory
-	TEST ITEM AMOUNT 1
-	DRAGGING NAME = AXE
-	DRAGGING NOW AMOUNT = 1
-*/
+				Deleted item 'Pine wood' from inventory
+				TEST ITEM AMOUNT 10
+				DRAGGING NAME = Pine wood
+				DRAGGING NOW AMOUNT = 10
+				--------------
+				DRAGGING NAME = Pine wood
+				DRAGGING NOW AMOUNT = 10
+				--------------
+				DRAGGING NAME = Pine wood
+				DRAGGING NOW AMOUNT = 10
+				--------------
+				DRAGGING NAME = Pine wood
+				DRAGGING NOW AMOUNT = 10
+				--------------
+				Deleted item 'Pickaxe' from inventory
+				TEST ITEM AMOUNT 1
+				DRAGGING NAME = Pickaxe
+				DRAGGING NOW AMOUNT = 1
+				--------------
+				DRAGGING NAME = Pickaxe
+				DRAGGING NOW AMOUNT = 1
+				--------------
+				DRAGGING NAME = Pickaxe
+				DRAGGING NOW AMOUNT = 1
+				--------------
+				Deleted item 'AXE' from inventory
+				TEST ITEM AMOUNT 1
+				DRAGGING NAME = AXE
+				DRAGGING NOW AMOUNT = 1
+			*/
 
 
 				// :DRAGGING
@@ -1305,7 +1313,7 @@ void render_ui()
 				float x0 = (screen_width * 0.5) - (total_box_width * 0.5);
 				x0 += (id-1) * icon_size;
 				x0 += padding * (id);
-				xform = m4_translate(xform, v3(x0, 0 + 10, 0));
+				xform = m4_translate(xform, v3(x0, 0 + 15, 0));
 
 				Sprite* icon = get_sprite(building->icon);
 
@@ -1512,17 +1520,114 @@ void render_ui()
 	pop_z_layer();
 }
 
+// :Chest UI || :Render Chest UI
+void render_chest_ui()
+{
+
+	// chest size variables
+	const int max_slots_row = 9;
+	const int max_slots_col = 4;
+	const int slot_size = 8;
+	const int padding = 2;
+	int slot_index = 0;
+	int row_index = 0;
+
+	// const Vector2 chest_ui_size = v2(200, 100);
+	const Vector2 chest_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
+	Vector2 chest_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
+	chest_ui_pos = v2(chest_ui_pos.x - (chest_ui_size.x * 0.5), chest_ui_pos.y - (chest_ui_size.y * 0.5));
+	float slot_border_width = 1;
+
+	const float x_start_pos = chest_ui_pos.x;
+	const float y_start_pos = chest_ui_pos.y;
+
+	// Colors
+	Vector4 chest_bg = v4(0.25, 0.25, 0.25, 0.7);
+	Vector4 slot_border_color = v4(1, 1, 1, 0.7);
+	// Vector4 slot_color = v4(1, 1, 1, 0.7);
+
+	set_screen_space();
+	push_z_layer(layer_ui);
+
+	// close chest
+	if (world->ux_state == UX_chest){
+		if (is_key_just_pressed(KEY_ESCAPE)){
+			world->ux_state = UX_nil;
+		}
+	}
+
+
+	// open chest
+	if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
+		consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+
+		Entity* selected_en = world_frame.selected_entity;
+		if (selected_en != NULL && selected_en->building_id == BUILDING_chest){
+			// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
+			world->ux_state = UX_chest;
+		}
+	}
+
+	world->chest_alpha_target = (world->ux_state == UX_chest ? 1.0 : 0.0);
+	animate_f32_to_target(&world->chest_alpha, world->chest_alpha_target, delta_t, 15.0);
+	bool is_chest_enabled = world->chest_alpha_target == 1.0;
+
+	if (world->chest_alpha_target != 0.0)
+	{
+		Matrix4 xform = m4_identity;
+		xform = m4_translate(xform, v3(chest_ui_pos.x, chest_ui_pos.y, 0));
+		// xform = m4_scale(xform, v3(chest_ui_size.x, chest_ui_size.y, 0));
+
+		// draw background
+		draw_rect_xform(xform, v2(chest_ui_size.x, chest_ui_size.y), chest_bg);
+
+		// draw slots
+		for (int i = 0; i < max_slots_row* max_slots_col; i++){
+
+			Matrix4 xform_slot = m4_identity;
+			float x_pos = x_start_pos + (slot_index * slot_size) + (slot_index * padding) + padding;
+			float y_pos = y_start_pos + (row_index * slot_size) + (row_index * padding) + padding;
+
+			// translate xform
+			xform_slot = m4_translate(xform_slot, v3(x_pos, y_pos, 0));
+
+			// draw slot border
+			draw_rect_xform(xform_slot, v2(slot_size, slot_size), slot_border_color);
+
+			// draw slot
+			xform_slot = m4_translate(xform_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0));
+			draw_rect_xform(xform_slot, v2(slot_size - slot_border_width, slot_size - slot_border_width), chest_bg);
+
+			slot_index++;
+			if (slot_index >= max_slots_row){
+				row_index++;
+				slot_index = 0;
+			}
+
+		}
+
+	}
+
+
+	// world->ux_state;
+
+	set_world_space();
+	pop_z_layer();
+}
+
+
 // ----- ::Create entities -----------------------------------------------------------------------------|
 
-
-// void define_entity_positions(int range){
-// 	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-// 		float x = get_random_float32_in_range(-range, range);
-// 		float y = get_random_float32_in_range(-range, range);
-// 		entity_positions[i].x = x;
-// 		entity_positions[i].y = y;
-// 	}
-// }
+/*
+	// void define_entity_positions(int range){
+	// 	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+	// 		float x = get_random_float32_in_range(-range, range);
+	// 		float y = get_random_float32_in_range(-range, range);
+	// 		entity_positions[i].x = x;
+	// 		entity_positions[i].y = y;
+	// 	}
+	// }
+*/
 
 void create_trees(int amount, int range) {
 	// Creates trees
@@ -1878,13 +1983,14 @@ int entry(int argc, char **argv)
 	}
 
 
-	Audio_Source hit_metal1, hit_metal2, rock_breaking1, swing_slow;
+	Audio_Source hit_metal1, hit_metal2, rock_breaking1, swing_slow, swing_fast;
 
 	// :Load audio
 	audioFiles[AUDIO_hit_metal1] = (Audio){.name=STR("Hit metal 1"),.ok=audio_open_source_load(&hit_metal1, STR("res/sounds/hit_metal1.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal1.wav"),.source=hit_metal1};
 	audioFiles[AUDIO_hit_metal2] = (Audio){.name=STR("Hit metal 2"),.ok=audio_open_source_load(&hit_metal2, STR("res/sounds/hit_metal2.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal2.wav"),.source=hit_metal2};
 	audioFiles[AUDIO_rock_breaking1] = (Audio){.name=STR("Rock Breaking 1"),.ok=audio_open_source_load(&rock_breaking1, STR("res/sounds/rock_breaking1.wav"), get_heap_allocator()),.path=STR("res/sounds/rock_breaking1.wav"),.source=rock_breaking1};
 	audioFiles[AUDIO_swing_slow] = (Audio){.name=STR("Swing slow"),.ok=audio_open_source_load(&swing_slow, STR("res/sounds/swing_slow.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_slow.wav"),.source=swing_slow};
+	audioFiles[AUDIO_swing_fast] = (Audio){.name=STR("Swing fast"),.ok=audio_open_source_load(&swing_fast, STR("res/sounds/swing_fast.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_fast.wav"),.source=swing_fast};
 
 	// assert all audio files		@ship debug this off (by: jani)
 	{
@@ -1919,14 +2025,20 @@ int entry(int argc, char **argv)
 
 		}
 		
-		// test adding furnace to world
+		// test adding buildings to world
 		{
-			
+			// FURNACE:
 			// setup furnace
 			// Entity* en = entity_create();
 			// setup_furnace(en);
 			// en->pos = v2(-25, 0);
 			// en->pos = round_v2_to_tile(en->pos);
+
+			// CHEST:
+			Entity* en = entity_create();
+			setup_building(en, BUILDING_chest);
+			en->pos = v2(-20, 0);
+			en->pos = round_v2_to_tile(en->pos);
 		}
 	}
 
@@ -2015,6 +2127,8 @@ int entry(int argc, char **argv)
 		// Render ui
 		render_ui();
 
+
+
 		// :Entity selection
 		if (!world_frame.hover_consumed)
 		{	
@@ -2045,7 +2159,11 @@ int entry(int argc, char **argv)
 				}
 			}
 		}
-				
+
+		// render chest ui
+		render_chest_ui();
+
+
 		// :Render grid (:Grid)
 		if (draw_grid)
 		{	
@@ -2127,17 +2245,32 @@ int entry(int argc, char **argv)
 			bool allow_destroy = false;
 
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
+
+				// swing sound
+				switch (selected_item->tool_id){
+					case TOOL_pickaxe:{play_one_audio_clip(audioFiles[AUDIO_swing_fast].path);}break;
+					case TOOL_axe:{play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);}break;
+					default:{}break;
+				}
+
 				if (selected_en) {
 					consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 
 						// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
 						// and in the generateLoot func decide what loot table to use based on the passed arch
 						if (selected_item != NULL){
+						
+						// get entity pos (for playing audio at position)
+						Vector3 audio_pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
+
 
 						switch (selected_en->arch) {
 							case ARCH_tree: {
 								{
 									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_axe){
+
+										// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_wood1].path, audio_pos);
+
 										selected_en->health -= 1;
 										if (selected_en->health <= 0) {
 											Entity* en = entity_create();
@@ -2145,6 +2278,7 @@ int entry(int argc, char **argv)
 											setup_item(en, ITEM_pine_wood);
 											en->pos = selected_en->pos;
 											allow_destroy = true;
+											// play_one_audio_clip_at_position(audioFiles[AUDIO_wood_breaking1].path, audio_pos);
 										}
 									}
 									else{printf("WRONG TOOL\n");}
@@ -2155,15 +2289,13 @@ int entry(int argc, char **argv)
 								{
 									if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
 
-										Vector3 pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
-										play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, pos);
-										play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);
+										play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
 
 										selected_en->health -= 1;
 										if (selected_en->health <= 0) {
 											generateLoot(lootTable_rock, 0, selected_en->pos);
 											allow_destroy = true;
-											play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, pos);
+											play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
 										}
 									}
 									else{printf("WRONG TOOL\n");}
@@ -2292,7 +2424,7 @@ int entry(int argc, char **argv)
 									xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
 								}
 								if (en->building_id){
-									printf("BUILDING\n");
+									// printf("BUILDING\n");
 								}
 
 								xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
@@ -2408,6 +2540,16 @@ int entry(int argc, char **argv)
 
 */
 
+		// DEBUG: print UX state
+		// printf("UX STATE: ");
+		// switch (world->ux_state){
+		// 	case UX_building:{printf("BUILDING\n");}break;
+		// 	case UX_inventory:{printf("INVENTORY\n");}break;
+		// 	case UX_chest:{printf("CHEST\n");}break;
+		// 	case UX_place_mode:{printf("PLACE MODE\n");}break;
+		// 	case UX_nil:{printf("NIL\n");}break;
+		// 	default:{}break;
+		// }
 
 		// :Input
 		if (is_key_just_pressed('X')){ // EXIT
