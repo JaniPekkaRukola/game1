@@ -63,3 +63,4 @@ build/*
 .vscode\launch.json
 .vscode/launch.json
 res/sounds/*
+res/textures/*
