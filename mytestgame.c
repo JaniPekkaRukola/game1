@@ -6,6 +6,8 @@ bool IS_DEBUG = false;
 bool print_fps = false;
 bool enable_tooltip = true;
 bool render_hotbar = true;
+bool render_player = true;
+bool render_other_entities = false;
 float render_distance = 175;		// 170 is pretty good
 bool draw_grid = false;
 
@@ -214,6 +216,43 @@ typedef enum AudioID{
 } AudioID;
 
 Audio audioFiles[AUDIO_MAX];
+
+// ::TEXTURE (WIP) ---------------------------|
+typedef struct Texture {
+	Gfx_Image* image;
+} Texture;
+
+typedef enum TextureID {
+	TEXTURE_nil,
+
+	TEXTURE_grass,
+
+	TEXTURE_MAX,
+} TextureID;
+
+Texture textures[TEXTURE_MAX];
+
+Texture* get_texture(TextureID id) {
+	if (id >= 0 && id < TEXTURE_MAX) {
+		Texture* texture = &textures[id];
+		if (texture->image) {
+			return texture;
+		} else {
+			return &textures[0];
+		}
+	}
+	return &textures[0];
+}
+
+Vector2 get_texture_size(Texture* texture) {
+	if (texture != NULL){
+		return (Vector2) {texture->image->width, texture->image->height};
+	}
+	else{
+		log_error("ERROR @ get_texture_size. texture is NULL\n");
+		return v2(0,0);
+	}
+}
 
 // ::SPRITE ---------------------------|
 typedef struct Sprite {
@@ -1989,6 +2028,7 @@ void render_entities(World* world) {
 
 				// :Render player
 				case ARCH_player: {
+					if (render_player)
 					{
 						// render player
 						Sprite* sprite = get_sprite(en->sprite_id);
@@ -2030,6 +2070,7 @@ void render_entities(World* world) {
 
 				default: 
 				{
+					if (render_other_entities){
 					if (en->arch != ARCH_player){
 
 						float entity_dist = fabsf(v2_dist(en->pos, get_player_pos()));
@@ -2086,6 +2127,7 @@ void render_entities(World* world) {
 								// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
 							}
 						}
+					}
 					}
 				} break;
 			}
@@ -2170,6 +2212,16 @@ int entry(int argc, char **argv)
 		}
 	}
 
+	// :Load textures
+	textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass_small.png"), get_heap_allocator())};
+	
+	// assert all texture files		@ship debug this off (by: jani)
+	{
+		for (TextureID i = 1; i < TEXTURE_MAX; i++) {
+			Texture* texture = &textures[i];
+			assert(texture->image, "Texture was not setup correctly");
+		}
+	}
 
 	Audio_Source hit_metal1, hit_metal2, rock_breaking1, swing_slow, swing_fast;
 
@@ -2272,6 +2324,8 @@ int entry(int argc, char **argv)
 
 	float view_zoom = 0.1875; 			// view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
 	Vector2 camera_pos = v2(0, 0);
+
+	view_zoom += 0.2;
 
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
@@ -2377,6 +2431,281 @@ int entry(int argc, char **argv)
 			}
 			// Draw different tile on mouse pos
 			// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
+		}
+
+		// texture
+		if (true == true) {
+
+			int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
+			int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
+			float player_pos_x = player_en->pos.x;
+			float player_pos_y = player_en->pos.y;
+			// Vector2 player_tile = v2(world_pos_to_tile_pos(player_en->pos.x), world_pos_to_tile_pos(player_en->pos.y));
+
+			// Vector2 radius = v2(15, 15);
+
+			Texture* texture = get_texture(TEXTURE_grass);
+			// Vector2 texture_size = get_texture_size(texture);
+			// Vector2 texture_size = v2(10,10);
+			// Vector2 texture_pos = texture_size;
+
+			// printf("Player tile x = %d\ty = %d\n", player_tile_x, player_tile_y);
+
+
+
+			// LOGIC ------------------------------------------------------------------------------
+			// get player tile pos
+			// draw texture from player pos - texture size x and y
+			// do this 4 times for all corners
+			// when player travels eg: player x > texture size x *
+			// idk fuck
+			// try doing if(player_pos_x % texture_size.x > player_pos_x / texture_size.x) or sum
+			// 
+			// LOGIC ------------------------------------------------------------------------------
+
+
+			// xfrom logic:
+			// A 	 B		C
+			// D 	 M 	 	E
+			// F 	 G		H
+
+			Matrix4 xform_M = m4_identity;
+			Matrix4 xform_A = m4_identity;
+			Matrix4 xform_B = m4_identity;
+			Matrix4 xform_C = m4_identity;
+			Matrix4 xform_D = m4_identity;
+			Matrix4 xform_E = m4_identity;
+			Matrix4 xform_F = m4_identity;
+			Matrix4 xform_G = m4_identity;
+			Matrix4 xform_H = m4_identity;
+			// Matrix4 xform11 = m4_identity;
+			// Matrix4 xform111 = m4_identity;
+			// Matrix4 xform2 = m4_identity;
+			// Matrix4 xform3 = m4_identity;
+			// Matrix4 xform4 = m4_identity;
+
+			// attempt #4
+
+			Vector2 texture_size = get_texture_size(texture);
+
+			float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
+			float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
+			// int step_y = 0;
+			// int step_x = 0;
+
+			
+			// if (traveled_step_x > 0.0f){
+			// 	step_x = 1;
+			// }
+
+			// if (traveled_step_y < 0.0f){
+			// 	step_y = 1;
+			// }
+			
+			
+			// printf("traveled_step x,y = %.0f, %.0f\ttexture size = %.0f,%.0f\tmodulo_x = %.2f\n", traveled_step_x, traveled_step_y, texture_size.x, texture_size.y, modulo_x);
+
+			// printf("STEP_X = %d\tSTEP_Y = %d\n", step_x, step_y);
+			// printf("Traveled_step y = %.2f\tx = %.2f\nPlayer pos x,y = %.1f,%.1f\n", traveled_step_y, traveled_step_x, player_pos_x, player_pos_y);
+			printf("Player pos x,y = %.1f , %.1f\n", player_pos_x, player_pos_y);
+
+
+			if (traveled_step_x < 0){ // vasen  || traveled_step_y < 0
+				if (traveled_step_y < 0){
+					xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		,	traveled_step_y - texture_size.y			, 0));
+					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y 							, 0));
+					xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		,	traveled_step_y 							, 0));
+					xform_C = m4_translate(xform_C, v3(traveled_step_x						,	traveled_step_y 							, 0));
+					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - texture_size.y			, 0));
+					xform_E = m4_translate(xform_E, v3(traveled_step_x						,	traveled_step_y - texture_size.y			, 0));
+					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - (texture_size.y * 2)		, 0));
+					xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		,	traveled_step_y - (texture_size.y * 2)		, 0));
+					xform_H = m4_translate(xform_H, v3(traveled_step_x						,	traveled_step_y - (texture_size.y * 2)		, 0));
+				}
+				else{
+					xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		, 	traveled_step_y								, 0));
+					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y + texture_size.y			, 0));
+					xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		, 	traveled_step_y + texture_size.y			, 0));
+					xform_C = m4_translate(xform_C, v3(traveled_step_x						, 	traveled_step_y + texture_size.y			, 0));
+					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y								, 0));
+					xform_E = m4_translate(xform_E, v3(traveled_step_x						, 	traveled_step_y								, 0));
+					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y - texture_size.y			, 0));
+					xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		, 	traveled_step_y - texture_size.y			, 0));
+					xform_H = m4_translate(xform_H, v3(traveled_step_x						, 	traveled_step_y - texture_size.y			, 0));
+				}
+			}
+			
+			
+			
+			
+			else if (traveled_step_x == 0){ // keskellä x = 0
+				if (player_pos_x < 0.0f || player_pos_y < 0.0f){
+					if (player_pos_y < 0.0f){
+						xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y - texture_size.y			, 0));
+						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
+						xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+						xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y							, 0));
+						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
+						xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y * 2		, 0));
+						xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+						xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
+
+					}
+					else{
+						xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y							, 0));
+						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y + texture_size.y			, 0));
+						xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+						xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
+						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
+						xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y							, 0));
+						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
+						xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+						xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+
+					}
+				}
+				else{
+					if (player_pos_y < 0.0f){
+						xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+						xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y							, 0));
+						xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+						xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+						xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
+						xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+
+					}
+					else{
+						xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y							, 0));
+						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+						xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
+						xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
+						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+						xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+						xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+						xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+
+					}
+				}
+			}
+
+
+
+			else{ // oikea
+				if (traveled_step_y < 0){
+					xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y - texture_size.y			, 0));
+					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y 							, 0));
+					xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y 							, 0));
+					xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y 							, 0));
+					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
+					xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - (texture_size.y * 2)	, 0));
+					xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - (texture_size.y * 2)	, 0));
+					xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - (texture_size.y * 2)	, 0));
+				}
+				else{
+					xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y							, 0));
+					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+					xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y + texture_size.y			, 0));
+					xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
+					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y							, 0));
+					xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
+					xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - texture_size.y			, 0));
+					xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+				}
+			}
+
+
+
+
+			draw_image_xform(texture->image, xform_M, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_A, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_B, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_C, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_D, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_E, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_F, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_G, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_H, texture_size, COLOR_WHITE);
+
+
+			// if (traveled_step_x != 0.0f){
+				// if (traveled_step_x < 0){ traveled_step_x = -traveled_step_x;}	
+				// modulo_x = texture_size.x / traveled_step_x;
+				// modulo_x =  traveled_step_x / texture_size.x;
+				// step_x = 1;
+			// }
+			
+			// if (traveled_step_y != 0.0f){
+				// if (traveled_step_x < 0){ traveled_step_x = -traveled_step_x;}	
+				// modulo_x = texture_size.x / traveled_step_x;
+				// modulo_y =  traveled_step_y / texture_size.y;
+			// }
+
+
+
+
+			// attempt #3
+			// Matrix4 xform1 = m4_identity;
+			// xform1 = m4_translate(xform1, v3(player_tile_x - texture_size.x, player_tile_y - texture_size.y, 0));
+
+			// Matrix4 xform2 = m4_identity;
+			// xform2 = m4_translate(xform2, v3(player_tile_x - texture_size.x, player_tile_y, 0));
+
+			// Matrix4 xform3 = m4_identity;
+			// xform3 = m4_translate(xform3, v3(player_tile_x, player_tile_y - texture_size.y, 0));
+
+			// xform1 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(player_pos_y / (texture_size.y * 2)) * 2, 0));
+			// xform2 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(-player_pos_y / (texture_size.y * 2)) * 2, 0));
+			// xform3 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(player_pos_y / (texture_size.y * 2)) * 2, 0));
+			// xform4 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(-player_pos_y / (texture_size.y * 2)) * 2, 0));
+
+
+			// draw_image_xform(texture->image, xform1, texture_size, COLOR_WHITE);
+			// draw_image_xform(texture->image, xform2, texture_size, COLOR_WHITE);
+			// draw_image_xform(texture->image, xform3, texture_size, COLOR_WHITE);
+			// draw_image_xform(texture->image, xform4, texture_size, COLOR_WHITE);
+
+
+			// attempt #1
+			// for (int x = player_tile_x - radius.x; x < player_tile_x + radius.x; x++){
+			// 	for (int y = player_tile_y - radius.y; y < player_tile_y + radius.y; y++){
+			// 			float x_pos = x * texture_size.x;
+			// 			float y_pos = y * texture_size.y;
+			
+			// 			float texture_dist = fabsf(v2_dist(v2(x_pos, y_pos), get_player_pos()));
+			// 			printf("TEXTURE DIST = %f\n", texture_dist);
+
+						
+			// 			Matrix4 xform = m4_identity;
+			// 			xform = m4_translate(xform, v3(x_pos + texture_size.x * -0.5, y_pos + texture_size.y * -0.5, 0));
+
+			// 			// Draw texture
+			// 			// draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
+			// 			draw_image_xform(texture->image, xform, texture_size, COLOR_WHITE);
+			// 	}
+			// }
+
+			// attempt #2
+			// for (int x = player_tile_x - radius.x; x < player_tile_x + radius.x; x++){
+			// 	for (int y = player_tile_y - radius.y; y < player_tile_y + radius.y; y++){
+			// 			float x_pos = x * texture_size.x;
+			// 			float y_pos = y * texture_size.y;
+
+			// 			Matrix4 xform = m4_identity;
+			// 			xform = m4_translate(xform, v3(x_pos ,y_pos, 0));
+
+			// 			draw_image_xform(texture->image, xform, texture_size, COLOR_WHITE);
+
+			// 	}
+			// }
+
+
 		}
 
 
