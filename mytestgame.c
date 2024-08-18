@@ -1,7 +1,8 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-#define MAX_ENTITY_COUNT 1024
+// #define MAX_ENTITY_COUNT 1024
+#define MAX_ENTITY_COUNT 2024
 
 bool print_fps = false;
 bool enable_tooltip = true;
@@ -227,6 +228,7 @@ typedef enum TextureID {
 	TEXTURE_nil,
 
 	TEXTURE_grass,
+	TEXTURE_cave_floor,
 
 	TEXTURE_MAX,
 } TextureID;
@@ -245,13 +247,25 @@ Texture* get_texture(TextureID id) {
 	return &textures[0];
 }
 
-Vector2 get_texture_size(Texture* texture) {
-	if (texture != NULL){
-		return (Vector2) {texture->image->width, texture->image->height};
+// old
+// Vector2 get_texture_size(Texture* texture) {
+// 	if (texture != NULL){
+// 		return (Vector2) {texture->image->width, texture->image->height};
+// 	}
+// 	else{
+// 		log_error("ERROR @ get_texture_size. texture is NULL\n");
+// 		return v2(0,0);
+// 	}
+// }
+
+// new without pointers
+Vector2 get_texture_size(Texture texture) {
+	if (texture.image){
+		return (Vector2) {texture.image->width, texture.image->height};
 	}
 	else{
 		log_error("ERROR @ get_texture_size. texture is NULL\n");
-		return v2(0,0);
+		// return v2(0,0);
 	}
 }
 
@@ -284,18 +298,28 @@ typedef enum SpriteID {
 	SPRITE_item_berry,
 	SPRITE_item_twig,
 
-	// tools
+	// Ores
+	SPRITE_ORE_iron,
+	SPRITE_ORE_gold,
+	SPRITE_ORE_copper,
+
+	// Ingots
+	// SPRITE_INGOT_iron,
+	// SPRITE_INGOT_gold,
+	// SPRITE_INGOT_copper,
+
+	// Tools
 	SPRITE_tool_pickaxe,
 	SPRITE_tool_axe,
 	
-	// fossils
+	// Fossils
 	SPRITE_item_fossil0,
 	SPRITE_item_fossil1,
 	SPRITE_item_fossil2,
 
 
 
-	// buildings
+	// Buildings
 	SPRITE_building_furnace,
 	SPRITE_building_workbench,
 	SPRITE_building_chest,
@@ -360,6 +384,12 @@ typedef enum ItemID {
 	ITEM_fossil2,
 	ITEM_fossil3,
 
+	// ores
+	ITEM_ORE_iron,
+	ITEM_ORE_gold,
+	ITEM_ORE_copper,
+
+
 	// tools (test)
 	ITEM_TOOL_pickaxe,
 	ITEM_TOOL_axe,
@@ -399,7 +429,9 @@ typedef enum EntityArchetype {
 	ARCH_tool = 7,
 	ARCH_building = 8,
 
-	ARCH_mushroom = 9,
+	ARCH_ore = 9,
+
+	ARCH_mushroom = 10,
 /*
 	// items
 	// ARCH_item_rock = 6,
@@ -467,21 +499,49 @@ SpriteID get_sprite_id_from_building(BuildingID building_id) {
 	}
 }
 
+
+// ----- ::ORE -----------------------------|
+typedef enum OreID {
+	ORE_nil,
+
+	ORE_iron,
+	ORE_gold,
+	ORE_copper,
+
+	ORE_MAX,
+} OreID;
+
+OreID ores[ORE_MAX];
+
+
+enum BiomeID;
+
 typedef struct Entity {
-	bool is_valid;
+	// main
 	EntityArchetype arch;
+	string name;
+	int health;
+	Vector2 pos;
+
+	// ids
+	SpriteID sprite_id;
 	ItemID item_id;
 	BuildingID building_id;
 	ToolID tool_id;
-	Vector2 pos;
+	OreID ore_id;
+	enum BiomeID biome_id;		// what biome does entity belong to
+
+	// booleans
+	bool is_valid;
 	bool render_sprite;
-	SpriteID sprite_id;
-	int health;
 	bool destroyable;
 	bool is_item;
+	bool is_ore;
+
+	// other
 	int rendering_prio;
-	string name;
 } Entity;
+
 
 
 
@@ -508,6 +568,17 @@ string get_item_name_from_ItemID(ItemID id) {
 		case ITEM_pine_wood:{return STR("Pine wood");break;}
 		case ITEM_mushroom0:{return STR("Mushroom");break;}
 		case ITEM_twig:{return STR("Twig");break;}
+
+		// -> pin2 
+
+		// ores
+		case ITEM_ORE_iron:{return STR("Iron ore");break;}
+		case ITEM_ORE_gold:{return STR("Gold ore");break;}
+		case ITEM_ORE_copper:{return STR("Copper ore");break;}
+		
+		case ITEM_fossil0:{return STR("Fossil 0");break;}
+		case ITEM_fossil1:{return STR("Fossil 1");break;}
+		case ITEM_fossil2:{return STR("Fossil 2");break;}
 		default:{return STR("failed to get item name");break;}
 	}
 }
@@ -550,8 +621,8 @@ BuildingData get_building_data(BuildingID id) {
 // }
 
 
-
-SpriteID get_sprite_id_from_item(ItemID item) {
+// #sprite
+SpriteID get_sprite_from_itemID(ItemID item) {
 	switch (item) {
 		case ITEM_pine_wood: return SPRITE_item_pine_wood; break;
 		case ITEM_rock: return SPRITE_item_rock; break;
@@ -587,11 +658,194 @@ typedef enum UXState {
 	// UX_menu,
 } UXState;
 
+// #Biome
+typedef enum BiomeID{
+	BIOME_nil,
+
+	// Above ground biomes
+	BIOME_forest,
+
+	// Underground biomes
+	BIOME_cave,
+	// BIOME_dark_cave,
+	// BIOME_crystal_cave,
+	// BIOME_ice_cave,
+	// BIOME_desert_cave,
+
+	BIOME_MAX,
+} BiomeID;
+
+
+
+// ::Biome || #Biome ------------------------------------------------------------------|
+typedef struct BiomeData {
+	string name;
+	Vector2 size;
+
+	bool spawn_animals;
+	bool spawn_water;
+	float water_weight;
+
+	Vector4 grass_color;
+	Vector4 leaves_color;
+	TextureID ground_texture;
+
+	// trees
+	bool spawn_pine_trees;
+	float spawn_pine_tree_weight;
+	bool spawn_spruce_trees;
+	float spawn_spruce_tree_weight;
+	bool spawn_birch_trees;
+	float spawn_birch_tree_weight;
+	bool spawn_palm_trees;
+	float spawn_palm_tree_weight;
+
+	bool spawn_rocks;
+	float spawn_rocks_weight;
+	bool spawn_mushrooms;
+	float spawn_mushrooms_weight;
+	bool spawn_twigs;
+	float spawn_twigs_weight;
+	bool spawn_berries;
+	float spawn_berries_weight;
+
+	// ores
+	bool spawn_ores;
+	bool spawn_ore_iron;
+	float spawn_ore_iron_weight;
+	bool spawn_ore_gold;
+	float spawn_ore_gold_weight;
+	bool spawn_ore_copper;
+	float spawn_ore_copper_weight;
+
+	// fossils
+	bool spawn_fossils;
+	float fossil0_drop_chance;
+	float fossil1_drop_chance;
+	float fossil2_drop_chance;
+	int fossil_rarity_level;
+
+} BiomeData;
+
+BiomeData biomes[BIOME_MAX];
+
+BiomeData get_biome_data_from_id(BiomeID id){
+	return biomes[id];
+}
+
+
+// setup biome && #Biome
+void setup_biome(BiomeData* biome, BiomeID id){
+	// spawn weigth = spawn amount
+	// drop chace = drop chance in %
+	switch (id){
+		case BIOME_forest:{
+			{
+				biome->name = STR("Forest");
+				biome->size = v2(400, 400);
+				biome->spawn_animals = false;
+				biome->spawn_water = false;
+				biome->grass_color = v4(0.32, 0.97, 0.62, 1);
+				// biome->grass_color = v4(1, 0.97, 0.62, 1);
+				biome->leaves_color	= v4(0, 1, 0, 1);
+				biome->ground_texture = TEXTURE_grass;
+
+				// trees
+				biome->spawn_pine_trees = true;
+				biome->spawn_pine_tree_weight = 400;
+				biome->spawn_spruce_trees = true;
+				biome->spawn_spruce_tree_weight = 400;
+				biome->spawn_birch_trees = false;
+				biome->spawn_birch_tree_weight = 0;
+				biome->spawn_palm_trees = false;
+				biome->spawn_palm_tree_weight = 0;
+
+				// entities
+				biome->spawn_rocks = true;
+				biome->spawn_rocks_weight = 75;
+				biome->spawn_mushrooms = true;
+				biome->spawn_mushrooms_weight = 15;
+				biome->spawn_twigs = true;
+				biome->spawn_twigs_weight = 25;
+				biome->spawn_berries = true;
+				biome->spawn_berries_weight = 20;
+
+				// fossils
+				biome->spawn_fossils = true;
+				biome->fossil0_drop_chance = 5;
+				biome->fossil1_drop_chance = 5;
+				biome->fossil2_drop_chance = 5;
+				// biome->fossil_rarity_level = 2;
+
+				biomes[id] = *biome;
+			}
+		} break;
+
+		case BIOME_cave:{
+			{
+				biome->name = STR("Cave");
+				biome->size = v2(400, 400);
+				biome->spawn_animals = false;
+				biome->spawn_water = false;
+				biome->grass_color = v4(0.32, 0.97, 0.62, 1);
+				// biome->grass_color = v4(1, 0.97, 0.62, 1);
+				// biome->leaves_color	= v4(0, 1, 0, 1);
+				biome->ground_texture = TEXTURE_cave_floor;
+
+				// entities
+				biome->spawn_rocks = true;
+				biome->spawn_rocks_weight = 75;
+				biome->spawn_mushrooms = true;
+				biome->spawn_mushrooms_weight = 15;
+				// biome->spawn_twigs = false;
+				// biome->spawn_twigs_weight = 0;
+
+				// ores
+				biome->spawn_ores = true;
+				biome->spawn_ore_iron = true;
+				biome->spawn_ore_gold = true;
+				biome->spawn_ore_copper = true;
+				biome->spawn_ore_iron_weight = 20;
+				biome->spawn_ore_gold_weight = 20;
+				biome->spawn_ore_copper_weight = 20;
+
+				// fossils
+				biome->spawn_fossils = true;
+				biome->fossil0_drop_chance = 15;
+				biome->fossil1_drop_chance = 15;
+				biome->fossil2_drop_chance = 15;
+				// biome->fossil_rarity_level = 2;
+			
+				biomes[id] = *biome;
+			}
+		} break;
+	}
+
+	// biomes[id] = *biome;
+}
+
+
+// void setup_biome_forest(BiomeData* biome, BiomeID id) {
+// }
+
+// setup cave && #Biome
+// void setup_biome_cave(BiomeData* biome, BiomeID id) {
+	// spawn weigth = spawn amount
+	// drop chace = drop chance in %
+
+
+
+	// biomes[id] = *biome;
+// }
+
+
+
+
 
 // ::WORLD ---------------------------------|
 typedef struct World {
 	// WorldLayer layer;
-	// enum BiomeID* biome_id;
+	BiomeID biome_id;
 	// struct BiomeData* biome_data;
 	int layer;
 	Entity entities[MAX_ENTITY_COUNT];
@@ -652,6 +906,7 @@ typedef struct WorldFrame {
 WorldFrame world_frame;
 
 
+
 Vector2 get_player_pos(){
 	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
 		Entity en = world->entities[i];
@@ -664,7 +919,7 @@ Vector2 get_player_pos(){
 }
 
 // :ENTITY create & destroy ----------------|
-// should prolly move these into ::ENTITY above
+// should prolly move these into : :ENTITY above
 Entity* entity_create() {
 	Entity* entity_found = 0;
 	for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
@@ -710,8 +965,9 @@ void entity_destroy(Entity* entity) {
 */
 
 // this wont really work if i separate tools and buildings into their own structures
-string get_archetype_name(ItemID arch) {
-	switch (arch) {
+// this might be a part of the @pin2 prob
+string get_archetype_name(ItemID id) {
+	switch (id) {
 		case ITEM_pine_wood: return STR("Pine Wood"); break;
 		case ITEM_rock: return STR("Rock"); break;
 		case ITEM_sprout: return STR("Sprout"); break;
@@ -722,6 +978,8 @@ string get_archetype_name(ItemID arch) {
 		case ITEM_fossil1: return STR("Bone Fossil"); break;
 		case ITEM_fossil2: return STR("Fang Fossil"); break;
 		case ARCH_tool: return STR("Tool (WIP)"); break;
+
+		case ARCH_ore: return STR("ORE"); break;
 
 		// building names
 		// case BUILDING_furnace: return STR("Furnace");
@@ -746,6 +1004,16 @@ string get_tool_name(ToolID id) {
 		case TOOL_axe: return STR("Axe"); break;
 		default: return STR("Error: Missing get_tool_name case."); break;
 	}
+}
+
+Entity* get_ore(OreID id) {
+	for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+		Entity* en = &world->entities[i];
+		if (en->ore_id == id){
+			return en;
+		}
+	}
+	log_error("Failed to get ore @ 'get_ore'\n");
 }
 
 // ToolID get_tool_id_from_arch(ToolID id) {
@@ -832,36 +1100,85 @@ void setup_mushroom(Entity* en) {
 	en->tool_id = TOOL_nil;
 }
 
+void setup_ore(Entity* en, OreID id) {
+	en->biome_id = BIOME_cave;
+	switch (id){
+		case ORE_iron:{
+			{
+				en->arch = ARCH_ore;
+				en->sprite_id = SPRITE_ORE_iron;
+				en->health = 5;
+				en->destroyable = true;
+				en->item_id = ITEM_ORE_iron;
+				en->ore_id = ORE_iron;
+			}
+		} break;
+		
+		case ORE_gold:{
+			{
+				en->arch = ARCH_ore;
+				en->sprite_id = SPRITE_ORE_gold;
+				en->health = 4;
+				en->destroyable = true;
+				en->item_id = ITEM_ORE_gold;
+				en->ore_id = ORE_gold;
+			}
+		} break;
+
+		case ORE_copper:{
+			{
+				en->arch = ARCH_ore;
+				en->sprite_id = SPRITE_ORE_copper;
+				en->health = 4;
+				en->destroyable = true;
+				en->item_id = ITEM_ORE_copper;
+				en->ore_id = ORE_copper;
+			}
+		} break;
+	}
+}
+
 
 // ----- ::SETUP item --------------------------------------------------------------------------------|
 
 void setup_item(Entity* en, ItemID item_id) {
 	en->arch = ARCH_item;
-	en->sprite_id = get_sprite_id_from_item(item_id);
+	en->sprite_id = get_sprite_from_itemID(item_id);
 	en->is_item = true;
 	en->item_id = item_id;
+	printf("SETUP '%s'\n", get_archetype_name(en->arch));
+	if (item_id == ITEM_ORE_iron){
+		printf("SETTING UP IRON ORE: %s\n", get_ore(ORE_iron)->name);
+	}
+	else if (item_id == ITEM_ORE_gold){
+		printf("SETTING UP GOLD ORE: %s\n", get_ore(ORE_gold)->name);
+	}
+	else if (item_id == ITEM_ORE_copper){
+		printf("SETTING UP COPPER ORE: %s\n", get_ore(ORE_copper)->name);
+	}
 }
 
 // ----- ::SETUP building -----------------------------------------------------------------------------|
-void setup_item_furnace(Entity* en) {
-	en->arch = ARCH_building;
-	en->building_id = BUILDING_furnace;
-	en->sprite_id = SPRITE_building_furnace;
-	en->is_item = true;
-}
-void setup_item_workbench(Entity* en) {
-	en->arch = ARCH_building;
-	en->building_id = BUILDING_workbench;
-	en->sprite_id = SPRITE_building_workbench;
-	en->is_item = true;
-}
+// not in use
+// void setup_item_furnace(Entity* en) {
+// 	en->arch = ARCH_building;
+// 	en->building_id = BUILDING_furnace;
+// 	en->sprite_id = SPRITE_building_furnace;
+// 	en->is_item = true;
+// }
+// void setup_item_workbench(Entity* en) {
+// 	en->arch = ARCH_building;
+// 	en->building_id = BUILDING_workbench;
+// 	en->sprite_id = SPRITE_building_workbench;
+// 	en->is_item = true;
+// }
 
-void setup_item_chest(Entity* en) {
-	en->arch = ARCH_building;
-	en->building_id = BUILDING_chest;
-	en->sprite_id = SPRITE_building_chest;
-	en->is_item = true;
-}
+// void setup_item_chest(Entity* en) {
+// 	en->arch = ARCH_building;
+// 	en->building_id = BUILDING_chest;
+// 	en->sprite_id = SPRITE_building_chest;
+// 	en->is_item = true;
+// }
 
 // Building setup automation
 void setup_building(Entity* en, BuildingID id) {
@@ -1077,7 +1394,7 @@ void render_ui()
 				xform = m4_translate(xform, v3(pos_x, pos_y, 0));
 
 				// get sprite
-				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
+				Sprite* sprite = get_sprite(get_sprite_from_itemID(i));
 
 				// update sprite if its a tool (temp solution)
 				if (item->arch == ARCH_tool){
@@ -1286,7 +1603,7 @@ void render_ui()
 				// 	xform = m4_rotate_z(xform, rotation_adjust);
 				// }
 
-				sprite = get_sprite(get_sprite_id_from_item(i));
+				sprite = get_sprite(get_sprite_from_itemID(i));
 				if (item->arch == ARCH_tool){
 					sprite = get_sprite(item->sprite_id);
 				}
@@ -1516,7 +1833,7 @@ void render_ui()
 				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
 
 				// get the sprite of the item
-				Sprite* sprite = get_sprite(get_sprite_id_from_item(i));
+				Sprite* sprite = get_sprite(get_sprite_from_itemID(i));
 
 				// get the sprite of the item (if its a tool) its WIP shutup
 				if (item->arch == ARCH_tool){
@@ -1785,106 +2102,16 @@ void create_mushrooms(int amount, int range) {
 	}
 }
 
-typedef enum BiomeID{
-	BIOME_nil,
-
-	// Above ground biomes
-	BIOME_forest,
-
-	// Underground biomes
-	BIOME_cave,
-	// BIOME_dark_cave,
-	// BIOME_crystal_cave,
-	// BIOME_ice_cave,
-	// BIOME_desert_cave,
-
-	BIOME_MAX,
-} BiomeID;
-
-BiomeID biomes[BIOME_MAX];
-
-
-// Biome struct test --------------------------------|
-typedef struct BiomeData {
-	string name;
-	Vector2 size;
-
-	bool spawn_animals;
-	bool spawn_water;
-	float water_weight;
-
-	Vector4 grass_color;
-	Vector4 leaves_color;
-
-	// trees
-	bool spawn_pine_trees;
-	float spawn_pine_tree_weight;
-	bool spawn_spruce_trees;
-	float spawn_spruce_tree_weight;
-	bool spawn_birch_trees;
-	float spawn_birch_tree_weight;
-	bool spawn_palm_trees;
-	float spawn_palm_tree_weight;
-
-	bool spawn_rocks;
-	float spawn_rocks_weight;
-	bool spawn_mushrooms;
-	float spawn_mushrooms_weight;
-	bool spawn_twigs;
-	float spawn_twigs_weight;
-	bool spawn_berries;
-	float spawn_berries_weight;
-
-	// fossils
-	bool spawn_fossils;
-	float fossil0_drop_chance;
-	float fossil1_drop_chance;
-	float fossil2_drop_chance;
-	int fossil_rarity_level;
-
-} BiomeData;
-
-// this is an example
-void setup_biome_forest(BiomeData* biome) {
-	// spawn weigth = spawn amount
-	// drop chace = drop chance in %
-
-	biome->name = STR("Forest");
-	biome->size = v2(400, 400);
-	biome->spawn_animals = false;
-	biome->spawn_water = false;
-	biome->grass_color = v4(0.32, 0.97, 0.62, 1);
-	// biome->grass_color = v4(1, 0.97, 0.62, 1);
-	biome->leaves_color	= v4(0, 1, 0, 1);
-
-	// trees
-	biome->spawn_pine_trees = true;
-	biome->spawn_pine_tree_weight = 400;
-	biome->spawn_spruce_trees = true;
-	biome->spawn_spruce_tree_weight = 400;
-	biome->spawn_birch_trees = false;
-	biome->spawn_birch_tree_weight = 0;
-	biome->spawn_palm_trees = false;
-	biome->spawn_palm_tree_weight = 0;
-
-	// entities
-	biome->spawn_rocks = true;
-	biome->spawn_rocks_weight = 75;
-	biome->spawn_mushrooms = true;
-	biome->spawn_mushrooms_weight = 15;
-	biome->spawn_twigs = true;
-	biome->spawn_twigs_weight = 25;
-	biome->spawn_berries = true;
-	biome->spawn_berries_weight = 20;
-
-	// fossils
-	biome->spawn_fossils = true;
-	biome->fossil0_drop_chance = 5;
-	biome->fossil1_drop_chance = 5;
-	biome->fossil2_drop_chance = 5;
-	// biome->fossil_rarity_level = 2;
+void create_ores(int amount, int range, OreID id) {
+	// create ore entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_ore(en, id);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
 }
-
+// #biome
 void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->spawn_pine_tree_weight, biome->size.x); }
 	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spawn_spruce_tree_weight, biome->size.x); }
@@ -1892,10 +2119,18 @@ void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
 	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
 	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->spawn_mushrooms_weight, biome->size.x); }
+	if (biome->spawn_ores) {
+		if (biome->spawn_ore_iron) {create_ores((int)biome->spawn_ore_iron_weight, biome->size.x, ORE_iron); }
+		if (biome->spawn_ore_gold) {create_ores((int)biome->spawn_ore_gold_weight, biome->size.x, ORE_gold); }
+		if (biome->spawn_ore_copper) {create_ores((int)biome->spawn_ore_copper_weight, biome->size.x, ORE_copper); }
+	}
+
+
+
+
 	// window.clear_color = hex_to_rgba(biome->grass_color);
 	// window.clear_color = biome->grass_color;
 }
-
 
 // // ::WORLD LAYER || ::WORLDLAYER -----------|
 
@@ -1904,8 +2139,30 @@ void spawn_biome(BiomeData* biome) {
 	
 // } WorldLayer;
 
+void unload_biome(World* world, BiomeID id){
+	// world->entities
+	for (int i = 0; i < world->entity_count; i++)  {
+		Entity* en = &world->entities[i];
+		if (en->biome_id == id){
+			printf("Unloaded entity '%s'\n", en->name);
+			dealloc(get_heap_allocator(), &en);
+		}
+	}
+}
 
+// #Biome
+void change_biomes(World* world, BiomeID new_id){
+	// dealloc all entities
+	// set new biome to world
+	// setup new biome? (again??)
+	// spawn new entities based on biome
 
+	// unload_biome(world, world->biome_id);
+	world->biome_id = new_id;
+	// BiomeData biome = get_biome_data_from_id(new_id);
+	// setup_biome(&biome, new_id);
+	// spawn_biome(&biome);
+}
 
 // ::LOOT ----------------------------------|
 typedef struct LootItem {
@@ -2218,7 +2475,12 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
+
+	// :Load item/entity sprites (these sprites are the same for their entities and items (for now))
 	sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
+	sprites[SPRITE_ORE_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_iron.png"), get_heap_allocator())};
+	sprites[SPRITE_ORE_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_gold.png"), get_heap_allocator())};
+	sprites[SPRITE_ORE_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_copper.png"), get_heap_allocator())};
 
 	// :Load item sprites
 	sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
@@ -2250,6 +2512,7 @@ int entry(int argc, char **argv)
 
 	// :Load textures
 	textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
+	textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
 	
 	// assert all texture files		@ship debug this off (by: jani)
 	{
@@ -2285,7 +2548,10 @@ int entry(int argc, char **argv)
 		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_chest};
 	}
 
+	// Biome setup
+	// {
 
+	// }
 
 
 
@@ -2331,20 +2597,31 @@ int entry(int argc, char **argv)
 	Entity* player_en = entity_create();
 	setup_player(player_en, v2(0, 0));
 
+	// #Biome
+	
 	// setup forest test
-	BiomeData* forest = 0;
-	forest = alloc(get_heap_allocator(), sizeof(BiomeData));
-	memset(forest, 0, sizeof(BiomeData));
-	setup_biome_forest(forest);
-	spawn_biome(forest);
+	// BiomeData* forest = 0;
+	// forest = alloc(get_heap_allocator(), sizeof(BiomeData));
+	// memset(forest, 0, sizeof(BiomeData));
+	// setup_biome_forest(forest, BIOME_forest);
+	// spawn_biome(forest);
+
+	BiomeData* cave = 0;
+	cave = alloc(get_heap_allocator(), sizeof(BiomeData));
+	// setup_biome_cave(cave, BIOME_cave); // old
+	setup_biome(cave, BIOME_cave);
+	spawn_biome(cave);
+
+	world->biome_id = BIOME_cave;
 
 	// test adding stuff to loot table (can't be in a scope) 
 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
 	LootTable *lootTable_rock = createLootTable();
 	addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
-	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, forest->fossil0_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, forest->fossil1_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, forest->fossil2_drop_chance);
+	// addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, forest->fossil0_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->biome_id).fossil0_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->biome_id).fossil1_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->biome_id).fossil2_drop_chance);
 	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
 
 
@@ -2469,7 +2746,7 @@ int entry(int argc, char **argv)
 			// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
 		}
 
-		// texture
+		// :draw texture || :draw_ground 
 		if (render_ground_texture) {
 
 			// this shit way too complex
@@ -2479,7 +2756,8 @@ int entry(int argc, char **argv)
 			float player_pos_x = player_en->pos.x;
 			float player_pos_y = player_en->pos.y;
 
-			Texture* texture = get_texture(TEXTURE_grass);
+			// Texture* texture = get_texture(TEXTURE_grass);
+			Texture* texture = get_texture(get_biome_data_from_id(world->biome_id).ground_texture);
 
 			// xfrom logic:
 			// A 	 B		C
@@ -2497,7 +2775,8 @@ int entry(int argc, char **argv)
 			Matrix4 xform_H = m4_identity;
 
 			// attempt #4
-			Vector2 texture_size = get_texture_size(texture);
+			// Vector2 texture_size = get_texture_size(texture); // old
+			Vector2 texture_size = get_texture_size(*texture); // new
 
 			float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
 			float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
@@ -2720,7 +2999,6 @@ int entry(int argc, char **argv)
 			// 	}
 			// }
 */
-
 		}
 
 
@@ -2770,6 +3048,8 @@ int entry(int argc, char **argv)
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 				
 				if (selected_en) {
+
+					printf("SELECTED EN ITEM ID = '%d'\n", selected_en->item_id);
 
 					if (selected_item != NULL){
 
@@ -2832,7 +3112,25 @@ int entry(int argc, char **argv)
 								allow_destroy = true;
 
 							}
-						}
+						} break;
+
+						case ARCH_ore: {	// |------- ORES -------|
+							if (true == false)
+							{
+								if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
+									play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
+									selected_en->health -= 1;
+									if (selected_en->health <= 0){
+										Entity* en = entity_create();
+										setup_item(en, selected_en->item_id);
+										en->pos = selected_en->pos;
+										allow_destroy = true;
+										play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
+									}
+								}
+								else{printf("WRONG TOOL\n");}
+							}
+						} break;
 
 						default: { 	// |------- OTHERS -------|
 							{
@@ -2840,6 +3138,7 @@ int entry(int argc, char **argv)
 								setup_item(en, selected_en->item_id);
 								en->pos = selected_en->pos;
 								allow_destroy = true;
+								
 							}
 						} break;
 					}
@@ -2856,6 +3155,9 @@ int entry(int argc, char **argv)
 		// render entities
 		render_entities(world);
 
+		// #Biome
+		// printf("%s\n",get_biome_data_from_id(world->biome_id).name);
+
 
 		// DEBUG: print UX state
 		// printf("UX STATE: ");
@@ -2867,6 +3169,17 @@ int entry(int argc, char **argv)
 		// 	case UX_nil:{printf("NIL\n");}break;
 		// 	default:{}break;
 		// }
+
+		// DEBUG: print current biome && #Biome
+		if (world->biome_id == 1){
+			printf("Current Biome = FOREST\n");
+		}
+		else if (world->biome_id == 2){
+			printf("Current Biome = CAVE\n");
+		}
+		else{
+			printf("Current BiomeID = '%d'\n", world->biome_id);
+		}
 
 		// :Input
 		if (is_key_just_pressed('X')){ // EXIT
@@ -2913,6 +3226,12 @@ int entry(int argc, char **argv)
 		}
 
 		if (is_key_just_pressed('G')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+
+		// #Biome
+		if (is_key_just_pressed('N')) {world->biome_id = BIOME_forest;}
+		if (is_key_just_pressed('M')) {world->biome_id = BIOME_cave;}
+		// if (is_key_just_pressed('N')) {change_biomes(&world, BIOME_forest);}
+		// if (is_key_just_pressed('N')) {change_biomes(&world, BIOME_cave);}
 
 
 		// selecting slots
