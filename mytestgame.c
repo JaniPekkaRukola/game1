@@ -7,9 +7,10 @@ bool print_fps = false;
 bool enable_tooltip = true;
 bool render_hotbar = true;
 bool render_player = true;
-bool render_other_entities = false;
+bool render_other_entities = true;
 float render_distance = 175;		// 170 is pretty good
 bool draw_grid = false;
+bool render_ground_texture = true;
 
 // PLAYER
 float player_speed = 50.0;			// pixels per second
@@ -25,7 +26,7 @@ const int tile_width = 8;
 
 // COLORS
 const Vector4 item_shadow_color = {0, 0, 0, 0.1};
-const Vector4 entity_shadow_color = {0, 0, 0, 0.1};
+const Vector4 entity_shadow_color = {0, 0, 0, 0.15};
 
 // rendering layers
 const s32 layer_ui = 20;
@@ -570,8 +571,9 @@ SpriteID get_sprite_id_from_item(ItemID item) {
 
 
 
-
-
+// typedef enum BiomeID;
+// typedef struct BiomeData;
+// https://chatgpt.com/share/955d835b-07bc-4f68-afbe-daa43ff20765
 
 // ::UX ------------------------------------|
 typedef enum UXState {
@@ -588,9 +590,12 @@ typedef enum UXState {
 
 // ::WORLD ---------------------------------|
 typedef struct World {
+	// WorldLayer layer;
+	// enum BiomeID* biome_id;
+	// struct BiomeData* biome_data;
+	int layer;
 	Entity entities[MAX_ENTITY_COUNT];
 	int entity_count;
-	// ItemData inventory_items[ARCH_MAX];
 	InventoryItemData inventory_items[ITEM_MAX];
 	UXState ux_state;
 	float inventory_alpha;
@@ -1780,6 +1785,24 @@ void create_mushrooms(int amount, int range) {
 	}
 }
 
+typedef enum BiomeID{
+	BIOME_nil,
+
+	// Above ground biomes
+	BIOME_forest,
+
+	// Underground biomes
+	BIOME_cave,
+	// BIOME_dark_cave,
+	// BIOME_crystal_cave,
+	// BIOME_ice_cave,
+	// BIOME_desert_cave,
+
+	BIOME_MAX,
+} BiomeID;
+
+BiomeID biomes[BIOME_MAX];
+
 
 // Biome struct test --------------------------------|
 typedef struct BiomeData {
@@ -1872,6 +1895,16 @@ void spawn_biome(BiomeData* biome) {
 	// window.clear_color = hex_to_rgba(biome->grass_color);
 	// window.clear_color = biome->grass_color;
 }
+
+
+// // ::WORLD LAYER || ::WORLDLAYER -----------|
+
+// typedef struct WorldLayer{
+// 	BiomeID biome;
+	
+// } WorldLayer;
+
+
 
 
 // ::LOOT ----------------------------------|
@@ -2136,10 +2169,13 @@ void render_entities(World* world) {
 }
 
 
+
+
 // ----- SETUP -----------------------------------------------------------------------------------------|
 // :Entry
 int entry(int argc, char **argv) 
 {
+
 	// Window
 	window.title = STR("Game.");
 	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
@@ -2213,7 +2249,7 @@ int entry(int argc, char **argv)
 	}
 
 	// :Load textures
-	textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass_small.png"), get_heap_allocator())};
+	textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
 	
 	// assert all texture files		@ship debug this off (by: jani)
 	{
@@ -2325,7 +2361,7 @@ int entry(int argc, char **argv)
 	float view_zoom = 0.1875; 			// view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
 	Vector2 camera_pos = v2(0, 0);
 
-	view_zoom += 0.2;
+	// view_zoom += 0.2;
 
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
@@ -2434,35 +2470,16 @@ int entry(int argc, char **argv)
 		}
 
 		// texture
-		if (true == true) {
+		if (render_ground_texture) {
 
-			int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
-			int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
+			// this shit way too complex
+
+			// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
+			// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
 			float player_pos_x = player_en->pos.x;
 			float player_pos_y = player_en->pos.y;
-			// Vector2 player_tile = v2(world_pos_to_tile_pos(player_en->pos.x), world_pos_to_tile_pos(player_en->pos.y));
-
-			// Vector2 radius = v2(15, 15);
 
 			Texture* texture = get_texture(TEXTURE_grass);
-			// Vector2 texture_size = get_texture_size(texture);
-			// Vector2 texture_size = v2(10,10);
-			// Vector2 texture_pos = texture_size;
-
-			// printf("Player tile x = %d\ty = %d\n", player_tile_x, player_tile_y);
-
-
-
-			// LOGIC ------------------------------------------------------------------------------
-			// get player tile pos
-			// draw texture from player pos - texture size x and y
-			// do this 4 times for all corners
-			// when player travels eg: player x > texture size x *
-			// idk fuck
-			// try doing if(player_pos_x % texture_size.x > player_pos_x / texture_size.x) or sum
-			// 
-			// LOGIC ------------------------------------------------------------------------------
-
 
 			// xfrom logic:
 			// A 	 B		C
@@ -2478,40 +2495,23 @@ int entry(int argc, char **argv)
 			Matrix4 xform_F = m4_identity;
 			Matrix4 xform_G = m4_identity;
 			Matrix4 xform_H = m4_identity;
-			// Matrix4 xform11 = m4_identity;
-			// Matrix4 xform111 = m4_identity;
-			// Matrix4 xform2 = m4_identity;
-			// Matrix4 xform3 = m4_identity;
-			// Matrix4 xform4 = m4_identity;
 
 			// attempt #4
-
 			Vector2 texture_size = get_texture_size(texture);
 
 			float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
 			float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
-			// int step_y = 0;
-			// int step_x = 0;
-
+			bool x_axis_fix = false;
 			
-			// if (traveled_step_x > 0.0f){
-			// 	step_x = 1;
-			// }
+			// x-axis fix
+			if (player_pos_y < 0 && traveled_step_y == 0 && traveled_step_x != 0){
+				x_axis_fix = true;
+			}
 
-			// if (traveled_step_y < 0.0f){
-			// 	step_y = 1;
-			// }
-			
-			
-			// printf("traveled_step x,y = %.0f, %.0f\ttexture size = %.0f,%.0f\tmodulo_x = %.2f\n", traveled_step_x, traveled_step_y, texture_size.x, texture_size.y, modulo_x);
-
-			// printf("STEP_X = %d\tSTEP_Y = %d\n", step_x, step_y);
-			// printf("Traveled_step y = %.2f\tx = %.2f\nPlayer pos x,y = %.1f,%.1f\n", traveled_step_y, traveled_step_x, player_pos_x, player_pos_y);
-			printf("Player pos x,y = %.1f , %.1f\n", player_pos_x, player_pos_y);
-
-
-			if (traveled_step_x < 0){ // vasen  || traveled_step_y < 0
+			if (traveled_step_x < 0){ // left
+				// printf("LEFT ");
 				if (traveled_step_y < 0){
+					// printf("DOWN \n");
 					xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		,	traveled_step_y - texture_size.y			, 0));
 					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y 							, 0));
 					xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		,	traveled_step_y 							, 0));
@@ -2523,6 +2523,7 @@ int entry(int argc, char **argv)
 					xform_H = m4_translate(xform_H, v3(traveled_step_x						,	traveled_step_y - (texture_size.y * 2)		, 0));
 				}
 				else{
+					// printf("UP \n");
 					xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		, 	traveled_step_y								, 0));
 					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y + texture_size.y			, 0));
 					xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		, 	traveled_step_y + texture_size.y			, 0));
@@ -2538,8 +2539,9 @@ int entry(int argc, char **argv)
 			
 			
 			
-			else if (traveled_step_x == 0){ // keskellä x = 0
-				if (player_pos_x < 0.0f || player_pos_y < 0.0f){
+			else if (traveled_step_x == 0){ // middle x = 0
+				// printf("MIDDLE\n");
+				if (player_pos_x < 0.0f){
 					if (player_pos_y < 0.0f){
 						xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y - texture_size.y			, 0));
 						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
@@ -2595,8 +2597,10 @@ int entry(int argc, char **argv)
 
 
 
-			else{ // oikea
+			else{ // right
+				// printf("RIGHT ");
 				if (traveled_step_y < 0){
+					// printf("DOWN\n");
 					xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y - texture_size.y			, 0));
 					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y 							, 0));
 					xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y 							, 0));
@@ -2608,6 +2612,7 @@ int entry(int argc, char **argv)
 					xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - (texture_size.y * 2)	, 0));
 				}
 				else{
+					// printf("UP\n");
 					xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y							, 0));
 					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
 					xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y + texture_size.y			, 0));
@@ -2620,7 +2625,17 @@ int entry(int argc, char **argv)
 				}
 			}
 
-
+			if (x_axis_fix){
+				xform_M = m4_translate(xform_M, v3(0, -texture_size.y, 0));
+				xform_A = m4_translate(xform_A, v3(0, -texture_size.y, 0));
+				xform_B = m4_translate(xform_B, v3(0, -texture_size.y, 0));
+				xform_C = m4_translate(xform_C, v3(0, -texture_size.y, 0));
+				xform_D = m4_translate(xform_D, v3(0, -texture_size.y, 0));
+				xform_E = m4_translate(xform_E, v3(0, -texture_size.y, 0));
+				xform_F = m4_translate(xform_F, v3(0, -texture_size.y, 0));
+				xform_G = m4_translate(xform_G, v3(0, -texture_size.y, 0));
+				xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
+			}
 
 
 			draw_image_xform(texture->image, xform_M, texture_size, COLOR_WHITE);
@@ -2633,7 +2648,7 @@ int entry(int argc, char **argv)
 			draw_image_xform(texture->image, xform_G, texture_size, COLOR_WHITE);
 			draw_image_xform(texture->image, xform_H, texture_size, COLOR_WHITE);
 
-
+/*
 			// if (traveled_step_x != 0.0f){
 				// if (traveled_step_x < 0){ traveled_step_x = -traveled_step_x;}	
 				// modulo_x = texture_size.x / traveled_step_x;
@@ -2704,7 +2719,7 @@ int entry(int argc, char **argv)
 
 			// 	}
 			// }
-
+*/
 
 		}
 
