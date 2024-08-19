@@ -313,18 +313,21 @@ typedef enum SpriteID {
 	// Tools
 	SPRITE_tool_pickaxe,
 	SPRITE_tool_axe,
-	
+	SPRITE_tool_shovel,
+
 	// Fossils
 	SPRITE_item_fossil0,
 	SPRITE_item_fossil1,
 	SPRITE_item_fossil2,
 
-
-
 	// Buildings
 	SPRITE_building_furnace,
 	SPRITE_building_workbench,
 	SPRITE_building_chest,
+
+	// other
+	SPRITE_portal,
+
 
 	SPRITE_MAX,
 } SpriteID;
@@ -363,9 +366,11 @@ typedef struct ToolData {
 
 typedef enum ToolID {
 	TOOL_nil,
+
 	TOOL_pickaxe,
 	TOOL_axe,
-	// etc
+	TOOL_shovel,
+
 	TOOL_MAX,
 }ToolID;
 
@@ -395,6 +400,7 @@ typedef enum ItemID {
 	// tools (test)
 	ITEM_TOOL_pickaxe,
 	ITEM_TOOL_axe,
+	ITEM_TOOL_shovel,
 
 	// buildings (test)
 	ITEM_BUILDING_furnace,
@@ -412,6 +418,7 @@ SpriteID get_sprite_id_from_tool(ToolID tool_id) {
 	switch (tool_id) {
 		case TOOL_pickaxe: return SPRITE_tool_pickaxe; break;
 		case TOOL_axe: return SPRITE_tool_axe; break;
+		case TOOL_shovel: return SPRITE_tool_shovel; break;
 		default: return 0; break;
 	}
 }
@@ -434,6 +441,8 @@ typedef enum EntityArchetype {
 	ARCH_ore = 9,
 
 	ARCH_mushroom = 10,
+
+	ARCH_portal = 11,
 /*
 	// items
 	// ARCH_item_rock = 6,
@@ -516,6 +525,9 @@ typedef enum OreID {
 OreID ores[ORE_MAX];
 
 
+
+
+
 // enum BiomeID;
 // #Biome
 typedef enum BiomeID{
@@ -535,6 +547,12 @@ typedef enum BiomeID{
 } BiomeID;
 
 
+// ----- ::PORTAL --------------------------|
+typedef struct PortalData {
+	BiomeID destination;
+} PortalData;
+
+
 typedef struct Entity {
 	// main
 	EntityArchetype arch;
@@ -548,7 +566,6 @@ typedef struct Entity {
 	BuildingID building_id;
 	ToolID tool_id;
 	OreID ore_id;
-	// BiomeID biome_id;				// what biome does entity belong to
 	BiomeID biome_ids[BIOME_MAX];	// all biomes where the entity can spawn
 	int biome_count;				// how many biomes the entity is in
 
@@ -558,6 +575,9 @@ typedef struct Entity {
 	bool destroyable;
 	bool is_item;
 	bool is_ore;
+	bool enable_shadow;
+
+	PortalData portal_data;
 
 	// other
 	int rendering_prio;
@@ -1065,6 +1085,7 @@ void setup_player(Entity* en, Vector2 pos) {
 	en->health = player_health;
 	en->pos = pos;
 	en->rendering_prio = 1;
+	en->enable_shadow = true;
 }
 
 void setup_rock(Entity* en) {
@@ -1078,6 +1099,7 @@ void setup_rock(Entity* en) {
 	if (random == 3){en->sprite_id = SPRITE_rock3;}
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	en->enable_shadow = true;
 	add_biomeID_to_entity(en, BIOME_forest);
 	add_biomeID_to_entity(en, BIOME_cave);
 }
@@ -1094,6 +1116,7 @@ void setup_pine_tree(Entity* en) {
 	en->health = tree_health;
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	en->enable_shadow = true;
 	add_biomeID_to_entity(en, BIOME_forest);
 }
 
@@ -1109,6 +1132,7 @@ void setup_spruce_tree(Entity* en) {
 	en->health = tree_health;
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	en->enable_shadow = true;
 	add_biomeID_to_entity(en, BIOME_forest);
 }
 
@@ -1121,6 +1145,7 @@ void setup_bush(Entity* en) {
 	en->health = bush_health;
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	en->enable_shadow = true;
 	add_biomeID_to_entity(en, BIOME_forest);
 }
 
@@ -1132,6 +1157,7 @@ void setup_twig(Entity* en) {
 	en->destroyable = true;
 	en->item_id = ITEM_twig;
 	en->rendering_prio = 0;
+	en->enable_shadow = true;
 	add_biomeID_to_entity(en, BIOME_forest);
 }
 
@@ -1149,12 +1175,14 @@ void setup_mushroom(Entity* en) {
 }
 
 void setup_ore(Entity* en, OreID id) {
-	// en->biome_id = BIOME_cave;
+	// universal
+	en->arch = ARCH_ore;
+	en->enable_shadow = true;
 	add_biomeID_to_entity(en, BIOME_cave);
+
 	switch (id){
 		case ORE_iron:{
 			{
-				en->arch = ARCH_ore;
 				en->name = STR("Iron ore");
 				en->sprite_id = SPRITE_ORE_iron;
 				en->health = 5;
@@ -1166,28 +1194,42 @@ void setup_ore(Entity* en, OreID id) {
 		
 		case ORE_gold:{
 			{
-				en->arch = ARCH_ore;
 				en->name = STR("Gold ore");
 				en->sprite_id = SPRITE_ORE_gold;
 				en->health = 4;
 				en->destroyable = true;
 				en->item_id = ITEM_ORE_gold;
 				en->ore_id = ORE_gold;
+				
 			}
 		} break;
 
 		case ORE_copper:{
 			{
-				en->arch = ARCH_ore;
 				en->name = STR("Copper ore");
 				en->sprite_id = SPRITE_ORE_copper;
 				en->health = 4;
 				en->destroyable = true;
 				en->item_id = ITEM_ORE_copper;
 				en->ore_id = ORE_copper;
+				
 			}
 		} break;
 	}
+}
+
+// # portal
+void setup_portal(Entity* en, BiomeID dest){
+	en->arch = ARCH_portal;
+	en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
+	en->sprite_id = SPRITE_portal;
+	en->health = 1;
+	en->destroyable = false;
+	en->rendering_prio = 1;
+	en->enable_shadow = false;
+	en->portal_data.destination = dest;
+	add_biomeID_to_entity(en, BIOME_forest);
+	add_biomeID_to_entity(en, BIOME_cave);
 }
 
 
@@ -1199,7 +1241,9 @@ void setup_item(Entity* en, ItemID item_id) {
 	en->sprite_id = get_sprite_from_itemID(item_id);
 	en->is_item = true;
 	en->item_id = item_id;
-	printf("SETUP '%s'\n", get_archetype_name(en->arch));
+	en->enable_shadow = true;
+
+	// printf("SETUP '%s'\n", get_archetype_name(en->arch));
 	if (item_id == ITEM_ORE_iron){
 		en->name = get_ore(ORE_iron)->name;
 		// printf("SETTING UP IRON ORE: %s\n", get_ore(ORE_iron)->name);
@@ -1238,13 +1282,16 @@ void setup_item(Entity* en, ItemID item_id) {
 
 // Building setup automation
 void setup_building(Entity* en, BuildingID id) {
+	// universal
+	en->arch = ARCH_building;
+	en->enable_shadow = true;
+	en->is_item = false;
+	en->building_id = id;
+
 	switch (id) {
 		case BUILDING_furnace: {
 			{
-				en->arch = ARCH_building;
 				en->sprite_id = SPRITE_building_furnace;
-				en->building_id = id;
-				en->is_item = false;
 				en->destroyable = true;
 				en->health = 3;
 			}
@@ -1252,20 +1299,14 @@ void setup_building(Entity* en, BuildingID id) {
 
 		case BUILDING_workbench: {
 			{
-				en->arch = ARCH_building;
 				en->sprite_id = SPRITE_building_workbench;
-				en->building_id = id;
-				en->is_item = false;
 				en->destroyable = true;
 				en->health = 3;
 			}
 		} break;
 		case BUILDING_chest: {
 			{
-				en->arch = ARCH_building;
 				en->sprite_id = SPRITE_building_chest;
-				en->building_id = id;
-				en->is_item = false;
 				en->destroyable = true;
 				en->health = 3;
 			}
@@ -1299,6 +1340,12 @@ void setup_tool(Entity* en, ToolID tool_id) {
 	// TODO: fix this
 	// en->item_id = tool_id;
 	en->tool_id = tool_id;
+
+	switch (tool_id){
+		case TOOL_pickaxe:{en->name = STR("Pickaxe");}break;
+		case TOOL_axe:{en->name = STR("Axe");}break;
+		case TOOL_shovel:{en->name = STR("Shovel");}break;
+	}
 }
 
 
@@ -2167,6 +2214,18 @@ void create_ores(int amount, int range, OreID id) {
 		en->pos = round_v2_to_tile(en->pos);
 	}
 }
+
+// #portal
+// create portal entity
+void create_portal_to(BiomeID dest){
+	Entity* en = entity_create();
+	setup_portal(en, dest);
+	en->pos = get_player_pos();
+	en->pos = round_v2_to_tile(en->pos);
+}
+
+
+
 // #biome
 void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->spawn_pine_tree_weight, biome->size.x); }
@@ -2226,6 +2285,9 @@ void change_biomes(World* world, BiomeID new_id){
 	BiomeData biome = get_biome_data_from_id(new_id);
 	spawn_biome(&biome);
 }
+
+
+
 
 // ::LOOT ----------------------------------|
 typedef struct LootItem {
@@ -2368,8 +2430,11 @@ void render_entities(World* world) {
         indices[i] = i;
     }
 
+
     // Sort the indices based on the y coordinates of the entities
     sort_entity_indices_by_y(indices, world->entities, world->entity_count);
+
+	// TODO: sort entities again by their rendering priorities
 
    for (int i = 0; i < world->entity_count; i++)  {
 
@@ -2396,7 +2461,9 @@ void render_entities(World* world) {
 						shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
 
 						// draw shadow
-						draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
+						if (en->enable_shadow){
+							draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
+						}
 
 						// draw sprite
 						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
@@ -2449,11 +2516,13 @@ void render_entities(World* world) {
 
 							}
 							else{
-								Vector2 shadow_pos = en->pos;
-								shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
-								// shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
-								shadow_pos.y -= 6;
-								draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
+								if (en->enable_shadow){
+									Vector2 shadow_pos = en->pos;
+									shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
+									// shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
+									shadow_pos.y -= 6;
+									draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
+								}
 							}
 							
 							// SPRITE
@@ -2492,7 +2561,7 @@ void render_entities(World* world) {
 
 
 // ----- SETUP -----------------------------------------------------------------------------------------|
-// :Entry
+// ::Entry
 int entry(int argc, char **argv) 
 {
 
@@ -2538,6 +2607,7 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
+	sprites[SPRITE_portal] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal0.png"), get_heap_allocator())};
 
 	// :Load item/entity sprites (these sprites are the same for their entities and items (for now))
 	sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
@@ -2558,6 +2628,7 @@ int entry(int argc, char **argv)
 	// :Load tool sprites
 	sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
 	sprites[SPRITE_tool_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
+	sprites[SPRITE_tool_shovel] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_shovel.png"), get_heap_allocator())};
 
 	// :Load building sprites
 	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
@@ -2625,8 +2696,9 @@ int entry(int argc, char **argv)
 			// test adding items to inventory
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
 			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
-			add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
+			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_tool_shovel, TOOL_shovel, true);
+			// add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 
 		}
 		
@@ -2640,10 +2712,10 @@ int entry(int argc, char **argv)
 			// en->pos = round_v2_to_tile(en->pos);
 
 			// CHEST:
-			Entity* en = entity_create();
-			setup_building(en, BUILDING_chest);
-			en->pos = v2(-20, 0);
-			en->pos = round_v2_to_tile(en->pos);
+			// Entity* en = entity_create();
+			// setup_building(en, BUILDING_chest);
+			// en->pos = v2(-20, 0);
+			// en->pos = round_v2_to_tile(en->pos);
 		}
 	}
 
@@ -2664,7 +2736,8 @@ int entry(int argc, char **argv)
 	setup_all_biomes();
 
 	// set current biome
-	world->biome_id = BIOME_cave;
+	world->biome_id = BIOME_forest;
+	// world->biome_id = BIOME_cave;
 
 	BiomeData temp_data = get_biome_data_from_id(world->biome_id);
 	spawn_biome(&temp_data);
@@ -2750,11 +2823,22 @@ int entry(int argc, char **argv)
 
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++){
 				Entity* en = &world->entities[i];
-				if (en->is_valid && en->destroyable){
-					Sprite* sprite = get_sprite(en->sprite_id);
 
-					int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
-					int entity_tile_y = world_pos_to_tile_pos(en->pos.y);
+				// portal
+				if (en->arch == ARCH_portal){
+					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+					if (dist < entity_selection_radius){
+						if (!world_frame.selected_entity || (dist < smallest_dist)){
+							world_frame.selected_entity = en;
+						}
+					}
+				}
+
+				if (en->is_valid && en->destroyable){
+					// Sprite* sprite = get_sprite(en->sprite_id);
+
+					// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
+					// int entity_tile_y = world_pos_to_tile_pos(en->pos.y);
 
 					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
 
@@ -2769,7 +2853,7 @@ int entry(int argc, char **argv)
 			}
 		}
 
-		// render chest ui
+		// Render chest ui
 		render_chest_ui();
 
 
@@ -2802,7 +2886,7 @@ int entry(int argc, char **argv)
 			// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
 		}
 
-		// :draw ground texture || :draw_ground 
+		// :Draw ground texture || :draw_ground 
 		if (render_ground_texture) {
 
 			// this shit way too complex
@@ -3055,7 +3139,7 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :update entities || :item pick up
+		// :Update entities || :Item pick up
 		{
 			// bool is_pickup_text_visible = false;
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
@@ -3087,7 +3171,7 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :player attack || :use || :spawn item
+		// :Player attack || :Spawn item
 		{
 			// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
 			// and in the generateLoot func decide what loot table to use based on the passed arch
@@ -3100,19 +3184,21 @@ int entry(int argc, char **argv)
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 				
+				// Play audio
+				if (selected_item != NULL){
+
+					// swing sound if tool is selected
+					switch (selected_item->tool_id){
+						case TOOL_pickaxe:{play_one_audio_clip(audioFiles[AUDIO_swing_fast].path);}break;
+						case TOOL_axe:{play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);}break;
+						case TOOL_shovel:{play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);}break;
+						default:{printf("Failed to play specific audio. toolID = %d\n", selected_item->tool_id);}break;		// hopefully this won't cause a crash. Because of trying to print tool_id if selected_item has no tool_id
+					}
+				}
+
 				if (selected_en) {
 
 					printf("SELECTED EN ITEM ID = '%d'\n", selected_en->item_id);
-
-					if (selected_item != NULL){
-
-						// swing sound if tool is selected
-						switch (selected_item->tool_id){
-							case TOOL_pickaxe:{play_one_audio_clip(audioFiles[AUDIO_swing_fast].path);}break;
-							case TOOL_axe:{play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);}break;
-							default:{printf("Failed to play specific audio. toolID = %d\n", selected_en->tool_id);}break;		// hopefully this won't cause a crash. Because of trying to print tool_id if selected_item has no tool_id
-						}
-					}
 						
 					// get entity pos (for playing audio at position)
 					Vector3 audio_pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
@@ -3194,18 +3280,63 @@ int entry(int argc, char **argv)
 							}
 						} break;
 					}
-					}	// selected_item != NULL
+				}	// selected_item != NULL
+				else{
 
-
-					if (allow_destroy){
-						entity_destroy(selected_en);
+					// |------- SHOVEL -------|
+					if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
+						if (world->biome_id == BIOME_forest){ create_portal_to(BIOME_cave); }
 					}
-				// }
+				}
+
+
+				if (allow_destroy){
+					entity_destroy(selected_en);
+				}
 			}
 		}
 
-		// render entities
+		// :Player use
+		{
+			if (is_key_just_pressed('F')){
+				consume_key_just_pressed('F');
+
+				printf("PLAYER USE\n");
+
+				Entity* selected_en = world_frame.selected_entity;
+
+				if (selected_en){
+					switch (selected_en->arch){
+
+						case ARCH_portal:{
+							{
+								BiomeID destination = selected_en->portal_data.destination;
+								change_biomes(world, destination);
+							}
+						} break;
+
+						case ARCH_building:{
+							{
+								printf("SELECTED BUILDING\n");
+							}
+						} break;
+
+						default:{}break;
+					}
+				}
+			}
+		}
+
+		// Render entities
 		render_entities(world);
+
+
+
+
+
+
+
+
 
 		// #Biome
 		// printf("%s\n",get_biome_data_from_id(world->biome_id).name);
@@ -3253,7 +3384,7 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('X')){ // EXIT
 			window.should_close = true;
 		}
-		if (is_key_just_pressed('T')){
+		if (is_key_just_pressed('V')){
 			if (IS_DEBUG){
 				IS_DEBUG = false;
 			}
@@ -3298,6 +3429,7 @@ int entry(int argc, char **argv)
 		// #Biome
 		if (is_key_just_pressed('N')) {change_biomes(world, BIOME_forest);}
 		if (is_key_just_pressed('M')) {change_biomes(world, BIOME_cave);}
+		if (is_key_just_pressed('T')) {create_portal_to(BIOME_cave);}
 
 
 		// selecting slots
