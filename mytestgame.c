@@ -4,19 +4,21 @@ bool IS_DEBUG = false;
 // #define MAX_ENTITY_COUNT 1024
 #define MAX_ENTITY_COUNT 2024
 
-bool print_fps = false;
+bool print_fps = true;
+// bool print_fps = false;
 bool enable_tooltip = true;
 bool render_hotbar = true;
 bool render_player = true;
 bool render_other_entities = true;
-float render_distance = 175;		// 170 is pretty good
 bool draw_grid = false;
 bool render_ground_texture = true;
 
 // PLAYER
 float player_speed = 50.0;			// pixels per second
+float player_running_speed = 100.0;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
+float render_distance = 175;		// 170 is pretty good
 
 // health
 int player_health = 3;
@@ -514,7 +516,24 @@ typedef enum OreID {
 OreID ores[ORE_MAX];
 
 
-enum BiomeID;
+// enum BiomeID;
+// #Biome
+typedef enum BiomeID{
+	BIOME_nil,
+
+	// Above ground biomes
+	BIOME_forest,
+
+	// Underground biomes
+	BIOME_cave,
+	// BIOME_dark_cave,
+	// BIOME_crystal_cave,
+	// BIOME_ice_cave,
+	// BIOME_desert_cave,
+
+	BIOME_MAX,
+} BiomeID;
+
 
 typedef struct Entity {
 	// main
@@ -529,7 +548,9 @@ typedef struct Entity {
 	BuildingID building_id;
 	ToolID tool_id;
 	OreID ore_id;
-	enum BiomeID biome_id;		// what biome does entity belong to
+	// BiomeID biome_id;				// what biome does entity belong to
+	BiomeID biome_ids[BIOME_MAX];	// all biomes where the entity can spawn
+	int biome_count;				// how many biomes the entity is in
 
 	// booleans
 	bool is_valid;
@@ -545,7 +566,16 @@ typedef struct Entity {
 
 
 
-
+int add_biomeID_to_entity(Entity* entity, BiomeID id){
+	if (entity->biome_count < BIOME_MAX){
+		entity->biome_ids[entity->biome_count] = id;
+		entity->biome_count++;
+		return 1;
+	}
+	else{
+		return 0; // biome_ids list is full
+	}
+}
 
 
 typedef struct ItemData {
@@ -636,6 +666,9 @@ SpriteID get_sprite_from_itemID(ItemID item) {
 		case ITEM_fossil0: return SPRITE_item_fossil0; break;
 		case ITEM_fossil1: return SPRITE_item_fossil1; break;
 		case ITEM_fossil2: return SPRITE_item_fossil2; break;
+		case ITEM_ORE_iron: return SPRITE_ORE_iron; break;
+		case ITEM_ORE_gold: return SPRITE_ORE_gold; break;
+		case ITEM_ORE_copper: return SPRITE_ORE_copper; break;
 		default: return 0; break;
 	}
 }
@@ -658,22 +691,6 @@ typedef enum UXState {
 	// UX_menu,
 } UXState;
 
-// #Biome
-typedef enum BiomeID{
-	BIOME_nil,
-
-	// Above ground biomes
-	BIOME_forest,
-
-	// Underground biomes
-	BIOME_cave,
-	// BIOME_dark_cave,
-	// BIOME_crystal_cave,
-	// BIOME_ice_cave,
-	// BIOME_desert_cave,
-
-	BIOME_MAX,
-} BiomeID;
 
 
 
@@ -681,6 +698,7 @@ typedef enum BiomeID{
 typedef struct BiomeData {
 	string name;
 	Vector2 size;
+	bool enabled;
 
 	bool spawn_animals;
 	bool spawn_water;
@@ -730,19 +748,29 @@ typedef struct BiomeData {
 BiomeData biomes[BIOME_MAX];
 
 BiomeData get_biome_data_from_id(BiomeID id){
-	return biomes[id];
+	if (biomes[id].enabled){
+		return biomes[id];
+	}
+	else{
+		log_error("Failed to get biomeData @ get_biome_data_from_id. NULL\n");
+	}
 }
 
 
-// setup biome && #Biome
-void setup_biome(BiomeData* biome, BiomeID id){
+// ::setup biome && #Biome
+void setup_biome(BiomeID id){
 	// spawn weigth = spawn amount
 	// drop chace = drop chance in %
+
+	BiomeData* biome = 0;
+	biome = alloc(get_heap_allocator(), sizeof(BiomeData));
+
 	switch (id){
 		case BIOME_forest:{
 			{
 				biome->name = STR("Forest");
 				biome->size = v2(400, 400);
+				biome->enabled = true;
 				biome->spawn_animals = false;
 				biome->spawn_water = false;
 				biome->grass_color = v4(0.32, 0.97, 0.62, 1);
@@ -777,7 +805,7 @@ void setup_biome(BiomeData* biome, BiomeID id){
 				biome->fossil2_drop_chance = 5;
 				// biome->fossil_rarity_level = 2;
 
-				biomes[id] = *biome;
+				// biomes[id] = *biome;
 			}
 		} break;
 
@@ -785,6 +813,7 @@ void setup_biome(BiomeData* biome, BiomeID id){
 			{
 				biome->name = STR("Cave");
 				biome->size = v2(400, 400);
+				biome->enabled = true;
 				biome->spawn_animals = false;
 				biome->spawn_water = false;
 				biome->grass_color = v4(0.32, 0.97, 0.62, 1);
@@ -816,30 +845,21 @@ void setup_biome(BiomeData* biome, BiomeID id){
 				biome->fossil2_drop_chance = 15;
 				// biome->fossil_rarity_level = 2;
 			
-				biomes[id] = *biome;
+				// biomes[id] = *biome;
 			}
 		} break;
 	}
 
-	// biomes[id] = *biome;
+	// add biome to biomes list
+	biomes[id] = *biome;
 }
 
-
-// void setup_biome_forest(BiomeData* biome, BiomeID id) {
-// }
-
-// setup cave && #Biome
-// void setup_biome_cave(BiomeData* biome, BiomeID id) {
-	// spawn weigth = spawn amount
-	// drop chace = drop chance in %
-
-
-
-	// biomes[id] = *biome;
-// }
-
-
-
+// sets up all biomes
+void setup_all_biomes() {
+	for (BiomeID i = 0; i < BIOME_MAX; i++){
+		setup_biome(i);
+	}
+}
 
 
 // ::WORLD ---------------------------------|
@@ -863,9 +883,7 @@ typedef struct World {
 
 World* world = 0;
 
-// add item to inventory. eg:
-// 		add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
-// 		add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+// adds item to inventory
 void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid){
 	world->inventory_items[item].name = name;
 	world->inventory_items[item].amount += amount;
@@ -876,6 +894,7 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 	world->inventory_items[item].item_id = item;
 }
 
+// quicker way of adding item to inventory using InventoryItemData
 void add_item_to_inventory_quick(InventoryItemData* item){
 	if (item != NULL){
 		add_item_to_inventory(item->item_id, item->name, item->amount, item->arch, item->sprite_id, item->tool_id, item->valid);
@@ -885,6 +904,7 @@ void add_item_to_inventory_quick(InventoryItemData* item){
 	}
 }
 
+// deletes item(s) from inventory
 void delete_item_from_inventory(ItemID item, int amount){
 	if (world->inventory_items[item].amount <= 0){
 		world->inventory_items[item].amount = 0;
@@ -908,6 +928,7 @@ WorldFrame world_frame;
 
 
 Vector2 get_player_pos(){
+	// TODO: make this better. surely this can be done without a for-loop!?
 	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
 		Entity en = world->entities[i];
 		if (en.arch == ARCH_player){
@@ -936,8 +957,19 @@ Entity* entity_create() {
 }
 
 void entity_destroy(Entity* entity) {
+	// printf("Destroying entity '%s'\n", entity->name);
 	world->entity_count--;
+	entity->is_valid = false;
 	memset(entity, 0, sizeof(Entity));
+}
+
+void entity_clear(Entity* entity) {
+	// printf("Clearing entity '%s'\n", entity->name);
+	// world->entity_count--;
+	entity->is_valid = false;
+	world->entities;
+	memset(entity, 0, sizeof(Entity));
+	world->entities;
 }
 
 
@@ -985,7 +1017,7 @@ string get_archetype_name(ItemID id) {
 		// case BUILDING_furnace: return STR("Furnace");
 		// case BUILDING_workbench: return STR("Workbench");
 		// case BUILDING_chest: return STR("Chest");
-		default: return STR("nill"); break;
+		default: return STR("nil"); break;
 	}
 }
 
@@ -1016,6 +1048,7 @@ Entity* get_ore(OreID id) {
 	log_error("Failed to get ore @ 'get_ore'\n");
 }
 
+// is this also @pin2 problem?
 // ToolID get_tool_id_from_arch(ToolID id) {
 // 	switch (id) {
 // 		case TOOL_axe: return Tool_axe;
@@ -1027,6 +1060,7 @@ Entity* get_ore(OreID id) {
 // @reminder gotta remember to modify the range variale in "get_random_int_in_range" based on the amount of different variations per sprite
 void setup_player(Entity* en, Vector2 pos) {
 	en->arch = ARCH_player;
+	en->name = STR("Player");
 	en->sprite_id = SPRITE_player;
 	en->health = player_health;
 	en->pos = pos;
@@ -1035,6 +1069,7 @@ void setup_player(Entity* en, Vector2 pos) {
 
 void setup_rock(Entity* en) {
 	en->arch = ARCH_rock;
+	en->name = STR("Rock");
 	en->health = rock_health;
 	int random = get_random_int_in_range(0,3);
 	if (random == 0){en->sprite_id = SPRITE_rock0;}
@@ -1043,10 +1078,13 @@ void setup_rock(Entity* en) {
 	if (random == 3){en->sprite_id = SPRITE_rock3;}
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	add_biomeID_to_entity(en, BIOME_forest);
+	add_biomeID_to_entity(en, BIOME_cave);
 }
 
 void setup_pine_tree(Entity* en) {
 	en->arch = ARCH_tree;
+	en->name = STR("Pine tree");
 	// int random = get_random_int_in_range(0,3);
 	// if (random == 0){en->sprite_id = SPRITE_tree0;}
 	// if (random == 1){en->sprite_id = SPRITE_tree1;}
@@ -1056,10 +1094,12 @@ void setup_pine_tree(Entity* en) {
 	en->health = tree_health;
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	add_biomeID_to_entity(en, BIOME_forest);
 }
 
 void setup_spruce_tree(Entity* en) {
 	en->arch = ARCH_tree;
+	en->name = STR("Spruce tree");
 	// int random = get_random_int_in_range(0,3);
 	// if (random == 0){en->sprite_id = SPRITE_tree0;}
 	// if (random == 1){en->sprite_id = SPRITE_tree1;}
@@ -1069,43 +1109,53 @@ void setup_spruce_tree(Entity* en) {
 	en->health = tree_health;
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	add_biomeID_to_entity(en, BIOME_forest);
 }
 
 void setup_bush(Entity* en) {
 	en->arch = ARCH_bush;
+	en->name = STR("Bush");
 	int random = get_random_int_in_range(0,1);
 	if (random == 0){en->sprite_id = SPRITE_bush0;en->item_id = ITEM_berry;}
 	if (random == 1){en->sprite_id = SPRITE_bush1;en->item_id = ITEM_sprout;}
 	en->health = bush_health;
 	en->destroyable = true;
 	en->rendering_prio = 0;
+	add_biomeID_to_entity(en, BIOME_forest);
 }
 
 void setup_twig(Entity* en) {
 	en->arch = ARCH_twig;
+	en->name = STR("Twig");
 	en->sprite_id = SPRITE_item_twig;
 	en->health = 1;
 	en->destroyable = true;
 	en->item_id = ITEM_twig;
 	en->rendering_prio = 0;
+	add_biomeID_to_entity(en, BIOME_forest);
 }
 
 void setup_mushroom(Entity* en) {
 	en->arch = ARCH_mushroom;
+	en->name = STR("Mushroom");
 	en->sprite_id = SPRITE_mushroom0;
 	en->health = 1;
 	en->destroyable = true;
 	en->item_id = ITEM_mushroom0;
 	en->rendering_prio = 0;
 	en->tool_id = TOOL_nil;
+	add_biomeID_to_entity(en, BIOME_forest);
+	add_biomeID_to_entity(en, BIOME_cave);
 }
 
 void setup_ore(Entity* en, OreID id) {
-	en->biome_id = BIOME_cave;
+	// en->biome_id = BIOME_cave;
+	add_biomeID_to_entity(en, BIOME_cave);
 	switch (id){
 		case ORE_iron:{
 			{
 				en->arch = ARCH_ore;
+				en->name = STR("Iron ore");
 				en->sprite_id = SPRITE_ORE_iron;
 				en->health = 5;
 				en->destroyable = true;
@@ -1117,6 +1167,7 @@ void setup_ore(Entity* en, OreID id) {
 		case ORE_gold:{
 			{
 				en->arch = ARCH_ore;
+				en->name = STR("Gold ore");
 				en->sprite_id = SPRITE_ORE_gold;
 				en->health = 4;
 				en->destroyable = true;
@@ -1128,6 +1179,7 @@ void setup_ore(Entity* en, OreID id) {
 		case ORE_copper:{
 			{
 				en->arch = ARCH_ore;
+				en->name = STR("Copper ore");
 				en->sprite_id = SPRITE_ORE_copper;
 				en->health = 4;
 				en->destroyable = true;
@@ -1143,18 +1195,22 @@ void setup_ore(Entity* en, OreID id) {
 
 void setup_item(Entity* en, ItemID item_id) {
 	en->arch = ARCH_item;
+	en->name = STR("ITEM (placeholder)");
 	en->sprite_id = get_sprite_from_itemID(item_id);
 	en->is_item = true;
 	en->item_id = item_id;
 	printf("SETUP '%s'\n", get_archetype_name(en->arch));
 	if (item_id == ITEM_ORE_iron){
-		printf("SETTING UP IRON ORE: %s\n", get_ore(ORE_iron)->name);
+		en->name = get_ore(ORE_iron)->name;
+		// printf("SETTING UP IRON ORE: %s\n", get_ore(ORE_iron)->name);
 	}
 	else if (item_id == ITEM_ORE_gold){
-		printf("SETTING UP GOLD ORE: %s\n", get_ore(ORE_gold)->name);
+		en->name = get_ore(ORE_gold)->name;
+		// printf("SETTING UP GOLD ORE: %s\n", get_ore(ORE_gold)->name);
 	}
 	else if (item_id == ITEM_ORE_copper){
-		printf("SETTING UP COPPER ORE: %s\n", get_ore(ORE_copper)->name);
+		en->name = get_ore(ORE_copper)->name;
+		// printf("SETTING UP COPPER ORE: %s\n", get_ore(ORE_copper)->name);
 	}
 }
 
@@ -2124,12 +2180,6 @@ void spawn_biome(BiomeData* biome) {
 		if (biome->spawn_ore_gold) {create_ores((int)biome->spawn_ore_gold_weight, biome->size.x, ORE_gold); }
 		if (biome->spawn_ore_copper) {create_ores((int)biome->spawn_ore_copper_weight, biome->size.x, ORE_copper); }
 	}
-
-
-
-
-	// window.clear_color = hex_to_rgba(biome->grass_color);
-	// window.clear_color = biome->grass_color;
 }
 
 // // ::WORLD LAYER || ::WORLDLAYER -----------|
@@ -2141,27 +2191,40 @@ void spawn_biome(BiomeData* biome) {
 
 void unload_biome(World* world, BiomeID id){
 	// world->entities
+	int removed_entity_count = 0;
 	for (int i = 0; i < world->entity_count; i++)  {
 		Entity* en = &world->entities[i];
-		if (en->biome_id == id){
-			printf("Unloaded entity '%s'\n", en->name);
-			dealloc(get_heap_allocator(), &en);
+		for (int i = 0; i < BIOME_MAX; i++){
+			if (en->biome_ids[i] == id){
+				// dealloc(get_heap_allocator(), &en);
+				// memset(&en, 0, sizeof(en)); // i dont know what im doing
+
+				// entity_destroy(en);
+				entity_clear(en);
+				removed_entity_count++;
+			}
 		}
 	}
+	world->entity_count -= removed_entity_count;
 }
 
 // #Biome
 void change_biomes(World* world, BiomeID new_id){
+	
+	printf("Changing biome: %s -> %s\n", get_biome_data_from_id(world->biome_id).name, get_biome_data_from_id(new_id).name);
+	
 	// dealloc all entities
 	// set new biome to world
-	// setup new biome? (again??)
 	// spawn new entities based on biome
 
-	// unload_biome(world, world->biome_id);
+	world->entities;
+
+	unload_biome(world, world->biome_id);
+	world->entities;
+
 	world->biome_id = new_id;
-	// BiomeData biome = get_biome_data_from_id(new_id);
-	// setup_biome(&biome, new_id);
-	// spawn_biome(&biome);
+	BiomeData biome = get_biome_data_from_id(new_id);
+	spawn_biome(&biome);
 }
 
 // ::LOOT ----------------------------------|
@@ -2597,22 +2660,15 @@ int entry(int argc, char **argv)
 	Entity* player_en = entity_create();
 	setup_player(player_en, v2(0, 0));
 
-	// #Biome
-	
-	// setup forest test
-	// BiomeData* forest = 0;
-	// forest = alloc(get_heap_allocator(), sizeof(BiomeData));
-	// memset(forest, 0, sizeof(BiomeData));
-	// setup_biome_forest(forest, BIOME_forest);
-	// spawn_biome(forest);
+	// setup all biomes && #Biome
+	setup_all_biomes();
 
-	BiomeData* cave = 0;
-	cave = alloc(get_heap_allocator(), sizeof(BiomeData));
-	// setup_biome_cave(cave, BIOME_cave); // old
-	setup_biome(cave, BIOME_cave);
-	spawn_biome(cave);
-
+	// set current biome
 	world->biome_id = BIOME_cave;
+
+	BiomeData temp_data = get_biome_data_from_id(world->biome_id);
+	spawn_biome(&temp_data);
+	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
 	// test adding stuff to loot table (can't be in a scope) 
 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
@@ -2746,10 +2802,11 @@ int entry(int argc, char **argv)
 			// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
 		}
 
-		// :draw texture || :draw_ground 
+		// :draw ground texture || :draw_ground 
 		if (render_ground_texture) {
 
 			// this shit way too complex
+			// disgusting
 
 			// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
 			// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
@@ -2757,6 +2814,8 @@ int entry(int argc, char **argv)
 			float player_pos_y = player_en->pos.y;
 
 			// Texture* texture = get_texture(TEXTURE_grass);
+			biomes;
+			
 			Texture* texture = get_texture(get_biome_data_from_id(world->biome_id).ground_texture);
 
 			// xfrom logic:
@@ -2815,9 +2874,6 @@ int entry(int argc, char **argv)
 				}
 			}
 			
-			
-			
-			
 			else if (traveled_step_x == 0){ // middle x = 0
 				// printf("MIDDLE\n");
 				if (player_pos_x < 0.0f){
@@ -2874,8 +2930,6 @@ int entry(int argc, char **argv)
 				}
 			}
 
-
-
 			else{ // right
 				// printf("RIGHT ");
 				if (traveled_step_y < 0){
@@ -2915,7 +2969,6 @@ int entry(int argc, char **argv)
 				xform_G = m4_translate(xform_G, v3(0, -texture_size.y, 0));
 				xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
 			}
-
 
 			draw_image_xform(texture->image, xform_M, texture_size, COLOR_WHITE);
 			draw_image_xform(texture->image, xform_A, texture_size, COLOR_WHITE);
@@ -3115,7 +3168,6 @@ int entry(int argc, char **argv)
 						} break;
 
 						case ARCH_ore: {	// |------- ORES -------|
-							if (true == false)
 							{
 								if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
 									play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
@@ -3170,15 +3222,31 @@ int entry(int argc, char **argv)
 		// 	default:{}break;
 		// }
 
+		// debug print entity counts
+		if (1 == 0)
+		{
+			int total = 0;
+			for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+				Entity* en = &world->entities[i];
+				if (en->arch != ARCH_nil){
+					total++;
+				}
+			}
+			printf("TOTAL ENTITY COUNT = %d\tworld->entity_count = %d\n", total, world->entity_count);
+		}
+
 		// DEBUG: print current biome && #Biome
-		if (world->biome_id == 1){
-			printf("Current Biome = FOREST\n");
-		}
-		else if (world->biome_id == 2){
-			printf("Current Biome = CAVE\n");
-		}
-		else{
-			printf("Current BiomeID = '%d'\n", world->biome_id);
+		if (1 == 0)
+		{
+			if (world->biome_id == 1){
+				printf("Current Biome = FOREST\n");
+			}
+			else if (world->biome_id == 2){
+				printf("Current Biome = CAVE\n");
+			}
+			else{
+				printf("Current BiomeID = '%d'\n", world->biome_id);
+			}
 		}
 
 		// :Input
@@ -3228,10 +3296,8 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('G')) {generateLoot(lootTable_rock, 100, v2(0,0));}
 
 		// #Biome
-		if (is_key_just_pressed('N')) {world->biome_id = BIOME_forest;}
-		if (is_key_just_pressed('M')) {world->biome_id = BIOME_cave;}
-		// if (is_key_just_pressed('N')) {change_biomes(&world, BIOME_forest);}
-		// if (is_key_just_pressed('N')) {change_biomes(&world, BIOME_cave);}
+		if (is_key_just_pressed('N')) {change_biomes(world, BIOME_forest);}
+		if (is_key_just_pressed('M')) {change_biomes(world, BIOME_cave);}
 
 
 		// selecting slots
@@ -3246,7 +3312,7 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('9')) {selected_slot = 9 - 1;}
 
 		// :Sprint
-		if (is_key_down(KEY_SHIFT)){ player_speed = 100.0;}
+		if (is_key_down(KEY_SHIFT)){ player_speed = player_running_speed;}
 		else { player_speed = 50.0;}
 
 		// Player movement
