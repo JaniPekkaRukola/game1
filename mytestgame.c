@@ -16,6 +16,7 @@ bool render_ground_texture = true;
 // PLAYER
 float player_speed = 50.0;			// pixels per second
 float player_running_speed = 100.0;
+bool player_running = false;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
 float render_distance = 175;		// 170 is pretty good
@@ -465,6 +466,16 @@ typedef enum EntityArchetype {
 */
 	ARCH_MAX,
 } EntityArchetype;
+
+// #renderlist || #render list || #render_list
+typedef struct RenderList {
+	int* indices;
+	int count;
+	bool needs_sorting;
+} RenderList;
+
+RenderList render_list;
+
 
 typedef struct InventoryItemData {
 	int amount;
@@ -949,7 +960,8 @@ WorldFrame world_frame;
 
 Vector2 get_player_pos(){
 	// TODO: make this better. surely this can be done without a for-loop!?
-	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+	// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+	for (int i = 0; i < world->entity_count; i++){
 		Entity en = world->entities[i];
 		if (en.arch == ARCH_player){
 			return en.pos;
@@ -959,24 +971,40 @@ Vector2 get_player_pos(){
 	return v2(0,0);
 }
 
+void add_entity_to_renderlist();
+void remove_entity_from_renderlist();
+
 // :ENTITY create & destroy ----------------|
 // should prolly move these into : :ENTITY above
 Entity* entity_create() {
+	render_list.needs_sorting = true;
+	// int entity_index = -1;
+
 	Entity* entity_found = 0;
+
 	for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
 		Entity* existing_entity = &world->entities[i];
 		if (!existing_entity->is_valid) {
 			world->entity_count++;
 			entity_found = existing_entity;
+			// entity_index = i; // capture the index of the new entity
 			break;
 		}
 	}
+
 	assert(entity_found, "No more free entities!");
 	entity_found->is_valid = true;
+
+	// add the new entity's index to the render list
+	// if (entity_index != -1) {
+	// 	add_entity_to_renderlist(&render_list, entity_index);
+	// }
+
 	return entity_found;
 }
 
 void entity_destroy(Entity* entity) {
+	render_list.needs_sorting = true;
 	// printf("Destroying entity '%s'\n", entity->name);
 	world->entity_count--;
 	entity->is_valid = false;
@@ -1059,7 +1087,8 @@ string get_tool_name(ToolID id) {
 }
 
 Entity* get_ore(OreID id) {
-	for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+	// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+	for (int i = 0; i < world->entity_count; i++) {
 		Entity* en = &world->entities[i];
 		if (en->ore_id == id){
 			return en;
@@ -1218,7 +1247,7 @@ void setup_ore(Entity* en, OreID id) {
 	}
 }
 
-// # portal
+// :setup portal # portal
 void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
 	en->arch = ARCH_portal;
 	en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
@@ -2226,7 +2255,7 @@ int block_portal_creation(){
 	return 0;
 }
 
-// #portal
+// :create portal #portal
 void create_portal_to(BiomeID dest, bool create_portal_bothways){
 	// create portal entity
 
@@ -2238,7 +2267,12 @@ void create_portal_to(BiomeID dest, bool create_portal_bothways){
 		Entity* en = entity_create();
 		setup_portal(en, current_biome, dest);
 		en->pos = get_mouse_pos_in_world_space();
-		en->pos = round_v2_to_tile(en->pos);
+		// en->pos = round_v2_to_tile(en->pos);
+
+		// center portal
+		// en->pos.x -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
+		// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
+
 		add_biomeID_to_entity(en, world->biome_id);
 		en->is_valid = true;
 		
@@ -2446,10 +2480,26 @@ void setup_audio_player(){
 }
 
 
+
+
+
+
+
+
+// TESTS--------------------------->
+
+
+
+
+
+
+
 void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count) {
 	// sorts entities:
 	// primary sort: sort entities based on their rendering_prio value
 	// secondary sort: if rendering_prio is the same, sort based on their y coordinates in descending order
+
+	// printf("--> SORTER ENTITIES <--\n");
 
     for (int i = 0; i < count - 1; i++) {
         for (int j = 0; j < count - i - 1; j++) {
@@ -2469,6 +2519,56 @@ void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count
     }
 }
 
+
+// #renderlist || #render list || #render_list
+// void update_entity_render_order(RenderList* render_list, Entity* entities, int entity_count) {
+//     if (render_list->needs_sorting) {
+// 		// int entity_count = world->entity_count + 1;
+
+// 	    // // Create an array of indices
+// 		// int indices[entity_count];
+// 		// for (int i = 0; i < entity_count; i++) {
+// 		// 	indices[i] = i;
+// 		// }
+
+//         sort_entity_indices_by_prio_and_y(render_list->indices, entities, render_list->count);
+//         render_list->needs_sorting = false;
+//     }
+// }
+
+// // #renderlist || #render list || #render_list
+// void add_entity_to_renderlist(RenderList* render_list, int entity_index) {
+//     // Check if the entity is already in the render list to avoid duplicates
+//     for (int i = 0; i < render_list->count; i++) {
+//         if (render_list->indices[i] == entity_index) {
+//             return; // Entity is already in the render list
+//         }
+//     }
+
+//     // Add the entity index to the render list
+//     render_list->indices[render_list->count++] = entity_index;
+
+//     // Mark the list as needing sorting
+//     render_list->needs_sorting = true;
+// }
+
+// // #renderlist || #render list || #render_list
+// void remove_entity_from_renderlist(RenderList* render_list, int entity_index) {
+//     // Find the entity in the list and remove it (shifting elements if necessary)
+//     for (int i = 0; i < render_list->count; i++) {
+//         if (render_list->indices[i] == entity_index) {
+//             // Shift elements down to fill the gap
+//             for (int j = i; j < render_list->count - 1; j++) {
+//                 render_list->indices[j] = render_list->indices[j + 1];
+//             }
+//             render_list->count--;
+//             render_list->needs_sorting = true;
+//             break;
+//         }
+//     }
+// }
+
+
 // :Render entities
 void render_entities(World* world) {
 
@@ -2483,17 +2583,25 @@ void render_entities(World* world) {
     }
 
     // Sort the indices based on the y coordinates AND the rendering prios of the entities 
-	sort_entity_indices_by_prio_and_y(indices, world->entities, entity_count);
+	// NOTE: sorting the entities drops the fps like 2500 - 4000
+	// ??: fix idea: cache the sorted entities and sort them again when changes occur. NOT EVERY DAMN FRAME
+	// sort_entity_indices_by_prio_and_y(indices, world->entities, entity_count);
+	// update_entity_render_order(&render_list, world->entities, render_list.count);
+
+
+	render_list.needs_sorting = true;
+
+	if (render_list.needs_sorting){
+		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
+		sort_entity_indices_by_prio_and_y(indices, &world->entities, entity_count);
+		render_list.needs_sorting = false;
+	}
 
    for (int i = 0; i < entity_count; i++)  {
 
 		int index = indices[i];
 		Entity* en = &world->entities[index];
-
-		// if (en->is_item = true && en->item_id == ITEM_pine_wood){
-		if (en->item_id == ITEM_pine_wood){
-			int asdasd = 1;
-		}
+		// Entity* en = &world->entities[i];
 
 		if (en->is_valid) {
 
@@ -2552,15 +2660,24 @@ void render_entities(World* world) {
 							for (int i = 0; i < en->biome_count; i++) {
 								BiomeID portal_biome_id = en->biome_ids[i];
 								if (portal_biome_id == world->biome_id){
-									printf("Drawing sprite at biome = %s\t", get_biome_data_from_id(portal_biome_id).name);
-									printf("portal destination id: %d\n", en->portal_data.destination);
+									// printf("Drawing sprite at biome = %s\t", get_biome_data_from_id(portal_biome_id).name);
+									// printf("portal destination id: %d\n", en->portal_data.destination);
 									Sprite* sprite = get_sprite(en->sprite_id);
 									Matrix4 xform = m4_identity;
 
 									xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
 
+									// center sprite
+									xform = m4_translate(xform, v3(sprite->image->width * -0.5, sprite->image->height * -0.5, 0));
+
 									// draw sprite
 									draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+								if (IS_DEBUG){
+									Matrix4 xform_debug = m4_identity;
+									xform_debug = m4_translate(xform_debug, v3(en->pos.x, en->pos.y, 0));
+									draw_rect_xform(xform_debug, v2(1,1), COLOR_RED);
+								}
 
 								}
 							}
@@ -2627,9 +2744,16 @@ void render_entities(World* world) {
 
 							// draw sprite
 							draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+							
 
 							if (IS_DEBUG){
 								// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
+								Matrix4 xform_debug = m4_identity;
+								xform_debug = m4_translate(xform_debug, v3(en->pos.x, en->pos.y, 0));
+								// xform_debug = m4_translate(xform_debug, v3(sprite->image->width * 0.5, sprite->image->height * 0.5, 0));
+
+								// draw_rect_xform(xform, v2(1,1), COLOR_RED);
+								draw_rect_xform(xform_debug, v2(1,1), COLOR_RED);
 							}
 						}
 					// }
@@ -2640,7 +2764,13 @@ void render_entities(World* world) {
 	}
 }
 
+void render_use_keybind(Entity* en, string keybind) {
+	Matrix4 xform = m4_identity;
+	xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+	xform = m4_translate(xform, v3(0, 10, 0));
 
+	draw_text_xform(font, sprint(temp_allocator, STR("%s"), keybind), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+}
 
 
 // ----- SETUP -----------------------------------------------------------------------------------------|
@@ -2667,6 +2797,11 @@ int entry(int argc, char **argv)
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
 	// world->entity_count = 0;
+
+	// :Init Render List 	#renderlist || #render list || #render_list
+	render_list.indices = (int*)alloc(get_heap_allocator(), MAX_ENTITY_COUNT * sizeof(int));
+	render_list.count = 0;
+	render_list.needs_sorting = true;
 
 	// Audio
 	Audio_Player *audio_player = audio_player_get_one();
@@ -2898,7 +3033,7 @@ int entry(int argc, char **argv)
 
 
 
-		// :Entity selection
+		// :Entity selection by MOUSE
 		if (!world_frame.hover_consumed)
 		{	
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
@@ -2907,7 +3042,8 @@ int entry(int argc, char **argv)
 			// float smallest_dist = INFINITY; // compiler gives a warning
 			float smallest_dist = 9999999;
 
-			for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+			// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+			for (int i = 0; i < world->entity_count; i++){
 				Entity* en = &world->entities[i];
 
 				if (IS_DEBUG){
@@ -2927,17 +3063,18 @@ int entry(int argc, char **argv)
 
 				// portal
 				if (en->arch == ARCH_portal){
-					if (en->is_valid){
-						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-						if (dist < entity_selection_radius){
-							if (!world_frame.selected_entity || (dist < smallest_dist)){
-								world_frame.selected_entity = en;
-							}
-						}
-					}
+					// if (en->is_valid){
+					// 	float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+					// 	if (dist < entity_selection_radius){
+					// 		if (!world_frame.selected_entity || (dist < smallest_dist)){
+					// 			// printf("PORTAL SELECTED\n");
+					// 			world_frame.selected_entity = en;
+					// 		}
+					// 	}
+					// }
 				}
 
-				if (en->is_valid && en->destroyable){
+				else if (en->is_valid && en->destroyable){
 					// Sprite* sprite = get_sprite(en->sprite_id);
 
 					// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
@@ -2955,6 +3092,29 @@ int entry(int argc, char **argv)
 				}
 			}
 		}
+
+		// :Entity selection by player position
+		{
+			float smallest_dist = 9999999;
+			float entity_selection_radius = 10.0f;
+
+			for (int i = 0; i < world->entity_count; i++){
+				Entity* en = &world->entities[i];
+				if (en->arch == ARCH_portal){
+					if (en->is_valid){
+						float dist = fabsf(v2_dist(en->pos, get_player_pos()));
+						if (dist < entity_selection_radius){
+							if (!world_frame.selected_entity || (dist < smallest_dist)){
+								// printf("PORTAL SELECTED\n");
+								// printf("%.1f, %.1f\n", en->pos.x, en->pos.y);
+								world_frame.selected_entity = en;
+							}
+						}
+					}
+				}
+			}
+		}
+
 
 		// Render chest ui
 		render_chest_ui();
@@ -3166,86 +3326,14 @@ int entry(int argc, char **argv)
 			draw_image_xform(texture->image, xform_F, texture_size, COLOR_WHITE);
 			draw_image_xform(texture->image, xform_G, texture_size, COLOR_WHITE);
 			draw_image_xform(texture->image, xform_H, texture_size, COLOR_WHITE);
-
-/*
-			// if (traveled_step_x != 0.0f){
-				// if (traveled_step_x < 0){ traveled_step_x = -traveled_step_x;}	
-				// modulo_x = texture_size.x / traveled_step_x;
-				// modulo_x =  traveled_step_x / texture_size.x;
-				// step_x = 1;
-			// }
-			
-			// if (traveled_step_y != 0.0f){
-				// if (traveled_step_x < 0){ traveled_step_x = -traveled_step_x;}	
-				// modulo_x = texture_size.x / traveled_step_x;
-				// modulo_y =  traveled_step_y / texture_size.y;
-			// }
-
-
-
-
-			// attempt #3
-			// Matrix4 xform1 = m4_identity;
-			// xform1 = m4_translate(xform1, v3(player_tile_x - texture_size.x, player_tile_y - texture_size.y, 0));
-
-			// Matrix4 xform2 = m4_identity;
-			// xform2 = m4_translate(xform2, v3(player_tile_x - texture_size.x, player_tile_y, 0));
-
-			// Matrix4 xform3 = m4_identity;
-			// xform3 = m4_translate(xform3, v3(player_tile_x, player_tile_y - texture_size.y, 0));
-
-			// xform1 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(player_pos_y / (texture_size.y * 2)) * 2, 0));
-			// xform2 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(-player_pos_y / (texture_size.y * 2)) * 2, 0));
-			// xform3 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(player_pos_y / (texture_size.y * 2)) * 2, 0));
-			// xform4 = m4_translate(xform4, v3((int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x, (int)(-player_pos_y / (texture_size.y * 2)) * 2, 0));
-
-
-			// draw_image_xform(texture->image, xform1, texture_size, COLOR_WHITE);
-			// draw_image_xform(texture->image, xform2, texture_size, COLOR_WHITE);
-			// draw_image_xform(texture->image, xform3, texture_size, COLOR_WHITE);
-			// draw_image_xform(texture->image, xform4, texture_size, COLOR_WHITE);
-
-
-			// attempt #1
-			// for (int x = player_tile_x - radius.x; x < player_tile_x + radius.x; x++){
-			// 	for (int y = player_tile_y - radius.y; y < player_tile_y + radius.y; y++){
-			// 			float x_pos = x * texture_size.x;
-			// 			float y_pos = y * texture_size.y;
-			
-			// 			float texture_dist = fabsf(v2_dist(v2(x_pos, y_pos), get_player_pos()));
-			// 			printf("TEXTURE DIST = %f\n", texture_dist);
-
-						
-			// 			Matrix4 xform = m4_identity;
-			// 			xform = m4_translate(xform, v3(x_pos + texture_size.x * -0.5, y_pos + texture_size.y * -0.5, 0));
-
-			// 			// Draw texture
-			// 			// draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
-			// 			draw_image_xform(texture->image, xform, texture_size, COLOR_WHITE);
-			// 	}
-			// }
-
-			// attempt #2
-			// for (int x = player_tile_x - radius.x; x < player_tile_x + radius.x; x++){
-			// 	for (int y = player_tile_y - radius.y; y < player_tile_y + radius.y; y++){
-			// 			float x_pos = x * texture_size.x;
-			// 			float y_pos = y * texture_size.y;
-
-			// 			Matrix4 xform = m4_identity;
-			// 			xform = m4_translate(xform, v3(x_pos ,y_pos, 0));
-
-			// 			draw_image_xform(texture->image, xform, texture_size, COLOR_WHITE);
-
-			// 	}
-			// }
-*/
 		}
 
 
 		// :Update entities || :Item pick up
 		{
 			// bool is_pickup_text_visible = false;
-			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+			// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+			for (int i = 0; i < world->entity_count; i++) {
 				Entity* en = &world->entities[i];
 				if (en->is_valid) {
 
@@ -3442,24 +3530,12 @@ int entry(int argc, char **argv)
 		// Render entities
 		render_entities(world);
 
-
-		// printf("entity bin size %d\n", entity_bin_size);
-		
-
-		// empty entity_bin
-		// {
-		// 	int deleted_entities = 0;
-		// 	if (entity_bin_size > 0){
-		// 		for (int i = 0; i < entity_bin_size; i++) {
-		// 			entity_destroy(entity_bin[i]);
-		// 			deleted_entities++;
-		// 		}
-		// 			entity_bin_size -= deleted_entities;
-		// 	}
-		// }
+		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
+			render_use_keybind(world_frame.selected_entity, STR("F"));
+		}
 
 
-
+		// DEBUG STUFF ------------------------------------------------------------------------------->
 
 		// #Biome
 		// printf("%s\n",get_biome_data_from_id(world->biome_id).name);
@@ -3476,34 +3552,42 @@ int entry(int argc, char **argv)
 		// 	default:{}break;
 		// }
 
+		// if (IS_DEBUG)
+		// {
+		// 	Vector2 mouse_pos = get_mouse_pos_in_world_space();
+		// 	printf("%.1f, %.1f\n", mouse_pos.x, mouse_pos.y);
+		// }
+
 		// debug print entity counts
-		if (1 == 0)
-		{
-			int total = 0;
-			for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-				Entity* en = &world->entities[i];
-				if (en->arch != ARCH_nil){
-					total++;
-				}
-			}
-			printf("TOTAL ENTITY COUNT = %d\tworld->entity_count = %d\n", total, world->entity_count);
-		}
+		// if (1 == 0)
+		// {
+		// 	int total = 0;
+		// 	// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+		// 	for (int i = 0; i < world->entity_count; i++){
+		// 		Entity* en = &world->entities[i];
+		// 		if (en->arch != ARCH_nil){
+		// 			total++;
+		// 		}
+		// 	}
+		// 	printf("TOTAL ENTITY COUNT = %d\tworld->entity_count = %d\n", total, world->entity_count);
+		// }
 
 		// DEBUG: print current biome && #Biome
-		if (1 == 0)
-		{
-			if (world->biome_id == 1){
-				printf("Current Biome = FOREST\n");
-			}
-			else if (world->biome_id == 2){
-				printf("Current Biome = CAVE\n");
-			}
-			else{
-				printf("Current BiomeID = '%d'\n", world->biome_id);
-			}
-		}
+		// if (1 == 0)
+		// {
+		// 	if (world->biome_id == 1){
+		// 		printf("Current Biome = FOREST\n");
+		// 	}
+		// 	else if (world->biome_id == 2){
+		// 		printf("Current Biome = CAVE\n");
+		// 	}
+		// 	else{
+		// 		printf("Current BiomeID = '%d'\n", world->biome_id);
+		// 	}
+		// }
 
-		// :Input
+
+		// :Input ------------------------------------------------------------------------------------>
 		if (is_key_just_pressed('X')){ // EXIT
 			window.should_close = true;
 		}
@@ -3553,12 +3637,15 @@ int entry(int argc, char **argv)
 			}
 		}
 
-		if (is_key_just_pressed('G')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+		if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+		if (is_key_just_pressed('G')) {create_portal_to(BIOME_cave, true);}
 
 		// #Biome
 		if (is_key_just_pressed('N')) {change_biomes(world, BIOME_forest);}
 		if (is_key_just_pressed('M')) {change_biomes(world, BIOME_cave);}
-		if (is_key_just_pressed('T')) {create_portal_to(BIOME_cave, true);}
+
+		if (is_key_just_pressed('B')) {render_list.needs_sorting = true;}
+
 
 
 		// selecting slots
@@ -3573,8 +3660,8 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('9')) {selected_slot = 9 - 1;}
 
 		// :Sprint
-		if (is_key_down(KEY_SHIFT)){ player_speed = player_running_speed;}
-		else { player_speed = 50.0;}
+		if (is_key_down(KEY_SHIFT)){ player_running = true;}
+		else { player_running = false;}
 
 		// Player movement
 		Vector2 input_axis = v2(0, 0);
@@ -3587,7 +3674,10 @@ int entry(int argc, char **argv)
 		input_axis = v2_normalize(input_axis);
 
 		// player_pos = player_pos + (input_axis * 10.0);
-		player_en->pos = v2_add(player_en->pos, v2_mulf(input_axis, player_speed * delta_t));
+		
+		if (player_running){ player_en->pos = v2_add(player_en->pos, v2_mulf(input_axis, player_running_speed * delta_t)); }
+		else { player_en->pos = v2_add(player_en->pos, v2_mulf(input_axis, player_speed * delta_t)); }
+		
 
 		gfx_update();
 
