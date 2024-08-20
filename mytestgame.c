@@ -28,7 +28,7 @@ const int bush_health = 1;
 const int tile_width = 8;
 
 // COLORS
-const Vector4 item_shadow_color = {0, 0, 0, 0.1};
+const Vector4 item_shadow_color = {0, 0, 0, 0.2};
 const Vector4 entity_shadow_color = {0, 0, 0, 0.15};
 
 // rendering layers
@@ -571,7 +571,7 @@ typedef struct Entity {
 
 	// booleans
 	bool is_valid;
-	bool render_sprite;
+	// bool render_sprite;
 	bool destroyable;
 	bool is_item;
 	bool is_ore;
@@ -1084,7 +1084,7 @@ void setup_player(Entity* en, Vector2 pos) {
 	en->sprite_id = SPRITE_player;
 	en->health = player_health;
 	en->pos = pos;
-	en->rendering_prio = 1;
+	en->rendering_prio = 0;
 	en->enable_shadow = true;
 }
 
@@ -1219,17 +1219,17 @@ void setup_ore(Entity* en, OreID id) {
 }
 
 // # portal
-void setup_portal(Entity* en, BiomeID dest){
+void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
 	en->arch = ARCH_portal;
 	en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
 	en->sprite_id = SPRITE_portal;
 	en->health = 1;
 	en->destroyable = false;
-	en->rendering_prio = 1;
+	en->rendering_prio = -1;
 	en->enable_shadow = false;
 	en->portal_data.destination = dest;
-	add_biomeID_to_entity(en, BIOME_forest);
-	add_biomeID_to_entity(en, BIOME_cave);
+	add_biomeID_to_entity(en, current_biome);
+	// add_biomeID_to_entity(en, BIOME_cave);
 }
 
 
@@ -1242,6 +1242,7 @@ void setup_item(Entity* en, ItemID item_id) {
 	en->is_item = true;
 	en->item_id = item_id;
 	en->enable_shadow = true;
+	add_biomeID_to_entity(en, world->biome_id);
 
 	// printf("SETUP '%s'\n", get_archetype_name(en->arch));
 	if (item_id == ITEM_ORE_iron){
@@ -2215,13 +2216,48 @@ void create_ores(int amount, int range, OreID id) {
 	}
 }
 
+int block_portal_creation(){
+	// TODO:
+	// checks if there is an entity too close to the spot where the new portal would be created
+	// checks if there is a portal too close to the sport where the new portal would be created
+	// returns 0 if new portal is ok to be created
+	// returns 1 if entity is too close to the new portal
+	// returns 2 if there is a portal too close to the new portal
+	return 0;
+}
+
 // #portal
-// create portal entity
-void create_portal_to(BiomeID dest){
-	Entity* en = entity_create();
-	setup_portal(en, dest);
-	en->pos = get_player_pos();
-	en->pos = round_v2_to_tile(en->pos);
+void create_portal_to(BiomeID dest, bool create_portal_bothways){
+	// create portal entity
+
+	int result = block_portal_creation();
+
+	if (result == 0){
+		BiomeID current_biome = world->biome_id;
+
+		Entity* en = entity_create();
+		setup_portal(en, current_biome, dest);
+		en->pos = get_mouse_pos_in_world_space();
+		en->pos = round_v2_to_tile(en->pos);
+		add_biomeID_to_entity(en, world->biome_id);
+		en->is_valid = true;
+		
+		if (create_portal_bothways){
+			Entity* en = entity_create();
+			setup_portal(en, dest, current_biome);
+			en->pos = get_mouse_pos_in_world_space();
+			en->pos.x -= 10;
+			en->pos = round_v2_to_tile(en->pos);
+			add_biomeID_to_entity(en, dest);
+			en->is_valid = false;
+		}
+	}
+	else if (result == 1) {
+		printf("Not allowed to create a portal here. Entity too close\n");
+	}
+	else if (result == 2) {
+		printf("Not allowed to create a portal here. Another portal too close\n");
+	}
 }
 
 
@@ -2276,14 +2312,16 @@ void change_biomes(World* world, BiomeID new_id){
 	// set new biome to world
 	// spawn new entities based on biome
 
-	world->entities;
+	// world->entities;
 
 	unload_biome(world, world->biome_id);
-	world->entities;
+	// world->entities;
 
 	world->biome_id = new_id;
 	BiomeData biome = get_biome_data_from_id(new_id);
 	spawn_biome(&biome);
+
+	// spawn portal?!?!?!?
 }
 
 
@@ -2408,11 +2446,21 @@ void setup_audio_player(){
 }
 
 
-// sort entities by y
-void sort_entity_indices_by_y(int* indices, Entity* entities, int count) {
+void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count) {
+	// sorts entities:
+	// primary sort: sort entities based on their rendering_prio value
+	// secondary sort: if rendering_prio is the same, sort based on their y coordinates in descending order
+
     for (int i = 0; i < count - 1; i++) {
         for (int j = 0; j < count - i - 1; j++) {
-            if (entities[indices[j]].pos.y < entities[indices[j + 1]].pos.y) {  // Ascending order based on y
+            int prio1 = entities[indices[j]].rendering_prio;
+            int prio2 = entities[indices[j + 1]].rendering_prio;
+            int y1 = entities[indices[j]].pos.y;
+            int y2 = entities[indices[j + 1]].pos.y;
+
+            // Sort by rendering priority first (ascending order)
+            // If the priorities are equal, sort by y value (descending order)
+            if (prio1 > prio2 || (prio1 == prio2 && y1 < y2)) {
                 int temp = indices[j];
                 indices[j] = indices[j + 1];
                 indices[j + 1] = temp;
@@ -2424,24 +2472,34 @@ void sort_entity_indices_by_y(int* indices, Entity* entities, int count) {
 // :Render entities
 void render_entities(World* world) {
 
+	// NOTE: its cheaper to use "world->entity_count" here instead of "MAX_ENTITY_COUNT". But if world->entity_count is used, the "first item spawned is invisible" bug happens
+	// NOTE: bugfix for this is to do "world->entity_count + 1". Don't know about the side effects of this fix tho
+	int entity_count = world->entity_count + 1;
+
     // Create an array of indices
-    int indices[world->entity_count];
-    for (int i = 0; i < world->entity_count; i++) {
+    int indices[entity_count];
+    for (int i = 0; i < entity_count; i++) {
         indices[i] = i;
     }
 
+    // Sort the indices based on the y coordinates AND the rendering prios of the entities 
+	sort_entity_indices_by_prio_and_y(indices, world->entities, entity_count);
 
-    // Sort the indices based on the y coordinates of the entities
-    sort_entity_indices_by_y(indices, world->entities, world->entity_count);
-
-	// TODO: sort entities again by their rendering priorities
-
-   for (int i = 0; i < world->entity_count; i++)  {
+   for (int i = 0; i < entity_count; i++)  {
 
 		int index = indices[i];
 		Entity* en = &world->entities[index];
 
+		// if (en->is_item = true && en->item_id == ITEM_pine_wood){
+		if (en->item_id == ITEM_pine_wood){
+			int asdasd = 1;
+		}
+
 		if (en->is_valid) {
+
+			float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
+
+
 			switch (en->arch) {
 
 				// :Render player
@@ -2456,12 +2514,11 @@ void render_entities(World* world) {
 						xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
 						xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
 
-						Vector2 shadow_pos = en->pos;
-						shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
-						shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
-
 						// draw shadow
 						if (en->enable_shadow){
+							Vector2 shadow_pos = en->pos;
+							shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
+							shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
 							draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
 						}
 
@@ -2488,18 +2545,47 @@ void render_entities(World* world) {
 
 				} break;
 
+				case ARCH_portal:{
+					{
+						// frustrum culling
+						if (entity_dist_from_player <= render_distance){
+							for (int i = 0; i < en->biome_count; i++) {
+								BiomeID portal_biome_id = en->biome_ids[i];
+								if (portal_biome_id == world->biome_id){
+									printf("Drawing sprite at biome = %s\t", get_biome_data_from_id(portal_biome_id).name);
+									printf("portal destination id: %d\n", en->portal_data.destination);
+									Sprite* sprite = get_sprite(en->sprite_id);
+									Matrix4 xform = m4_identity;
+
+									xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+
+									// draw sprite
+									draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+								}
+							}
+						}
+					}
+				} break;
+
 				default: 
 				{
 					if (render_other_entities){
-					if (en->arch != ARCH_player){
+					// if (en->arch != ARCH_player){
 
-						float entity_dist = fabsf(v2_dist(en->pos, get_player_pos()));
+						if (en->arch == ARCH_portal){
+							printf("FORCED CRASH @ 'render_entities'\n ");
+							float i = 1/0;
+						}
+
+						// if (en->is_item = true && en->item_id == ITEM_pine_wood){
+						// 	int asdasd = 1;
+						// }
 
 						// frustrum culling
-						if (entity_dist <= render_distance){
+						if (entity_dist_from_player <= render_distance){
 
 							Sprite* sprite = get_sprite(en->sprite_id);
-							// Matrix4 xform = m4_scalar(1.0);
 							Matrix4 xform = m4_identity;
 							
 							// ITEM
@@ -2516,6 +2602,8 @@ void render_entities(World* world) {
 
 							}
 							else{
+								xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
+
 								if (en->enable_shadow){
 									Vector2 shadow_pos = en->pos;
 									shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
@@ -2525,10 +2613,6 @@ void render_entities(World* world) {
 								}
 							}
 							
-							// SPRITE
-							if (!en->is_item) {
-								xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
-							}
 							if (en->building_id){
 								// printf("BUILDING\n");
 							}
@@ -2543,13 +2627,12 @@ void render_entities(World* world) {
 
 							// draw sprite
 							draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
-							// printf("Drew entity at y = %.0f, x = %.0f\n", en->pos.y, en->pos.x);
 
 							if (IS_DEBUG){
 								// draw_text(font, sprint(temp_allocator, STR("%.0f, %.0f"), en->pos.x, en->pos.y), 40, en->pos, v2(0.1, 0.1), COLOR_WHITE);
 							}
 						}
-					}
+					// }
 					}
 				} break;
 			}
@@ -2719,12 +2802,16 @@ int entry(int argc, char **argv)
 		}
 	}
 
+	// :INIT
 
 	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
-	setup_audio_player();
+	// list of entities to be destroyed at the end of the frame (not in use)
+	// Entity* entity_bin[1];
+	// memset(&entity_bin, 0, sizeof(Entity));
+	// int entity_bin_size = 0;
 
-	// :INIT
+	setup_audio_player();
 
 	// define_entity_positions(200);
 
@@ -2820,16 +2907,32 @@ int entry(int argc, char **argv)
 			// float smallest_dist = INFINITY; // compiler gives a warning
 			float smallest_dist = 9999999;
 
-
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++){
 				Entity* en = &world->entities[i];
 
+				if (IS_DEBUG){
+					// world_frame.selected_entity = en;
+					if (en->is_valid){
+						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+						if (dist < entity_selection_radius){
+							if (!world_frame.selected_entity || (dist < smallest_dist)){
+								printf("EN = %s\n", en->name);
+								if (IS_DEBUG){
+									int asd = 1;
+								}
+							}
+						}
+					}
+				}
+
 				// portal
 				if (en->arch == ARCH_portal){
-					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-					if (dist < entity_selection_radius){
-						if (!world_frame.selected_entity || (dist < smallest_dist)){
-							world_frame.selected_entity = en;
+					if (en->is_valid){
+						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+						if (dist < entity_selection_radius){
+							if (!world_frame.selected_entity || (dist < smallest_dist)){
+								world_frame.selected_entity = en;
+							}
 						}
 					}
 				}
@@ -3176,6 +3279,10 @@ int entry(int argc, char **argv)
 			// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
 			// and in the generateLoot func decide what loot table to use based on the passed arch
 
+			// @pin3 can the "first item not being rendered - bug" be because of world->entity_count?? like if i break a tree and spawn the item, the entity count is + - 0, and the item entity is the final instance in the entities list.
+			// UPDATE ON @pin3: this is precisely why the bug happens
+			// one possible fix: https://chatgpt.com/share/8e7d0f98-8706-4f0c-8a79-7aa9f02aee56
+
 
 			Entity* selected_en = world_frame.selected_entity;
 			bool allow_destroy = false;
@@ -3185,7 +3292,7 @@ int entry(int argc, char **argv)
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 				
 				// Play audio
-				if (selected_item != NULL){
+				if (selected_item){
 
 					// swing sound if tool is selected
 					switch (selected_item->tool_id){
@@ -3196,9 +3303,10 @@ int entry(int argc, char **argv)
 					}
 				}
 
-				if (selected_en) {
+				// if mouse is close to an entity (selected)  AND  selected entity is destroyable  AND  player has selected an item from hotbar
+				if (selected_en && selected_en->destroyable && selected_item) {
 
-					printf("SELECTED EN ITEM ID = '%d'\n", selected_en->item_id);
+					// printf("SELECTED EN ITEM ID = '%d'\n", selected_en->item_id);
 						
 					// get entity pos (for playing audio at position)
 					Vector3 audio_pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
@@ -3282,16 +3390,19 @@ int entry(int argc, char **argv)
 					}
 				}	// selected_item != NULL
 				else{
-
-					// |------- SHOVEL -------|
-					if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
-						if (world->biome_id == BIOME_forest){ create_portal_to(BIOME_cave); }
+					if (selected_item){
+						// |------- SHOVEL -------|
+						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
+							if (world->biome_id == BIOME_forest){ create_portal_to(BIOME_cave, true); }
+						}
 					}
 				}
 
 
 				if (allow_destroy){
 					entity_destroy(selected_en);
+					// entity_bin[entity_bin_size] = selected_en;
+					// entity_bin_size++;
 				}
 			}
 		}
@@ -3327,13 +3438,25 @@ int entry(int argc, char **argv)
 			}
 		}
 
+
 		// Render entities
 		render_entities(world);
 
 
+		// printf("entity bin size %d\n", entity_bin_size);
+		
 
-
-
+		// empty entity_bin
+		// {
+		// 	int deleted_entities = 0;
+		// 	if (entity_bin_size > 0){
+		// 		for (int i = 0; i < entity_bin_size; i++) {
+		// 			entity_destroy(entity_bin[i]);
+		// 			deleted_entities++;
+		// 		}
+		// 			entity_bin_size -= deleted_entities;
+		// 	}
+		// }
 
 
 
@@ -3393,6 +3516,12 @@ int entry(int argc, char **argv)
 			}
 		}
 
+		// ENTER DEBUG MODE FROM GAME
+		if (is_key_just_pressed(KEY_CTRL)){
+			int I = 1;
+		}
+
+
 		// Mousewheel ZOOM (debug for now)
 		for (u64 i = 0; i < input_frame.number_of_events; i++) {
 			Input_Event e = input_frame.events[i];
@@ -3429,7 +3558,7 @@ int entry(int argc, char **argv)
 		// #Biome
 		if (is_key_just_pressed('N')) {change_biomes(world, BIOME_forest);}
 		if (is_key_just_pressed('M')) {change_biomes(world, BIOME_cave);}
-		if (is_key_just_pressed('T')) {create_portal_to(BIOME_cave);}
+		if (is_key_just_pressed('T')) {create_portal_to(BIOME_cave, true);}
 
 
 		// selecting slots

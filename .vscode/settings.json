@@ -1,9 +1,9 @@
 {
-  "editor.fontSize": 15,
+  "editor.fontSize": 14,
   "editor.minimap.scale": 2,
   "window.zoomLevel": -1,
   "C_Cpp.errorSquiggles": "disabled",
-  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.fontSize": 12,
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
   "C_Cpp_Runner.debuggerPath": "gdb",
