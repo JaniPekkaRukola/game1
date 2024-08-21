@@ -8,7 +8,7 @@
 void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
 void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
-DimensionData get_dimensionData(DimensionID);
+DimensionData *get_dimensionData(DimensionID);
 
 
 
@@ -192,15 +192,16 @@ DimensionData get_dimensionData(DimensionID);
 
 
 	// :DIMENSION --------------------->
-	DimensionData get_dimensionData(DimensionID id){
-		return dimensions[id];
+	DimensionData *get_dimensionData(DimensionID id){
+		return &dimensions[id];
 	}
 
-	void add_biomes_to_dimension(DimensionID dim, BiomeID* biomes){
-		for (int i = 0; i < BIOME_MAX; i++){
+	void add_biomes_to_dimension(DimensionID dim, BiomeID* biomes, int count){
+		for (int i = 0; i < count; i++){
+			int asd = sizeof(biomes);
 			BiomeID biome_id = biomes[i];
-			// world->dimension.biomes[i] = biome_id;
-			get_dimensionData(dim).biomes[i] = biome_id;
+			dimensions[dim].biomes[i] = biome_id;
+			// printf("ADDED biomeid %d to dimension %s\n", biome_id, get_dimensionData(dim)->name);
 		}
 	}
 
@@ -221,8 +222,8 @@ DimensionData get_dimensionData(DimensionID);
 		int result = block_portal_creation();
 
 		if (result == 0){
-			// BiomeID current_biome = world->biome_id;
-			BiomeID current_biome = world->dimension->biome_id;
+			BiomeID current_biome = world->current_biome_id;
+			// BiomeID current_biome = world->dimension->biome_id;
 
 			Entity* en = entity_create();
 			setup_portal(en, current_biome, dest);
@@ -233,8 +234,8 @@ DimensionData get_dimensionData(DimensionID);
 			// en->pos.x -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 			// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 
-			// add_biomeID_to_entity(en, world->biome_id);
-			add_biomeID_to_entity(en, world->dimension->biome_id);
+			add_biomeID_to_entity(en, world->current_biome_id);
+			// add_biomeID_to_entity(en, world->dimension->biome_id);
 			en->is_valid = true;
 			en->portal_data.enabled = true;
 
@@ -254,7 +255,7 @@ DimensionData get_dimensionData(DimensionID);
 				add_biomeID_to_entity(en, dest);
 				en->is_valid = false;
 				en->portal_data.enabled = false;
-				printf("Created another portal to %s\n", get_biome_data_from_id(world->dimension->biome_id).name);
+				printf("Created another portal to %s\n", get_biome_data_from_id(world->current_biome_id).name);
 			}
 		}
 		else if (result == 1) {
@@ -576,7 +577,8 @@ DimensionData get_dimensionData(DimensionID);
 		en->is_item = true;
 		en->item_id = item_id;
 		en->enable_shadow = true;
-		add_biomeID_to_entity(en, world->dimension->biome_id);
+		// add_biomeID_to_entity(en, world->dimension->biome_id);
+		add_biomeID_to_entity(en, world->current_biome_id);
 
 		// printf("SETUP '%s'\n", get_archetype_name(en->arch));
 		if (item_id == ITEM_ORE_iron){
@@ -896,19 +898,42 @@ DimensionData get_dimensionData(DimensionID);
 	}
 
 
-	void setup_dimension(DimensionData *dimension, string name, DimensionID id) {
-		// DimensionData dimension = {0};
-		
-		// printf("NAME = %s\n", name);
+	void setup_dimension(DimensionID id) {
 
-		dimension->name = name;
+		DimensionData* dimension = 0;
+		dimension = alloc(get_heap_allocator(), sizeof(DimensionData));
 		dimension->dimension_id = id;
 
 		switch (id){
-			case DIM_overworld:{add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave});} break;
-			case DIM_cavern:{add_biomes_to_dimension(id, 	(BiomeID[]){BIOME_cave});} break;
+			case DIM_overworld:{
+				{
+					dimension->name = STR("Overworld (Dimension)");
+					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
+				}
+			} break;
+
+			case DIM_cavern:{
+				{
+					dimension->name = STR("Cavern (Dimension)");
+					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
+				}
+			} break;
+
 			default:{}break;
 		}
+		dimensions[id] = *dimension;
+	}
+
+
+	void setup_all_dimensions() {
+		for (DimensionID i = 0; i < DIM_MAX; i++){
+			setup_dimension(i);
+		}
+	}
+
+	void add_all_biomes_to_dimensions() {
+		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
+		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
 	}
 
 
@@ -925,6 +950,8 @@ DimensionData get_dimensionData(DimensionID);
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
 	}
+
+
 // 
 
 

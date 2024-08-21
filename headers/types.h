@@ -284,7 +284,7 @@
         Entity entities[MAX_ENTITY_COUNT];
         int entity_count;
         BiomeID biomes[BIOME_MAX];
-        BiomeID biome_id;
+        // BiomeID biome_id;
 
         // color
         // enemies
@@ -292,7 +292,7 @@
 
     // :World --------------------------->
     typedef struct World {
-        // BiomeID biome_id;
+        BiomeID current_biome_id;
         // struct BiomeData* biome_data;
 
         DimensionID dimension_id;

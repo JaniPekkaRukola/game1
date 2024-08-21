@@ -1234,7 +1234,7 @@ void unload_biome(World* world, BiomeID id){
 // #Biome || :change biome
 void change_biomes(World* world, BiomeID new_id){
 	
-	printf("Changing biome: %s -> %s\n", get_biome_data_from_id(world->dimension->biome_id).name, get_biome_data_from_id(new_id).name);
+	printf("Changing biome: %s -> %s\n", get_biome_data_from_id(world->current_biome_id).name, get_biome_data_from_id(new_id).name);
 	
 	// dealloc all entities
 	// set new biome to world
@@ -1242,30 +1242,32 @@ void change_biomes(World* world, BiomeID new_id){
 
 	// world->entities;
 
-	if (new_id == BIOME_forest){
-		int asdads = 1;
-	}
+	// if (new_id == BIOME_forest){
+	// 	int asdads = 1;
+	// }
 
-	set_portal_valid(0);
+	// set_portal_valid(0);
 
-	unload_biome(world, world->dimension->biome_id);
+	// unload_biome(world, world->current_biome_id);
 
 	// world->entities;
 
-	world->dimension->biome_id = new_id;
-	BiomeData biome = get_biome_data_from_id(new_id);
-	spawn_biome(&biome);
+	world->current_biome_id = new_id;
+	// BiomeData biome = get_biome_data_from_id(new_id);
+	// spawn_biome(&biome);
 
-	clear_empty_slots_in_entities(&world->dimension->entities, MAX_ENTITY_COUNT);
+	// clear_empty_slots_in_entities(&world->dimension->entities, MAX_ENTITY_COUNT);
 	// spawn portal?!?!?!?
 
 	// set portal to valid
-	set_portal_valid(1);
+	// set_portal_valid(1);
 
 }
 
 void change_dimensions(DimensionID new_dim){
 	world->dimension_id = new_dim;
+	world->dimension = get_dimensionData(new_dim);
+	world->current_biome_id = world->dimension->biomes[0];
 }
 
 
@@ -1390,12 +1392,14 @@ void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count
 	// }
 */
 
-// :Render entities
+// :Render entities || :Entity render
 void render_entities(World* world) {
 
 	// NOTE: its cheaper to use "world->entity_count" here instead of "MAX_ENTITY_COUNT". But if world->entity_count is used, the "first item spawned is invisible" bug happens
 	// NOTE: bugfix for this is to do "world->entity_count + 1". Don't know about the side effects of this fix tho
 	int entity_count = world->dimension->entity_count + 1;
+
+	// printf("ENTITY COUNT FOR DIM '%s' IS %d\n", world->dimension->name, world->dimension->entity_count);
 
     // Create an array of indices
     int indices[entity_count];
@@ -1412,7 +1416,7 @@ void render_entities(World* world) {
 
 	render_list.needs_sorting = true;
 
-	if (world->dimension->biome_id == BIOME_cave){
+	if (world->current_biome_id == BIOME_cave){
 		int asd = 1;
 	}
 
@@ -1485,7 +1489,7 @@ void render_entities(World* world) {
 						if (entity_dist_from_player <= render_distance){
 							for (int i = 0; i < en->biome_count; i++) {
 								BiomeID portal_biome_id = en->biome_ids[i];
-								if (portal_biome_id == world->dimension->biome_id){
+								if (portal_biome_id == world->current_biome_id){
 									// printf("Drawing sprite at biome = %s\t", get_biome_data_from_id(portal_biome_id).name);
 									// printf("portal destination id: %d\n", en->portal_data.destination);
 									Sprite* sprite = get_sprite(en->sprite_id);
@@ -1727,14 +1731,12 @@ int entry(int argc, char **argv)
 
 
 	// setup dimensions
-	DimensionData *dimension_overworld = alloc(get_heap_allocator(), sizeof(DimensionData));
-	setup_dimension(dimension_overworld, STR("overworld"), DIM_overworld);
-	DimensionData *dimension_cavern = alloc(get_heap_allocator(), sizeof(DimensionData));
-	setup_dimension(dimension_cavern, STR("cavern"), DIM_cavern);
+	setup_all_dimensions();
+	add_all_biomes_to_dimensions();
 
 	// set current dimension
-	world->dimension = dimension_overworld;
-
+	world->dimension = get_dimensionData(DIM_overworld);
+	world->dimension_id = DIM_overworld;
 
 
 	// Building resource setup
@@ -1795,9 +1797,9 @@ int entry(int argc, char **argv)
 	setup_all_biomes();
 
 	// set current biome
-	world->dimension->biome_id = BIOME_forest;
+	world->current_biome_id = BIOME_forest;
 
-	BiomeData temp_data = get_biome_data_from_id(world->dimension->biome_id);
+	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
 	spawn_biome(&temp_data);
 	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
@@ -1805,9 +1807,9 @@ int entry(int argc, char **argv)
 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
 	LootTable *lootTable_rock = createLootTable();
 	addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
-	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->dimension->biome_id).fossil0_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->dimension->biome_id).fossil1_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->dimension->biome_id).fossil2_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->current_biome_id).fossil0_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->current_biome_id).fossil1_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->current_biome_id).fossil2_drop_chance);
 	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
 
 
@@ -2021,10 +2023,10 @@ int entry(int argc, char **argv)
 			float player_pos_x = player_en->pos.x;
 			float player_pos_y = player_en->pos.y;
 
-			// Texture* texture = get_texture(TEXTURE_grass);
-			biomes;
-			
-			Texture* texture = get_texture(get_biome_data_from_id(world->dimension->biome_id).ground_texture);
+			if (world->current_biome_id == BIOME_cave){
+				int asd = 1;
+			}
+			Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
 
 			// xfrom logic:
 			// A 	 B		C
@@ -2343,7 +2345,7 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
-							if (world->dimension->biome_id == BIOME_forest){ create_portal_to(BIOME_cave, true); }
+							if (world->current_biome_id == BIOME_forest){ create_portal_to(BIOME_cave, true); }
 						}
 					}
 				}
@@ -2415,7 +2417,7 @@ int entry(int argc, char **argv)
 		// printf("%s\n",get_biome_data_from_id(world->dimension.biome_id).name);
 
 		// #dimension
-		// printf("Current Dimension = %s\n", world->dimension->name);
+		printf("Current Dimension = %s\n", world->dimension->name);
 
 
 		// DEBUG: print UX state
