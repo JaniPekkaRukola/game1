@@ -5,7 +5,8 @@
 
 
 // Function Declarations (Prototypes)
-void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
+// void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
+void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest);
 void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
 DimensionData *get_dimensionData(DimensionID);
@@ -216,17 +217,20 @@ DimensionData *get_dimensionData(DimensionID);
 		return 0;
 	}
 
-	void create_portal_to(BiomeID dest, bool create_portal_bothways){
+	// void create_portal_to(BiomeID dest, bool create_portal_bothways){
+	void create_portal_to(DimensionID dest, bool create_portal_bothways){
 		// create portal entity
 
 		int result = block_portal_creation();
 
 		if (result == 0){
-			BiomeID current_biome = world->current_biome_id;
+			// BiomeID current_biome = world->current_biome_id;
+			BiomeID current_dim = world->dimension->dimension_id;
 			// BiomeID current_biome = world->dimension->biome_id;
 
 			Entity* en = entity_create();
-			setup_portal(en, current_biome, dest);
+			// setup_portal(en, current_biome, dest);
+			setup_portal(en, current_dim, dest);
 			en->pos = get_mouse_pos_in_world_space();
 			// en->pos = round_v2_to_tile(en->pos);
 
@@ -244,18 +248,21 @@ DimensionData *get_dimensionData(DimensionID);
 			// get_biome_data_from_id(world->biome_id).has_portals = true;
 			// get_biome_data_from_id(world->biome_id).portals =;
 			
-			printf("Created portal to %s\n", get_biome_data_from_id(dest).name);
+			// printf("Created portal to %s\n", get_biome_data_from_id(dest).name);
+			printf("Created portal to %s\n", get_dimensionData(dest)->name);
 
 			if (create_portal_bothways){
 				Entity* en = entity_create();
-				setup_portal(en, dest, current_biome);
+				// setup_portal(en, dest, current_biome);
+				setup_portal(en, dest, current_dim);
 				en->pos = get_mouse_pos_in_world_space();
 				en->pos.x -= 10;
 				en->pos = round_v2_to_tile(en->pos);
 				add_biomeID_to_entity(en, dest);
 				en->is_valid = false;
 				en->portal_data.enabled = false;
-				printf("Created another portal to %s\n", get_biome_data_from_id(world->current_biome_id).name);
+				// printf("Created another portal to %s\n", get_biome_data_from_id(world->current_biome_id).name);
+				printf("Created another portal to %s\n", world->dimension->name);
 			}
 		}
 		else if (result == 1) {
@@ -937,7 +944,8 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-	void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
+	// void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
+	void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest){
 		en->arch = ARCH_portal;
 		// en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
 		en->name = STR("Portal to %s"), get_biome_data_from_id(dest).name;
@@ -946,7 +954,9 @@ DimensionData *get_dimensionData(DimensionID);
 		en->destroyable = false;
 		en->rendering_prio = -1;
 		en->enable_shadow = false;
-		en->portal_data.destination = dest;
+		// en->portal_data.destination = dest;
+		en->portal_data.dim_destination = dest;
+		BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
 	}

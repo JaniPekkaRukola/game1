@@ -6,6 +6,8 @@
 bool IS_DEBUG = false;
 bool print_fps = true;
 // bool print_fps = false;
+// bool ENABLE_FRUSTRUM_CULLING = false;
+
 
 bool enable_tooltip = true;
 bool render_hotbar = true;
@@ -1208,28 +1210,28 @@ void spawn_biome(BiomeData* biome) {
 	}
 }
 
-void unload_biome(World* world, BiomeID id){
-	// world->entities
-	int removed_entity_count = 0;
-	for (int i = 0; i < world->dimension->entity_count; i++)  {
-		// Entity* en = &world->entities[i];
-		Entity* en = &world->dimension->entities[i];
-		for (int i = 0; i < BIOME_MAX; i++){
-			if (en->arch == ARCH_portal){
-				en->portal_data.enabled = false;
-			}
-			if (en->biome_ids[i] == id){
-				// dealloc(get_heap_allocator(), &en);
-				// memset(&en, 0, sizeof(en)); // i dont know what im doing
+// void unload_biome(World* world, BiomeID id){
+// 	// world->entities
+// 	int removed_entity_count = 0;
+// 	for (int i = 0; i < world->dimension->entity_count; i++)  {
+// 		// Entity* en = &world->entities[i];
+// 		Entity* en = &world->dimension->entities[i];
+// 		for (int i = 0; i < BIOME_MAX; i++){
+// 			if (en->arch == ARCH_portal){
+// 				en->portal_data.enabled = false;
+// 			}
+// 			if (en->biome_ids[i] == id){
+// 				// dealloc(get_heap_allocator(), &en);
+// 				// memset(&en, 0, sizeof(en)); // i dont know what im doing
 
-				// entity_destroy(en);
-				entity_clear(en);
-				removed_entity_count++;
-			}
-		}
-	}
-	world->dimension->entity_count -= removed_entity_count;
-}
+// 				// entity_destroy(en);
+// 				entity_clear(en);
+// 				removed_entity_count++;
+// 			}
+// 		}
+// 	}
+// 	world->dimension->entity_count -= removed_entity_count;
+// }
 
 // #Biome || :change biome
 void change_biomes(World* world, BiomeID new_id){
@@ -1264,10 +1266,36 @@ void change_biomes(World* world, BiomeID new_id){
 
 }
 
+void load_dimension_entities(DimensionID id){
+	
+	BiomeID biome_id = world->dimension->biomes[0];
+
+	switch (id){
+		case DIM_overworld:
+		{
+			spawn_biome(&biomes[biome_id]);
+		} break;
+
+		case DIM_cavern:
+		{
+			spawn_biome(&biomes[biome_id]);
+		} break;
+
+		default:{}break;
+	}
+
+	// Entity* en = entity_create();
+	// setup_player(en, get_player_pos());
+	world->dimension->entities[world->dimension->entity_count] = *get_player();
+}
+
 void change_dimensions(DimensionID new_dim){
+	printf("Changing DIMENSION: %s -> %s\n", world->dimension->name, get_dimensionData(new_dim)->name);
 	world->dimension_id = new_dim;
 	world->dimension = get_dimensionData(new_dim);
 	world->current_biome_id = world->dimension->biomes[0];
+	load_dimension_entities(world->dimension_id);
+	// spawn portal back!!!		 set_portal_valid(1); ?????
 }
 
 
@@ -1431,12 +1459,11 @@ void render_entities(World* world) {
 
 		int index = indices[i];
 		Entity* en = &world->dimension->entities[index];
-		// Entity* en = &world->entities[i];
 
 		if (en->is_valid) {
 
+			// float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
 			float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
-
 
 			switch (en->arch) {
 
@@ -1525,12 +1552,10 @@ void render_entities(World* world) {
 							float i = 1/0;
 						}
 
-						// if (en->is_item = true && en->item_id == ITEM_pine_wood){
-						// 	int asdasd = 1;
-						// }
-
 						// frustrum culling
 						if (entity_dist_from_player <= render_distance){
+
+
 
 							Sprite* sprite = get_sprite(en->sprite_id);
 							Matrix4 xform = m4_identity;
@@ -1845,6 +1870,8 @@ int entry(int argc, char **argv)
 			Entity* en = &world->dimension->entities[i];
 			if (en->is_valid && en->arch == ARCH_player) {
 				world_frame.player = en;
+				player_en = get_player();
+				// printf("PLAYER ENTITY FOUND FROM DIM %s\n", world->dimension->name);
 			}
 		}
 
@@ -2345,7 +2372,7 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
-							if (world->current_biome_id == BIOME_forest){ create_portal_to(BIOME_cave, true); }
+							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
 						}
 					}
 				}
@@ -2376,7 +2403,9 @@ int entry(int argc, char **argv)
 							{
 								if (selected_en->portal_data.enabled){
 									BiomeID destination = selected_en->portal_data.destination;
-									change_biomes(world, destination);
+									// change_biomes(world, destination);
+									// printf("WIP ------------------------------->\n");
+									change_dimensions(selected_en->portal_data.dim_destination);
 								}
 							}
 						} break;
@@ -2417,7 +2446,7 @@ int entry(int argc, char **argv)
 		// printf("%s\n",get_biome_data_from_id(world->dimension.biome_id).name);
 
 		// #dimension
-		printf("Current Dimension = %s\n", world->dimension->name);
+		// printf("Current Dimension = %s\n", world->dimension->name);
 
 
 		// DEBUG: print UX state

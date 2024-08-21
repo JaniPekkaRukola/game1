@@ -223,6 +223,7 @@
     // :Portal -------------------------->
     typedef struct PortalData {
         BiomeID destination;
+        DimensionID dim_destination;
         bool enabled;
     } PortalData;
 
