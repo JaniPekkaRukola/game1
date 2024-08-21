@@ -16,12 +16,26 @@
 	// 	"description": "Log output to console"
 	// }
 	"Quick printf snippet":{
-		"scope": "c",
+		"scope": "c,cpp",
 		"prefix": "printt",
 		"body": [
 			"printf(\"$1\\n\", $2);",
 			"$0"
 			],
 		"description": "Quick printf for c"
+	},
+	"Quick header file init":{
+		"scope": "c,cpp",
+		"prefix": "#init header",
+		"body": [
+			"#ifndef $1_H",
+			"#define $1_H",
+			"",
+			"$0",
+			"",
+			"#endif",
+		],
+		"description": "Quick header file init"
+
 	}
 }
