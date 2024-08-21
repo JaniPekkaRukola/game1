@@ -4,11 +4,9 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-// #define MAX_ENTITY_COUNT 1024
-
-
 bool print_fps = true;
 // bool print_fps = false;
+
 bool enable_tooltip = true;
 bool render_hotbar = true;
 bool render_player = true;
@@ -23,6 +21,9 @@ bool player_running = false;
 float entity_selection_radius = 5.0f;
 const int player_pickup_radius = 15.0;
 float render_distance = 175;		// 170 is pretty good
+
+// keybinds
+char player_use_key = 'F';
 
 
 // COLORS
@@ -925,95 +926,167 @@ void render_ui()
 }
 
 // :Chest UI || :Render Chest UI
-void render_chest_ui()
+void render_building_ui(UXState ux_state)
 {
 
-	// chest size variables
-	const int max_slots_row = 9;
-	const int max_slots_col = 4;
-	const int slot_size = 8;
-	const int padding = 2;
-	int slot_index = 0;
-	int row_index = 0;
+	// close building ui
+	if (is_key_just_pressed(KEY_ESCAPE) || is_key_just_pressed(player_use_key)){
+		consume_key_just_pressed(KEY_ESCAPE);
+		consume_key_just_pressed(player_use_key);
+		world->ux_state = UX_nil;
+	}
 
-	// const Vector2 chest_ui_size = v2(200, 100);
-	const Vector2 chest_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
-	Vector2 chest_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
-	chest_ui_pos = v2(chest_ui_pos.x - (chest_ui_size.x * 0.5), chest_ui_pos.y - (chest_ui_size.y * 0.5));
-	float slot_border_width = 1;
-
-	const float x_start_pos = chest_ui_pos.x;
-	const float y_start_pos = chest_ui_pos.y;
-
-	// Colors
-	Vector4 chest_bg = v4(0.25, 0.25, 0.25, 0.7);
-	Vector4 slot_border_color = v4(1, 1, 1, 0.7);
-	// Vector4 slot_color = v4(1, 1, 1, 0.7);
+	// if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)){
+	// 	consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+	// }
 
 	set_screen_space();
 	push_z_layer(layer_ui);
 
-	// close chest
-	if (world->ux_state == UX_chest){
-		if (is_key_just_pressed(KEY_ESCAPE)){
-			world->ux_state = UX_nil;
-		}
-	}
+	// RENDER CHEST UI
+	if (ux_state == UX_chest){
 
+		// printf("RENDERING CHEST UI\n");
 
-	// open chest
-	if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
-		consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+		// chest size variables
+		const int max_slots_row = 9;
+		const int max_slots_col = 4;
+		const int slot_size = 8;
+		const int padding = 2;
+		int slot_index = 0;
+		int row_index = 0;
 
-		Entity* selected_en = world_frame.selected_entity;
-		if (selected_en != NULL && selected_en->building_id == BUILDING_chest){
-			// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
-			world->ux_state = UX_chest;
-		}
-	}
+		// const Vector2 chest_ui_size = v2(200, 100);
+		const Vector2 chest_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
+		Vector2 chest_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
+		chest_ui_pos = v2(chest_ui_pos.x - (chest_ui_size.x * 0.5), chest_ui_pos.y - (chest_ui_size.y * 0.5));
+		float slot_border_width = 1;
 
-	world->chest_alpha_target = (world->ux_state == UX_chest ? 1.0 : 0.0);
-	animate_f32_to_target(&world->chest_alpha, world->chest_alpha_target, delta_t, 15.0);
-	bool is_chest_enabled = world->chest_alpha_target == 1.0;
+		const float x_start_pos = chest_ui_pos.x;
+		const float y_start_pos = chest_ui_pos.y;
 
-	if (world->chest_alpha_target != 0.0)
-	{
-		Matrix4 xform = m4_identity;
-		xform = m4_translate(xform, v3(chest_ui_pos.x, chest_ui_pos.y, 0));
-		// xform = m4_scale(xform, v3(chest_ui_size.x, chest_ui_size.y, 0));
+		// Colors
+		Vector4 chest_bg = v4(0.25, 0.25, 0.25, 0.7);
+		Vector4 slot_border_color = v4(1, 1, 1, 0.7);
+		// Vector4 slot_color = v4(1, 1, 1, 0.7);
 
-		// draw background
-		draw_rect_xform(xform, v2(chest_ui_size.x, chest_ui_size.y), chest_bg);
+		world->chest_alpha_target = (world->ux_state == UX_chest ? 1.0 : 0.0);
+		animate_f32_to_target(&world->chest_alpha, world->chest_alpha_target, delta_t, 15.0);
+		bool is_chest_enabled = world->chest_alpha_target == 1.0;
 
-		// draw slots
-		for (int i = 0; i < max_slots_row* max_slots_col; i++){
+		if (world->chest_alpha_target != 0.0)
+		{
+			Matrix4 xform = m4_identity;
+			xform = m4_translate(xform, v3(chest_ui_pos.x, chest_ui_pos.y, 0));
+			// xform = m4_scale(xform, v3(chest_ui_size.x, chest_ui_size.y, 0));
 
-			Matrix4 xform_slot = m4_identity;
-			float x_pos = x_start_pos + (slot_index * slot_size) + (slot_index * padding) + padding;
-			float y_pos = y_start_pos + (row_index * slot_size) + (row_index * padding) + padding;
+			// draw background
+			draw_rect_xform(xform, v2(chest_ui_size.x, chest_ui_size.y), chest_bg);
 
-			// translate xform
-			xform_slot = m4_translate(xform_slot, v3(x_pos, y_pos, 0));
+			// draw slots
+			for (int i = 0; i < max_slots_row* max_slots_col; i++){
 
-			// draw slot border
-			draw_rect_xform(xform_slot, v2(slot_size, slot_size), slot_border_color);
+				Matrix4 xform_slot = m4_identity;
+				float x_pos = x_start_pos + (slot_index * slot_size) + (slot_index * padding) + padding;
+				float y_pos = y_start_pos + (row_index * slot_size) + (row_index * padding) + padding;
 
-			// draw slot
-			xform_slot = m4_translate(xform_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0));
-			draw_rect_xform(xform_slot, v2(slot_size - slot_border_width, slot_size - slot_border_width), chest_bg);
+				// translate xform
+				xform_slot = m4_translate(xform_slot, v3(x_pos, y_pos, 0));
 
-			slot_index++;
-			if (slot_index >= max_slots_row){
-				row_index++;
-				slot_index = 0;
+				// draw slot border
+				draw_rect_xform(xform_slot, v2(slot_size, slot_size), slot_border_color);
+
+				// draw slot
+				xform_slot = m4_translate(xform_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0));
+				draw_rect_xform(xform_slot, v2(slot_size - slot_border_width, slot_size - slot_border_width), chest_bg);
+
+				slot_index++;
+				if (slot_index >= max_slots_row){
+					row_index++;
+					slot_index = 0;
+				}
+
 			}
 
 		}
+	}
+
+	// RENDER FURNACE UI
+	else if (ux_state == UX_furnace){
+		printf("RENDERING FURNACE UI\n");
+
+		// furnace size variables
+		const int max_slots_row = 9;
+		const int max_slots_col = 4;
+		const int slot_size = 8;
+		const int padding = 2;
+		const int slot_offset_from_center = 20;
+		float slot_border_width = 1;
+		int slot_index = 0;
+		int row_index = 0;
+
+		const Vector2 furnace_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
+		Vector2 furnace_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
+		furnace_ui_pos = v2(furnace_ui_pos.x - (furnace_ui_size.x * 0.5), furnace_ui_pos.y - (furnace_ui_size.y * 0.5));
+
+		const float x_start_pos = furnace_ui_pos.x;
+		const float y_start_pos = furnace_ui_pos.y;
+
+		// Colors
+		Vector4 furnace_bg = v4(0.15, 0.15, 0.15, 0.8);
+		Vector4 slot_border_color = v4(1, 1, 1, 0.7);
+		// Vector4 slot_color = v4(1, 1, 1, 0.7);
+
+		world->furnace_alpha_target = (world->ux_state == UX_furnace ? 1.0 : 0.0);
+		animate_f32_to_target(&world->furnace_alpha, world->furnace_alpha_target, delta_t, 15.0);
+		bool is_furnace_enabled = world->furnace_alpha_target == 1.0;
+
+
+		if (world->furnace_alpha_target != 0.0)
+		{
+			Matrix4 xform_input_slot = m4_identity;
+			Matrix4 xform_output_slot = m4_identity;
+			Matrix4 xform_fuel_slot = m4_identity;
+			Matrix4 xform_bg = m4_identity;
+
+			xform_input_slot = m4_translate(xform_input_slot, v3(furnace_ui_pos.x + (furnace_ui_size.x * 0.5)- (slot_size * 0.5) - slot_offset_from_center, 	furnace_ui_pos.y + (furnace_ui_size.y * 0.5) - (slot_size * 0.5) + (padding * 5), 0));
+			xform_output_slot = m4_translate(xform_output_slot, v3(furnace_ui_pos.x + (furnace_ui_size.x * 0.5)- (slot_size * 0.5) + slot_offset_from_center, 	furnace_ui_pos.y + (furnace_ui_size.y * 0.5) - (slot_size * 0.5), 0));
+			xform_fuel_slot = m4_translate(xform_fuel_slot, v3(furnace_ui_pos.x + (furnace_ui_size.x * 0.5)- (slot_size * 0.5) - slot_offset_from_center, 		furnace_ui_pos.y + (furnace_ui_size.y * 0.5) - (slot_size * 0.5) - (padding * 5), 0));
+			xform_bg = m4_translate(xform_bg, v3(furnace_ui_pos.x, furnace_ui_pos.y, 0));
+
+
+			// draw background
+			draw_rect_xform(xform_bg, v2(furnace_ui_size.x, furnace_ui_size.y), furnace_bg);
+
+			// draw slot border and then draw input slot
+			draw_rect_xform(xform_input_slot, v2(slot_size, slot_size), slot_border_color);
+			draw_rect_xform(m4_translate(xform_input_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
+
+			// draw output slot
+			draw_rect_xform(xform_output_slot, v2(slot_size, slot_size), slot_border_color);
+			draw_rect_xform(m4_translate(xform_output_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
+
+
+			// draw fuel slot
+			draw_rect_xform(xform_fuel_slot, v2(slot_size, slot_size), slot_border_color);
+			draw_rect_xform(m4_translate(xform_fuel_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
+
+
+			// draw text above slots
+			draw_text_xform(font, STR("INPUT"), 	font_height, m4_translate(xform_input_slot, 	v3(1, slot_size + padding, 0)), v2(0.05, 0.05), COLOR_WHITE);
+			draw_text_xform(font, STR("FUEL"), 		font_height, m4_translate(xform_fuel_slot, 		v3(1, slot_size + padding, 0)), v2(0.05, 0.05), COLOR_WHITE);
+			draw_text_xform(font, STR("OUTPUT"), 	font_height, m4_translate(xform_output_slot, 	v3(0, slot_size + padding, 0)), v2(0.05, 0.05), COLOR_WHITE);
+
+			
+
+		}
+
+
+
 
 	}
 
 
-	// world->ux_state;
 
 	set_world_space();
 	pop_z_layer();
@@ -1541,12 +1614,13 @@ void render_entities(World* world) {
 	}
 }
 
-void render_keybinding(Entity* en, string keybind) {
+// void render_keybinding(Entity* en, string keybind) {
+void render_keybinding(Entity* en, char keybind) {
 	Matrix4 xform = m4_identity;
 	xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
 	xform = m4_translate(xform, v3(0, 10, 0));
 
-	draw_text_xform(font, sprint(temp_allocator, STR("%s"), keybind), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+	draw_text_xform(font, sprint(temp_allocator, STR("%c"), keybind), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
 }
 
 
@@ -1699,17 +1773,21 @@ int entry(int argc, char **argv)
 		// test adding buildings to world
 		{
 			// FURNACE:
-			// setup furnace
-			// Entity* en = entity_create();
-			// setup_furnace(en);
-			// en->pos = v2(-25, 0);
-			// en->pos = round_v2_to_tile(en->pos);
+			{
+				Entity* en = entity_create();
+				setup_building(en, BUILDING_furnace);
+				en->pos = v2(-25, 0);
+				en->pos = round_v2_to_tile(en->pos);
+			}
+
 
 			// CHEST:
-			// Entity* en = entity_create();
-			// setup_building(en, BUILDING_chest);
-			// en->pos = v2(-20, 0);
-			// en->pos = round_v2_to_tile(en->pos);
+			{
+				Entity* en = entity_create();
+				setup_building(en, BUILDING_chest);
+				en->pos = v2(-25, -10);
+				en->pos = round_v2_to_tile(en->pos);
+			}
 		}
 	}
 
@@ -1755,6 +1833,8 @@ int entry(int argc, char **argv)
 
 	float view_zoom = 0.1875; 			// view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
 	Vector2 camera_pos = v2(0, 0);
+
+
 
 	// view_zoom += 0.2;		// zoom out a bit
 
@@ -1882,8 +1962,27 @@ int entry(int argc, char **argv)
 		}
 
 
-		// Render chest ui
-		render_chest_ui();
+		// Render building ui
+		{
+			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
+					// open chest
+				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
+					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+
+					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
+					Entity* selected_en = world_frame.selected_entity;
+					switch (selected_en->building_id){
+						case BUILDING_chest: {world->ux_state = UX_chest;}break;
+						case BUILDING_furnace: {world->ux_state = UX_furnace;}break;
+						default:{}break;
+					}
+				}
+			}
+
+			if (world->ux_state != UX_nil){
+				render_building_ui(world->ux_state);
+			}
+		}
 
 
 		// :Render grid (:Grid)
@@ -2305,7 +2404,7 @@ int entry(int argc, char **argv)
 
 		// render keybinding
 		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
-			render_keybinding(world_frame.selected_entity, STR("F"));
+			render_keybinding(world_frame.selected_entity, player_use_key);
 		}
 
 
