@@ -296,7 +296,7 @@
         // struct BiomeData* biome_data;
 
         DimensionID dimension_id;
-        DimensionData dimension;
+        DimensionData *dimension;
         // int layer;
         // Entity entities[MAX_ENTITY_COUNT];
         // int entity_count;
@@ -444,11 +444,11 @@
 
     ItemID held_item;
     OreID ores[ORE_MAX];
-    DimensionID dimensions[DIM_MAX];
 
     InventoryItemData* dragging_now;
     InventoryItemData* selected_item;
     WorldFrame world_frame;
+    DimensionData dimensions[DIM_MAX];
     World* world = 0;
     BiomeData biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];

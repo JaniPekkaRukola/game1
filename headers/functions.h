@@ -105,7 +105,9 @@ DimensionData get_dimensionData(DimensionID);
 		// }
 		// log_error("Couldn't get player pos\n");
 		// return v2(0,0);
-		return world_frame.player->pos;
+		if (world_frame.player){
+			return world_frame.player->pos;
+		}
 	}
 // 
 
@@ -124,10 +126,10 @@ DimensionData get_dimensionData(DimensionID);
 
 		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
 			// Entity* existing_entity = &world->entities[i];
-			Entity* existing_entity = &world->dimension.entities[i];
+			Entity* existing_entity = &world->dimension->entities[i];
 			if (!existing_entity->is_valid) {
 				// world->entity_count++;
-				world->dimension.entity_count++;
+				world->dimension->entity_count++;
 				entity_found = existing_entity;
 				// entity_index = i; // capture the index of the new entity
 				break;
@@ -149,7 +151,7 @@ DimensionData get_dimensionData(DimensionID);
 		render_list.needs_sorting = true;
 		// printf("Destroying entity '%s'\n", entity->name);
 		// world->entity_count--;
-		world->dimension.entity_count--;
+		world->dimension->entity_count--;
 		entity->is_valid = false;
 		memset(entity, 0, sizeof(Entity));
 	}
@@ -190,10 +192,17 @@ DimensionData get_dimensionData(DimensionID);
 
 
 	// :DIMENSION --------------------->
-	// DimensionData get_dimensionData(DimensionID id){
-	// 	return dimensions[id];
-	// }
+	DimensionData get_dimensionData(DimensionID id){
+		return dimensions[id];
+	}
 
+	void add_biomes_to_dimension(DimensionID dim, BiomeID* biomes){
+		for (int i = 0; i < BIOME_MAX; i++){
+			BiomeID biome_id = biomes[i];
+			// world->dimension.biomes[i] = biome_id;
+			get_dimensionData(dim).biomes[i] = biome_id;
+		}
+	}
 
 	// :PORTAL ------------------------>
 	int block_portal_creation(){
@@ -213,7 +222,7 @@ DimensionData get_dimensionData(DimensionID);
 
 		if (result == 0){
 			// BiomeID current_biome = world->biome_id;
-			BiomeID current_biome = world->dimension.biome_id;
+			BiomeID current_biome = world->dimension->biome_id;
 
 			Entity* en = entity_create();
 			setup_portal(en, current_biome, dest);
@@ -225,7 +234,7 @@ DimensionData get_dimensionData(DimensionID);
 			// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 
 			// add_biomeID_to_entity(en, world->biome_id);
-			add_biomeID_to_entity(en, world->dimension.biome_id);
+			add_biomeID_to_entity(en, world->dimension->biome_id);
 			en->is_valid = true;
 			en->portal_data.enabled = true;
 
@@ -245,7 +254,7 @@ DimensionData get_dimensionData(DimensionID);
 				add_biomeID_to_entity(en, dest);
 				en->is_valid = false;
 				en->portal_data.enabled = false;
-				printf("Created another portal to %s\n", get_biome_data_from_id(world->dimension.biome_id).name);
+				printf("Created another portal to %s\n", get_biome_data_from_id(world->dimension->biome_id).name);
 			}
 		}
 		else if (result == 1) {
@@ -260,7 +269,7 @@ DimensionData get_dimensionData(DimensionID);
 		if (valid){
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
 				// Entity* en = &world->entities[i];
-				Entity* en = &world->dimension.entities[i];
+				Entity* en = &world->dimension->entities[i];
 				if (en->arch == ARCH_portal){
 					en->is_valid = true;
 					en->portal_data.enabled = true;
@@ -272,7 +281,7 @@ DimensionData get_dimensionData(DimensionID);
 		else{
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
 			// Entity* en = &world->entities[i];
-			Entity* en = &world->dimension.entities[i];
+			Entity* en = &world->dimension->entities[i];
 			if (en->arch == ARCH_portal){
 				en->is_valid = false;
 				en->portal_data.enabled = false;
@@ -533,9 +542,9 @@ DimensionData get_dimensionData(DimensionID);
 	// :ORE --------------------------->
 	Entity* get_ore(OreID id) {
 		// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-		for (int i = 0; i < world->dimension.entity_count; i++) {
+		for (int i = 0; i < world->dimension->entity_count; i++) {
 			// Entity* en = &world->entities[i];
-			Entity* en = &world->dimension.entities[i];
+			Entity* en = &world->dimension->entities[i];
 			if (en->ore_id == id){
 				return en;
 			}
@@ -567,7 +576,7 @@ DimensionData get_dimensionData(DimensionID);
 		en->is_item = true;
 		en->item_id = item_id;
 		en->enable_shadow = true;
-		add_biomeID_to_entity(en, world->dimension.biome_id);
+		add_biomeID_to_entity(en, world->dimension->biome_id);
 
 		// printf("SETUP '%s'\n", get_archetype_name(en->arch));
 		if (item_id == ITEM_ORE_iron){
@@ -886,9 +895,22 @@ DimensionData get_dimensionData(DimensionID);
 		}
 	}
 
-	void setup_dimension(DimensionID id) {
 
+	void setup_dimension(DimensionData *dimension, string name, DimensionID id) {
+		// DimensionData dimension = {0};
+		
+		// printf("NAME = %s\n", name);
+
+		dimension->name = name;
+		dimension->dimension_id = id;
+
+		switch (id){
+			case DIM_overworld:{add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave});} break;
+			case DIM_cavern:{add_biomes_to_dimension(id, 	(BiomeID[]){BIOME_cave});} break;
+			default:{}break;
+		}
 	}
+
 
 	void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
 		en->arch = ARCH_portal;
