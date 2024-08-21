@@ -275,38 +275,6 @@ Audio audioFiles[AUDIO_MAX];
 
 // 
 
-	
-
-string get_building_name(BuildingID id) {
-	switch (id) {
-		case BUILDING_furnace: return STR("Furnace"); break;
-		case BUILDING_workbench: return STR("Workbench"); break;
-		case BUILDING_chest: return STR("Chest"); break;
-		default: return STR("Error: Missing get_building_name case."); break;
-	}
-}
-
-string get_tool_name(ToolID id) {
-	switch (id) {
-		case TOOL_pickaxe: return STR("Pickaxe"); break;
-		case TOOL_axe: return STR("Axe"); break;
-		default: return STR("Error: Missing get_tool_name case."); break;
-	}
-}
-
-Entity* get_ore(OreID id) {
-	// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-	for (int i = 0; i < world->entity_count; i++) {
-		Entity* en = &world->entities[i];
-		if (en->ore_id == id){
-			return en;
-		}
-	}
-	log_error("Failed to get ore @ 'get_ore'\n");
-}
-
-
-// ----- coordinate stuff ------------------------------------------------------------------------------|
 
 void set_screen_space() {
 	draw_frame.view = m4_scalar(1.0);
@@ -317,6 +285,125 @@ void set_world_space() {
 	// make the viewport (or whatever) to window size, instead of -1.7, 1.7, -1, 1
 	draw_frame.projection = world_frame.world_projection;
 	draw_frame.view = world_frame.world_view;
+}
+
+
+
+// ----- ::Create entities -----------------------------------------------------------------------------|
+// maybe should move these into "create_entities.h" ???
+
+void create_pine_trees(int amount, int range) {
+	// Creates trees
+	// Wont allow multiple trees to spawn in the same tile
+
+	Vector2 tree_positions[amount];
+
+	for (int i = 0; i < amount; i++){
+		float x = get_random_float32_in_range(-range, range);
+		float y = get_random_float32_in_range(-range, range);
+		tree_positions[i] = v2(x,y);
+	}
+
+	for (int i = 0; i < amount; i++){
+		Entity* en = entity_create();
+		setup_pine_tree(en);
+		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
+		en->pos = round_v2_to_tile(en->pos);
+		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+	}
+
+
+	// free the list of positions
+	memset(tree_positions, 0, sizeof(tree_positions));
+}
+
+void create_spruce_trees(int amount, int range) {
+	// Creates trees
+	// Wont allow multiple trees to spawn in the same tile
+
+	Vector2 tree_positions[amount];
+
+	for (int i = 0; i < amount; i++){
+		float x = get_random_float32_in_range(-range, range);
+		float y = get_random_float32_in_range(-range, range);
+		tree_positions[i] = v2(x,y);
+	}
+
+	for (int i = 0; i < amount; i++){
+		Entity* en = entity_create();
+		setup_spruce_tree(en);
+		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
+		en->pos = round_v2_to_tile(en->pos);
+		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+	}
+
+
+	// free the list of positions
+	memset(tree_positions, 0, sizeof(tree_positions));
+}
+
+void create_rocks(int amount, int range) {
+	// Create rock entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_rock(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}	
+}
+
+void create_bushes(int amount, int range) {
+	// Create bush entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_bush(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
+void create_twigs(int amount, int range) {
+	// Create twig entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_twig(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
+void create_mushrooms(int amount, int range) {
+	// Create mushroom entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_mushroom(en);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
+void create_ores(int amount, int range, OreID id) {
+	// create ore entities
+	for (int i = 0; i < amount; i++) {
+		Entity* en = entity_create();
+		setup_ore(en, id);
+		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+		en->pos = round_v2_to_tile(en->pos);
+	}
+}
+
+void clear_empty_slots_in_entities(Entity* entities, int count){
+	// Verification loop to ensure no empty slots
+    int shiftIndex = 0;
+    for (int i = 0; i < count; i++) {
+		Entity* en = &entities[i];
+        if (en->arch == ARCH_nil) {
+            shiftIndex++;
+        } else if (shiftIndex > 0) {
+            // Shift the entity left to fill the gap
+            entities[i - shiftIndex] = entities[i];
+        }
+    }
 }
 
 
@@ -1093,122 +1180,6 @@ void render_building_ui(UXState ux_state)
 }
 
 
-// ----- ::Create entities -----------------------------------------------------------------------------|
-// maybe should move these into "create_entities.h" ???
-
-void create_pine_trees(int amount, int range) {
-	// Creates trees
-	// Wont allow multiple trees to spawn in the same tile
-
-	Vector2 tree_positions[amount];
-
-	for (int i = 0; i < amount; i++){
-		float x = get_random_float32_in_range(-range, range);
-		float y = get_random_float32_in_range(-range, range);
-		tree_positions[i] = v2(x,y);
-	}
-
-	for (int i = 0; i < amount; i++){
-		Entity* en = entity_create();
-		setup_pine_tree(en);
-		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
-		en->pos = round_v2_to_tile(en->pos);
-		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
-	}
-
-
-	// free the list of positions
-	memset(tree_positions, 0, sizeof(tree_positions));
-}
-
-void create_spruce_trees(int amount, int range) {
-	// Creates trees
-	// Wont allow multiple trees to spawn in the same tile
-
-	Vector2 tree_positions[amount];
-
-	for (int i = 0; i < amount; i++){
-		float x = get_random_float32_in_range(-range, range);
-		float y = get_random_float32_in_range(-range, range);
-		tree_positions[i] = v2(x,y);
-	}
-
-	for (int i = 0; i < amount; i++){
-		Entity* en = entity_create();
-		setup_spruce_tree(en);
-		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
-		en->pos = round_v2_to_tile(en->pos);
-		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
-	}
-
-
-	// free the list of positions
-	memset(tree_positions, 0, sizeof(tree_positions));
-}
-
-void create_rocks(int amount, int range) {
-	// Create rock entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_rock(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}	
-}
-
-void create_bushes(int amount, int range) {
-	// Create bush entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_bush(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
-
-void create_twigs(int amount, int range) {
-	// Create twig entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_twig(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
-
-void create_mushrooms(int amount, int range) {
-	// Create mushroom entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_mushroom(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
-
-void create_ores(int amount, int range, OreID id) {
-	// create ore entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_ore(en, id);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
-
-void clear_empty_slots_in_entities(Entity* entities, int count){
-	// Verification loop to ensure no empty slots
-    int shiftIndex = 0;
-    for (int i = 0; i < count; i++) {
-		Entity* en = &entities[i];
-        if (en->arch == ARCH_nil) {
-            shiftIndex++;
-        } else if (shiftIndex > 0) {
-            // Shift the entity left to fill the gap
-            entities[i - shiftIndex] = entities[i];
-        }
-    }
-}
 
 
 // ----- ::SPAWN BIOME -----------------------------------------------------------------------------|
@@ -1240,8 +1211,9 @@ void spawn_biome(BiomeData* biome) {
 void unload_biome(World* world, BiomeID id){
 	// world->entities
 	int removed_entity_count = 0;
-	for (int i = 0; i < world->entity_count; i++)  {
-		Entity* en = &world->entities[i];
+	for (int i = 0; i < world->dimension.entity_count; i++)  {
+		// Entity* en = &world->entities[i];
+		Entity* en = &world->dimension.entities[i];
 		for (int i = 0; i < BIOME_MAX; i++){
 			if (en->arch == ARCH_portal){
 				en->portal_data.enabled = false;
@@ -1256,13 +1228,13 @@ void unload_biome(World* world, BiomeID id){
 			}
 		}
 	}
-	world->entity_count -= removed_entity_count;
+	world->dimension.entity_count -= removed_entity_count;
 }
 
 // #Biome || :change biome
 void change_biomes(World* world, BiomeID new_id){
 	
-	printf("Changing biome: %s -> %s\n", get_biome_data_from_id(world->biome_id).name, get_biome_data_from_id(new_id).name);
+	printf("Changing biome: %s -> %s\n", get_biome_data_from_id(world->dimension.biome_id).name, get_biome_data_from_id(new_id).name);
 	
 	// dealloc all entities
 	// set new biome to world
@@ -1276,15 +1248,15 @@ void change_biomes(World* world, BiomeID new_id){
 
 	set_portal_valid(0);
 
-	unload_biome(world, world->biome_id);
+	unload_biome(world, world->dimension.biome_id);
 
 	// world->entities;
 
-	world->biome_id = new_id;
+	world->dimension.biome_id = new_id;
 	BiomeData biome = get_biome_data_from_id(new_id);
 	spawn_biome(&biome);
 
-	clear_empty_slots_in_entities(&world->entities, MAX_ENTITY_COUNT);
+	clear_empty_slots_in_entities(&world->dimension.entities, MAX_ENTITY_COUNT);
 	// spawn portal?!?!?!?
 
 	// set portal to valid
@@ -1419,7 +1391,7 @@ void render_entities(World* world) {
 
 	// NOTE: its cheaper to use "world->entity_count" here instead of "MAX_ENTITY_COUNT". But if world->entity_count is used, the "first item spawned is invisible" bug happens
 	// NOTE: bugfix for this is to do "world->entity_count + 1". Don't know about the side effects of this fix tho
-	int entity_count = world->entity_count + 1;
+	int entity_count = world->dimension.entity_count + 1;
 
     // Create an array of indices
     int indices[entity_count];
@@ -1436,13 +1408,13 @@ void render_entities(World* world) {
 
 	render_list.needs_sorting = true;
 
-	if (world->biome_id == BIOME_cave){
+	if (world->dimension.biome_id == BIOME_cave){
 		int asd = 1;
 	}
 
 	if (render_list.needs_sorting){
 		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
-		sort_entity_indices_by_prio_and_y(indices, &world->entities, entity_count);
+		sort_entity_indices_by_prio_and_y(indices, &world->dimension.entities, entity_count);
 		// sort_entities_by_prio_and_y(world->entities, entity_count);
 		render_list.needs_sorting = false;
 	}
@@ -1450,7 +1422,7 @@ void render_entities(World* world) {
    for (int i = 0; i < entity_count; i++)  {
 
 		int index = indices[i];
-		Entity* en = &world->entities[index];
+		Entity* en = &world->dimension.entities[index];
 		// Entity* en = &world->entities[i];
 
 		if (en->is_valid) {
@@ -1509,7 +1481,7 @@ void render_entities(World* world) {
 						if (entity_dist_from_player <= render_distance){
 							for (int i = 0; i < en->biome_count; i++) {
 								BiomeID portal_biome_id = en->biome_ids[i];
-								if (portal_biome_id == world->biome_id){
+								if (portal_biome_id == world->dimension.biome_id){
 									// printf("Drawing sprite at biome = %s\t", get_biome_data_from_id(portal_biome_id).name);
 									// printf("portal destination id: %d\n", en->portal_data.destination);
 									Sprite* sprite = get_sprite(en->sprite_id);
@@ -1808,10 +1780,10 @@ int entry(int argc, char **argv)
 	setup_all_biomes();
 
 	// set current biome
-	world->biome_id = BIOME_forest;
+	world->dimension.biome_id = BIOME_forest;
 	// world->biome_id = BIOME_cave;
 
-	BiomeData temp_data = get_biome_data_from_id(world->biome_id);
+	BiomeData temp_data = get_biome_data_from_id(world->dimension.biome_id);
 	spawn_biome(&temp_data);
 	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
@@ -1819,9 +1791,9 @@ int entry(int argc, char **argv)
 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
 	LootTable *lootTable_rock = createLootTable();
 	addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
-	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->biome_id).fossil0_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->biome_id).fossil1_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->biome_id).fossil2_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->dimension.biome_id).fossil0_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->dimension.biome_id).fossil1_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->dimension.biome_id).fossil2_drop_chance);
 	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
 
 
@@ -1851,6 +1823,14 @@ int entry(int argc, char **argv)
 		delta_t = now - last_time;
 		last_time = now;
 		os_update(); 
+
+		// find player entity
+		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+			Entity* en = &world->dimension.entities[i];
+			if (en->is_valid && en->arch == ARCH_player) {
+				world_frame.player = en;
+			}
+		}
 
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
@@ -1888,8 +1868,8 @@ int entry(int argc, char **argv)
 			float smallest_dist = 9999999;
 
 			// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-			for (int i = 0; i < world->entity_count; i++){
-				Entity* en = &world->entities[i];
+			for (int i = 0; i < world->dimension.entity_count; i++){
+				Entity* en = &world->dimension.entities[i];
 
 				if (IS_DEBUG){
 					// world_frame.selected_entity = en;
@@ -1944,8 +1924,8 @@ int entry(int argc, char **argv)
 			float smallest_dist = 9999999;
 			float entity_selection_radius = 10.0f;
 
-			for (int i = 0; i < world->entity_count; i++){
-				Entity* en = &world->entities[i];
+			for (int i = 0; i < world->dimension.entity_count; i++){
+				Entity* en = &world->dimension.entities[i];
 				if (en->arch == ARCH_portal){ // #portal
 					if (en->is_valid){
 						float dist = fabsf(v2_dist(en->pos, get_player_pos()));
@@ -2030,7 +2010,7 @@ int entry(int argc, char **argv)
 			// Texture* texture = get_texture(TEXTURE_grass);
 			biomes;
 			
-			Texture* texture = get_texture(get_biome_data_from_id(world->biome_id).ground_texture);
+			Texture* texture = get_texture(get_biome_data_from_id(world->dimension.biome_id).ground_texture);
 
 			// xfrom logic:
 			// A 	 B		C
@@ -2060,7 +2040,7 @@ int entry(int argc, char **argv)
 				x_axis_fix = true;
 			}
 
-			if (traveled_step_x < 0){ // left
+			if (traveled_step_x < 0){ 			// left
 				// printf("LEFT ");
 				if (traveled_step_y < 0){
 					// printf("DOWN \n");
@@ -2088,7 +2068,7 @@ int entry(int argc, char **argv)
 				}
 			}
 			
-			else if (traveled_step_x == 0){ // middle x = 0
+			else if (traveled_step_x == 0){ 	// middle x = 0
 				// printf("MIDDLE\n");
 				if (player_pos_x < 0.0f){
 					if (player_pos_y < 0.0f){
@@ -2144,7 +2124,7 @@ int entry(int argc, char **argv)
 				}
 			}
 
-			else{ // right
+			else{ 								// right
 				// printf("RIGHT ");
 				if (traveled_step_y < 0){
 					// printf("DOWN\n");
@@ -2200,8 +2180,8 @@ int entry(int argc, char **argv)
 		{
 			// bool is_pickup_text_visible = false;
 			// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-			for (int i = 0; i < world->entity_count; i++) {
-				Entity* en = &world->entities[i];
+			for (int i = 0; i < world->dimension.entity_count; i++) {
+				Entity* en = &world->dimension.entities[i];
 				if (en->is_valid) {
 
 					// item pick up
@@ -2349,7 +2329,7 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
-							if (world->biome_id == BIOME_forest){ create_portal_to(BIOME_cave, true); }
+							if (world->dimension.biome_id == BIOME_forest){ create_portal_to(BIOME_cave, true); }
 						}
 					}
 				}

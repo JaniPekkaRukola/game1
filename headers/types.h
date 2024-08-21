@@ -38,7 +38,7 @@
     } EntityArchetype;
 
 
-    typedef enum BiomeID{
+    typedef enum BiomeID {
         BIOME_nil,
 
         // Above ground biomes
@@ -53,6 +53,16 @@
 
         BIOME_MAX,
     } BiomeID;
+
+
+    typedef enum DimensionID {
+        DIM_nil,
+
+        DIM_overworld,
+        DIM_cavern,
+
+        DIM_MAX
+    } DimensionID;
 
 
     typedef enum SpriteID {
@@ -264,16 +274,32 @@
         Matrix4 world_projection;
         Matrix4 world_view;
         bool hover_consumed;
+        Entity* player;
     } WorldFrame;
+
+    // :Dimension ----------------------->
+    typedef struct DimensionData {
+        string name;
+        DimensionID dimension_id;
+        Entity entities[MAX_ENTITY_COUNT];
+        int entity_count;
+        BiomeID biomes[BIOME_MAX];
+        BiomeID biome_id;
+
+        // color
+        // enemies
+    } DimensionData;
 
     // :World --------------------------->
     typedef struct World {
-        // WorldLayer layer;
-        BiomeID biome_id;
+        // BiomeID biome_id;
         // struct BiomeData* biome_data;
-        int layer;
-        Entity entities[MAX_ENTITY_COUNT];
-        int entity_count;
+
+        DimensionID dimension_id;
+        DimensionData dimension;
+        // int layer;
+        // Entity entities[MAX_ENTITY_COUNT];
+        // int entity_count;
         InventoryItemData inventory_items[ITEM_MAX];
         UXState ux_state;
         
@@ -289,6 +315,8 @@
 
         BuildingID placing_building;
     } World;
+
+
 
     // :Biome --------------------------->
     typedef struct BiomeData {
@@ -416,6 +444,7 @@
 
     ItemID held_item;
     OreID ores[ORE_MAX];
+    DimensionID dimensions[DIM_MAX];
 
     InventoryItemData* dragging_now;
     InventoryItemData* selected_item;

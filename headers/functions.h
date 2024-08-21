@@ -8,6 +8,7 @@
 void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
 void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
+DimensionData get_dimensionData(DimensionID);
 
 
 
@@ -94,14 +95,17 @@ Entity* get_ore(OreID id);
 	Vector2 get_player_pos(){
 		// TODO: make this better. surely this can be done without a for-loop!?
 		// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-		for (int i = 0; i < world->entity_count; i++){
-			Entity en = world->entities[i];
-			if (en.arch == ARCH_player){
-				return en.pos;
-			}
-		}
-		log_error("Couldn't get player pos\n");
-		return v2(0,0);
+		// for (int i = 0; i < world->entity_count; i++){
+		// for (int i = 0; i < world->dimension.entity_count; i++){
+		// 	// Entity en = world->entities[i];
+		// 	Entity en = world->dimension.entities[i];
+		// 	if (en.arch == ARCH_player){
+		// 		return en.pos;
+		// 	}
+		// }
+		// log_error("Couldn't get player pos\n");
+		// return v2(0,0);
+		return world_frame.player->pos;
 	}
 // 
 
@@ -119,9 +123,11 @@ Entity* get_ore(OreID id);
 		Entity* entity_found = 0;
 
 		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-			Entity* existing_entity = &world->entities[i];
+			// Entity* existing_entity = &world->entities[i];
+			Entity* existing_entity = &world->dimension.entities[i];
 			if (!existing_entity->is_valid) {
-				world->entity_count++;
+				// world->entity_count++;
+				world->dimension.entity_count++;
 				entity_found = existing_entity;
 				// entity_index = i; // capture the index of the new entity
 				break;
@@ -142,7 +148,8 @@ Entity* get_ore(OreID id);
 	void entity_destroy(Entity* entity) {
 		render_list.needs_sorting = true;
 		// printf("Destroying entity '%s'\n", entity->name);
-		world->entity_count--;
+		// world->entity_count--;
+		world->dimension.entity_count--;
 		entity->is_valid = false;
 		memset(entity, 0, sizeof(Entity));
 	}
@@ -166,6 +173,10 @@ Entity* get_ore(OreID id);
 		}
 	}
 
+	Entity* get_player() {
+		return world_frame.player;
+	}
+
 
 	// :BIOME ------------------------->
 	BiomeData get_biome_data_from_id(BiomeID id){
@@ -176,6 +187,12 @@ Entity* get_ore(OreID id);
 			log_error("Failed to get biomeData @ get_biome_data_from_id. NULL\n");
 		}
 	}
+
+
+	// :DIMENSION --------------------->
+	// DimensionData get_dimensionData(DimensionID id){
+	// 	return dimensions[id];
+	// }
 
 
 	// :PORTAL ------------------------>
@@ -195,7 +212,8 @@ Entity* get_ore(OreID id);
 		int result = block_portal_creation();
 
 		if (result == 0){
-			BiomeID current_biome = world->biome_id;
+			// BiomeID current_biome = world->biome_id;
+			BiomeID current_biome = world->dimension.biome_id;
 
 			Entity* en = entity_create();
 			setup_portal(en, current_biome, dest);
@@ -206,7 +224,8 @@ Entity* get_ore(OreID id);
 			// en->pos.x -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 			// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 
-			add_biomeID_to_entity(en, world->biome_id);
+			// add_biomeID_to_entity(en, world->biome_id);
+			add_biomeID_to_entity(en, world->dimension.biome_id);
 			en->is_valid = true;
 			en->portal_data.enabled = true;
 
@@ -226,7 +245,7 @@ Entity* get_ore(OreID id);
 				add_biomeID_to_entity(en, dest);
 				en->is_valid = false;
 				en->portal_data.enabled = false;
-				printf("Created another portal to %s\n", get_biome_data_from_id(world->biome_id).name);
+				printf("Created another portal to %s\n", get_biome_data_from_id(world->dimension.biome_id).name);
 			}
 		}
 		else if (result == 1) {
@@ -240,7 +259,8 @@ Entity* get_ore(OreID id);
 	void set_portal_valid(bool valid){
 		if (valid){
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-				Entity* en = &world->entities[i];
+				// Entity* en = &world->entities[i];
+				Entity* en = &world->dimension.entities[i];
 				if (en->arch == ARCH_portal){
 					en->is_valid = true;
 					en->portal_data.enabled = true;
@@ -251,7 +271,8 @@ Entity* get_ore(OreID id);
 		}
 		else{
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-			Entity* en = &world->entities[i];
+			// Entity* en = &world->entities[i];
+			Entity* en = &world->dimension.entities[i];
 			if (en->arch == ARCH_portal){
 				en->is_valid = false;
 				en->portal_data.enabled = false;
@@ -394,6 +415,15 @@ Entity* get_ore(OreID id);
 		return buildings[id];
 	}
 
+	string get_building_name(BuildingID id) {
+		switch (id) {
+			case BUILDING_furnace: return STR("Furnace"); break;
+			case BUILDING_workbench: return STR("Workbench"); break;
+			case BUILDING_chest: return STR("Chest"); break;
+			default: return STR("Error: Missing get_building_name case."); break;
+		}
+	}
+
 
 	// :TEXTURE ----------------------->
 	Texture* get_texture(TextureID id) {
@@ -498,6 +528,30 @@ Entity* get_ore(OreID id);
 			current = current->next;
 		}
 	}
+
+
+	// :ORE --------------------------->
+	Entity* get_ore(OreID id) {
+		// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+		for (int i = 0; i < world->dimension.entity_count; i++) {
+			// Entity* en = &world->entities[i];
+			Entity* en = &world->dimension.entities[i];
+			if (en->ore_id == id){
+				return en;
+			}
+		}
+		log_error("Failed to get ore @ 'get_ore'\n");
+	}
+
+	// :TOOL -------------------------->
+	string get_tool_name(ToolID id) {
+		switch (id) {
+			case TOOL_pickaxe: return STR("Pickaxe"); break;
+			case TOOL_axe: return STR("Axe"); break;
+			default: return STR("Error: Missing get_tool_name case."); break;
+		}
+	}
+
 // 
 
 
@@ -513,7 +567,7 @@ Entity* get_ore(OreID id);
 		en->is_item = true;
 		en->item_id = item_id;
 		en->enable_shadow = true;
-		add_biomeID_to_entity(en, world->biome_id);
+		add_biomeID_to_entity(en, world->dimension.biome_id);
 
 		// printf("SETUP '%s'\n", get_archetype_name(en->arch));
 		if (item_id == ITEM_ORE_iron){
@@ -832,6 +886,9 @@ Entity* get_ore(OreID id);
 		}
 	}
 
+	void setup_dimension(DimensionID id) {
+
+	}
 
 	void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
 		en->arch = ARCH_portal;
