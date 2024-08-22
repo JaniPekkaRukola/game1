@@ -3,9 +3,11 @@
 
 // GLOBAL VARIABLES
     #define MAX_ENTITY_COUNT 2048
-    #define MAX_PORTAL_COUNT 32
+    #define MAX_PORTAL_COUNT 10
+    #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
 
+    int portal_pair_count = 0;
     const int tile_width = 8;
     Gfx_Font* font;
     u32 font_height = 48;
@@ -120,8 +122,8 @@
         SPRITE_building_chest,
 
         // other
-        SPRITE_portal,
-
+        SPRITE_portal0,
+        SPRITE_portal1,
 
         SPRITE_MAX,
     } SpriteID;
@@ -230,7 +232,23 @@
         BiomeID destination;
         DimensionID dim_destination;
         bool enabled;
+        int id; // unique id for linking portals
+        Vector2 pos;
     } PortalData;
+
+    // :BuildingData -------------------->
+    typedef struct BuildingData { 
+        EntityArchetype to_build;
+        SpriteID icon;
+        ItemID slot1;
+        ItemID slot2;
+        ItemID slot3;
+        // BuildingID id;
+        // display name
+        // cost
+        // health
+        // etc
+    } BuildingData;
 
     // :Entity -------------------------->
     typedef struct Entity {
@@ -261,6 +279,8 @@
         int biome_count;				// how many biomes the entity is in
         int rendering_prio;
         Vector4 pickup_text_col;
+        BuildingData building_data;
+
     } Entity;
 
     // :InventoryItemData --------------->
@@ -292,6 +312,10 @@
         BiomeID biomes[BIOME_MAX];
         // BiomeID biome_id;
 
+        SpriteID portal_sprite_in;
+        SpriteID portal_sprite_out;
+        int portal_count;
+
         // color
         // enemies
     } DimensionData;
@@ -307,9 +331,9 @@
 
     // :Player -------------------------->
     typedef struct Player {
-        Entity* en;
+        Entity* en; // player position inside en
         // EntityArchetype arch;
-        Vector2 position;
+        // Vector2 position; // this is kinda useless. USE "en->pos" for position
         float walking_speed;
         float running_speed_amount;
         bool is_running;
@@ -417,17 +441,6 @@
         int miningLevel;
     } ToolData;
 
-    // :BuildingData -------------------->
-    typedef struct BuildingData { 
-        EntityArchetype to_build;
-        SpriteID icon;
-        // BuildingID id;
-        // display name
-        // cost
-        // health
-        // etc
-    } BuildingData;
-
     // :Texture ------------------------->
     typedef struct Texture {
         Gfx_Image* image;
@@ -467,7 +480,19 @@
         int count;
         bool needs_sorting;
     } RenderList;
+
+
+    typedef struct PortalPair {
+        int id; // unique id for portal pair
+        DimensionID dim1;
+        DimensionID dim2;
+        Vector2 pos1;
+        Vector2 pos2;
+    } PortalPair;
+
+
 // 
+
 
 
 
@@ -489,6 +514,7 @@
     Texture textures[TEXTURE_MAX];
     RenderList render_list;
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
+    PortalPair portal_pairs[MAX_PORTAL_PAIRS];
 
 
 
@@ -511,5 +537,6 @@
     inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
 // 
 
+    Player* player = NULL;
 
 #endif

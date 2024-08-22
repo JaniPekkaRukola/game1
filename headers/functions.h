@@ -8,7 +8,7 @@
 
 // Function Declarations (Prototypes)
 // void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
-void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest);
+void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest, SpriteID sprite_id);
 void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
 DimensionData *get_dimensionData(DimensionID);
@@ -108,8 +108,12 @@ DimensionData *get_dimensionData(DimensionID);
 		// }
 		// log_error("Couldn't get player pos\n");
 		// return v2(0,0);
-		if (world_frame.player){
-			return world_frame.player->pos;
+		// if (world_frame.player){
+		// 	return world_frame.player->pos;
+		// }
+
+		if (player){
+			return player->en->pos;
 		}
 	}
 // 
@@ -242,6 +246,35 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	// :PORTAL ------------------------>
+
+	void register_portal_pair(int id, DimensionID dim1, DimensionID dim2, Vector2 pos1, Vector2 pos2) {
+		if (portal_pair_count < MAX_PORTAL_PAIRS) {
+			portal_pairs[portal_pair_count].id = id;
+			portal_pairs[portal_pair_count].dim1 = dim1;
+			portal_pairs[portal_pair_count].dim2 = dim2;
+			portal_pairs[portal_pair_count].pos1 = pos1;
+			portal_pairs[portal_pair_count].pos2 = pos2;
+			portal_pair_count++;
+		} 
+		else {
+			log_error("MAX_PORTAL_PAIRS reached. @ 'register_portal_pair'\n");
+	    }
+	}
+
+	void update_portal_pair(int id, DimensionID dim, Vector2 pos) {
+		for (int i = 0; i < portal_pair_count; i++) {
+			if (portal_pairs[i].id == id) {
+				if (portal_pairs[i].dim1 == dim) {
+					portal_pairs[i].pos1 = pos;
+				} else if (portal_pairs[i].dim2 == dim) {
+					portal_pairs[i].pos2 = pos;
+				}
+				return;
+			}
+		}
+		log_error("Portal pair not found. @ 'update_portal_pair'\n");
+	}
+
 	int block_portal_creation(){
 		// TODO:
 		// checks if there is an entity too close to the spot where the new portal would be created
@@ -254,13 +287,26 @@ DimensionData *get_dimensionData(DimensionID);
 
 	void create_portal_to(DimensionID dest, bool create_portal_bothways){
 
+		if (world->dimension->portal_count >= MAX_PORTAL_COUNT){
+			log_error("MAX PORTALS REACHED FOR CURRENT DIM\n");
+			return;
+		}
+
+		world->dimension->portal_count++;
+
 		int result = block_portal_creation();
 
+		// this is a bad way to do this
+		// FIX THIS
+		int id = get_random_int_in_range(0,1000);
+
 		if (result == 0){
-			BiomeID current_dim = world->dimension->dimension_id;
+			// BiomeID current_dim = world->dimension->dimension_id;
+			DimensionID current_dim = world->dimension->dimension_id;
+			// continue
 
 			Entity* en = entity_create();
-			setup_portal(en, current_dim, dest);
+			setup_portal(en, current_dim, dest, get_dimensionData(dest)->portal_sprite_in);
 			en->pos = get_mouse_pos_in_world_space();
 
 			// center portal (not in use)
@@ -271,6 +317,11 @@ DimensionData *get_dimensionData(DimensionID);
 			// add_biomeID_to_entity(en, world->dimension->biome_id);
 			en->is_valid = true;
 			en->portal_data.enabled = true;
+			en->portal_data.id = id;	// link portals
+			en->portal_data.pos = en->pos;
+
+			// register portal pair || link portal pair
+			register_portal_pair(id, current_dim, dest, en->pos, v2(0, 0));
 
 			// // continue
 			// get_biome_data_from_id(world->biome_id).portal_count += 1;
@@ -282,7 +333,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 			if (create_portal_bothways){
 				Entity* en2 = entity_create_to_dim(dest);
-				setup_portal(en2, dest, current_dim);
+				setup_portal(en2, dest, current_dim, get_dimensionData(current_dim)->portal_sprite_in);
 				en2->pos = get_mouse_pos_in_world_space();
 				// en->pos.x -= 10;
 				// en->pos = round_v2_to_tile(en->pos);
@@ -293,6 +344,9 @@ DimensionData *get_dimensionData(DimensionID);
 
 				en2->is_valid = true;
 				en2->portal_data.enabled = true;
+				en2->portal_data.id = id;	// link portals
+				en2->portal_data.pos = en2->pos;
+				update_portal_pair(id, dest, en2->pos);
 				printf("Created another portal to %s\n", world->dimension->name);
 			}
 		}
@@ -621,7 +675,7 @@ DimensionData *get_dimensionData(DimensionID);
 		add_biomeID_to_entity(en, world->current_biome_id);
 
 		switch (item_id){
-			case ITEM_rock:{en->name = STR("Rock");en->pickup_text_col = v4(1,0,0,1);}break;
+			case ITEM_rock:{en->name = STR("Rock");}break;
 			case ITEM_pine_wood:{en->name = STR("Pine Wood");}break;
 			case ITEM_sprout:{en->name = STR("Sprout");}break;
 			case ITEM_berry:{en->name = STR("Berry");}break;
@@ -821,6 +875,9 @@ DimensionData *get_dimensionData(DimensionID);
 					en->sprite_id = SPRITE_building_furnace;
 					en->destroyable = true;
 					en->health = 3;
+					en->building_data.slot1 = 0;
+					en->building_data.slot2 = 0;
+					en->building_data.slot3 = 0;
 				}
 			} break;
 
@@ -970,14 +1027,18 @@ DimensionData *get_dimensionData(DimensionID);
 		switch (id){
 			case DIM_overworld:{
 				{
-					dimension->name = STR("Overworld (Dimension)");
+					dimension->name = STR("Overworld");
+					dimension->portal_sprite_in = SPRITE_portal1;
+					// dimension->portal_sprite_out = SPRITE_portal0;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
 				}
 			} break;
 
 			case DIM_cavern:{
 				{
-					dimension->name = STR("Cavern (Dimension)");
+					dimension->name = STR("Cavern");
+					dimension->portal_sprite_in = SPRITE_portal0;
+					// dimension->portal_sprite_out = SPRITE_portal1;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
 				}
 			} break;
@@ -1057,24 +1118,47 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-	void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest){
+	void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest, SpriteID sprite_id){
 		en->arch = ARCH_portal;
 		// en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
-		en->name = STR("Portal to %s"), get_biome_data_from_id(dest).name;
-		en->sprite_id = SPRITE_portal;
-		en->health = 1;
+		// en->name = STR("Portal to %s"), get_biome_data_from_id(dest).name;
+		en->name = (STR("Portal to %s"), get_dimensionData(dest)->name);
+		en->sprite_id = sprite_id;
 		en->destroyable = false;
 		en->rendering_prio = -1;
 		en->enable_shadow = false;
-		// en->portal_data.destination = dest;
 		en->portal_data.dim_destination = dest;
 		BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
-
-		// add portal to current dim entities
 	}
 
+	PortalData* get_portal_data(DimensionID dest, int id){
+		if (dest != DIM_nil){
+			for (int i = 0; i < get_dimensionData(dest)->entity_count; i++){
+				Entity* en = &get_dimensionData(dest)->entities[i];
+				if (en->arch == ARCH_portal){
+					if (en->portal_data.id == id){
+						return &en->portal_data;
+					}
+				}
+			}
+		}
+		else{
+			log_error("Failed to get portal data @ 'get_portal_data'. trying to get portal data from dim_nil\n");
+		}
+		return NULL;
+	}
+
+	PortalPair* get_portal_pair(int id){
+		for(int i = 0; i < portal_pair_count; i++){
+			PortalPair* pair = &portal_pairs[i];
+			if (pair->id == id){
+				return pair;
+			}
+		}
+		return NULL;
+	}
 
 // 
 

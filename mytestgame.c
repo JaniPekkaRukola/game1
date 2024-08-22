@@ -7,6 +7,7 @@ bool IS_DEBUG = false;
 // bool print_fps = true;
 bool print_fps = false;
 // bool ENABLE_FRUSTRUM_CULLING = false;
+bool runtime_debug = false;
 
 
 bool enable_tooltip = true;
@@ -423,6 +424,7 @@ void clear_empty_slots_in_entities(Entity* entities, int count){
 // :Render UI
 void render_ui()
 {
+	// NOTE: THIS FUNCTION CAUSES THE STUTTER AFTER PICKING UP AN ITEM. (ATLEAST ONE OF THEM)
 	// InventoryItemData* dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
 	set_screen_space();
@@ -902,7 +904,6 @@ void render_ui()
 		InventoryItemData* new_selected_item = NULL;
 
 
-
 		// TEST 2 scuffed af
 
 		int slotcount = 9;
@@ -970,8 +971,11 @@ void render_ui()
 				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
 
 				// draw item count (except for tools)
+				// NOTE: for some reason rendering text causes the lag spike
+				// #stutter
 				if (item->arch != ARCH_tool){
 					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
+					// draw_text(font, STR("X"), font_height, v2(pos_x, pos_y), v2(0.1, 0.1), COLOR_WHITE);
 				}
 
 				slot_index++;
@@ -1156,6 +1160,26 @@ void render_building_ui(UXState ux_state)
 			// draw background
 			draw_rect_xform(xform_bg, v2(furnace_ui_size.x, furnace_ui_size.y), furnace_bg);
 
+
+
+
+			// // quad for checking if mouse is ontop item
+			// Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
+			// Range2f icon_box = quad_to_range(*quad);
+			// if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
+			// 	is_selected_alpha = true;
+			// }
+
+
+
+
+
+
+
+
+
+
+
 			// draw slot border and then draw input slot
 			draw_rect_xform(xform_input_slot, v2(slot_size, slot_size), slot_border_color);
 			draw_rect_xform(m4_translate(xform_input_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
@@ -1220,7 +1244,7 @@ void spawn_biome(BiomeData* biome) {
 }
 
 
-void load_dimension_entities(DimensionID id){
+void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 	
 	BiomeID biome_id = world->dimension->biomes[0];
 	int min_entity_count = 10;	// spawn dimension entities only if "world->dimension->entity_count" is kinda low (min_entity_count). This fixes the issue of new entities spawning every time the dimension is changed -> MAX_ENTITY_COUNT is reached easily -> crash
@@ -1244,6 +1268,11 @@ void load_dimension_entities(DimensionID id){
 		default:{}break;
 	}
 
+	// world_frame.player->pos = dest_pos;
+	printf("PLAYER POS BEFORE = %.0f,%.0f\n", player->en->pos.x, player->en->pos.y);
+	player->en->pos = dest_pos;
+	printf("PLAYER POS AFTER = %.0f,%.0f\n", player->en->pos.x, player->en->pos.y);
+
 	// check if player entity already exists in the destination dimension
 	for (int i = 0; i < world->dimension->entity_count; i++){
 		Entity* en = &world->dimension->entities[i];
@@ -1255,14 +1284,17 @@ void load_dimension_entities(DimensionID id){
 	// if not, add player entity to destination dimension
 	world->dimension->entities[world->dimension->entity_count] = *get_player();
 	world->dimension->entity_count++;
+	// printf("PLAYER POS BEFORE = %.1f, %.1f\n", world_frame.player->pos.x, world_frame.player->pos.y);
+	// world_frame.player->pos = dest_portal.pos;
+	// printf("PLAYER POS AFTER = %.1f, %.1f\n", world_frame.player->pos.x, world_frame.player->pos.y);
 }
 
-void change_dimensions(DimensionID new_dim){
+void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	printf("Changing DIMENSION: %s -> %s\n", world->dimension->name, get_dimensionData(new_dim)->name);
 	world->dimension_id = new_dim;
 	world->dimension = get_dimensionData(new_dim);
 	world->current_biome_id = world->dimension->biomes[0];
-	load_dimension_entities(world->dimension_id);
+	load_dimension_entities(world->dimension_id, dest_pos);
 }
 
 
@@ -1643,7 +1675,8 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
 	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
-	sprites[SPRITE_portal] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal0.png"), get_heap_allocator())};
+	sprites[SPRITE_portal0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal0.png"), get_heap_allocator())};
+	sprites[SPRITE_portal1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal1.png"), get_heap_allocator())};
 
 	// :Load item/entity sprites (these sprites are the same for their entities and items (for now))
 	sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
@@ -1779,8 +1812,8 @@ int entry(int argc, char **argv)
 
 	setup_audio_player();
 
-	// :Create player
-	Player* player = 0;
+	// // :Create player
+	// Player* player = 0;
 	player = alloc(get_heap_allocator(), sizeof(Player));
 	setup_player(player, entity_create(), v2(0,0));
 
@@ -1821,6 +1854,8 @@ int entry(int argc, char **argv)
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
 	while (!window.should_close) {
+
+
 		reset_temporary_storage();
 
 		// reset world_frame
@@ -1831,6 +1866,7 @@ int entry(int argc, char **argv)
 		delta_t = now - last_time;
 		last_time = now;
 		os_update(); 
+
 
 		// find player entity
 		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
@@ -1845,6 +1881,8 @@ int entry(int argc, char **argv)
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
 		world_frame.world_projection = m4_make_orthographic_projection(window.width * -0.5, window.width * 0.5, window.height * -0.5, window.height * 0.5, -1, 10);
+
+
 
 		// :camera
 		{
@@ -1890,6 +1928,9 @@ int entry(int argc, char **argv)
 							if (!world_frame.selected_entity || (dist < smallest_dist)){
 								if (en->arch == ARCH_item){
 									printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+								}
+								else if (en->arch == ARCH_portal){
+									printf("selected portal = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
 								}
 								if (IS_DEBUG){
 									int asd = 1;
@@ -2179,6 +2220,7 @@ int entry(int argc, char **argv)
 
 						if (fabsf(v2_dist(en->pos, player->en->pos)) < player->item_pickup_radius) {
 
+
 							add_item_to_inventory(en->item_id, en->name, 1, en->arch, en->sprite_id, en->tool_id, true);
 							// printf("ADDED ITEM '%s' TO INVENTORY\n", get_item_name_from_ItemID(en->item_id));
 
@@ -2186,7 +2228,6 @@ int entry(int argc, char **argv)
 							trigger_pickup_text(*en);
 
 							entity_destroy(en);
-
 
 							// is_pickup_text_visible = true;
 						}
@@ -2358,23 +2399,35 @@ int entry(int argc, char **argv)
 			}
 		}
 
-
 		// :Player use
 		{
 			if (is_key_just_pressed('F')){
 				consume_key_just_pressed('F');
 
-				printf("PLAYER USE\n");
+				// printf("PLAYER USE\n");
 
 				Entity* selected_en = world_frame.selected_entity;
-
 				if (selected_en){
 					switch (selected_en->arch){
 
 						case ARCH_portal:{ // #portal
 							{
 								if (selected_en->portal_data.enabled){
-									change_dimensions(selected_en->portal_data.dim_destination);
+
+									PortalPair* pair = get_portal_pair(selected_en->portal_data.id);
+									if (pair->id == selected_en->portal_data.id){
+										printf("DEBUG: selected portal id = %d, pair id = %d\n", selected_en->portal_data.id, pair->id);
+										printf("DEBUG: current pos = %.0f,%.0f  teleporting to %.0f,%.0f\n",get_player_pos().x, get_player_pos().y, pair->pos1.x, pair->pos1.y);
+										printf("DEBUG: selected_en pos = %.0f,%.0f\n", selected_en->pos.x, selected_en->pos.y);
+										change_dimensions(selected_en->portal_data.dim_destination, pair->pos1);
+									}
+									printf("DEBUG: pos after = %.0f,%.0f\n",get_player_pos().x, get_player_pos().y);
+									printf("\n");
+									// PortalData* dest_portal = get_portal_data(selected_en->portal_data.dim_destination, selected_en->portal_data.id);
+									// if (selected_en->portal_data.id == dest_portal->id){
+									// 	Vector2 pos = v2(0,0);
+									// 	change_dimensions(selected_en->portal_data.dim_destination, pos);
+									// }
 								}
 							}
 						} break;
@@ -2391,11 +2444,10 @@ int entry(int argc, char **argv)
 			}
 		}
 
-
 		// Render entities
 		render_entities(world);
 
-		update_pickup_text(delta_t);
+		// update_pickup_text(delta_t);
 
 
 
@@ -2405,13 +2457,26 @@ int entry(int argc, char **argv)
 		}
 
 
-
 		// DEBUG STUFF ------------------------------------------------------------------------------->
 
 		// ENTER DEBUG MODE FROM GAME
 		if (is_key_just_pressed(KEY_CTRL)){
-			int I = 1;
+			if (!runtime_debug){runtime_debug = true;}
+			// else{runtime_debug = false;}
+			// player->en->pos.x -= 10; 
+			// world_frame.player->pos.x -= 10;
+			printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
 		}
+
+		// 	printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
+
+		// if (is_key_just_pressed(KEY_SPACEBAR)){
+		// 	printf("SPACE PRESSED\n");
+			// draw_text(font, STR("X"), font_height, v2(0, 0), v2(0.1, 0.1), COLOR_WHITE);
+			// Matrix4 xform = m4_scalar(1.0);
+			// xform         = m4_translate(xform, v3(0, 0, 0));
+		// }
+
 
 
 		// #Biome
@@ -2465,8 +2530,8 @@ int entry(int argc, char **argv)
 		// if (is_key_just_pressed('M')) {change_biomes(world, BIOME_cave);}
 		
 		// #dimension
-		if (is_key_just_pressed('N')) {change_dimensions(DIM_overworld);}
-		if (is_key_just_pressed('M')) {change_dimensions(DIM_cavern);}
+		// if (is_key_just_pressed('N')) {change_dimensions(DIM_overworld);}
+		// if (is_key_just_pressed('M')) {change_dimensions(DIM_cavern);}
 
 		if (is_key_just_pressed('B')) {render_list.needs_sorting = true;}
 		// if (is_key_just_pressed('Y')) {trigger_pickup_text();}
