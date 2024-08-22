@@ -157,6 +157,13 @@ typedef enum AudioID{
 
 Audio audioFiles[AUDIO_MAX];
 
+// :Audio player ----------------------------------|
+void setup_audio_player(){
+	Audio_Playback_Config config = {0};
+	config.volume                = 0.5;
+	config.playback_speed        = 1.0;
+	config.enable_spacialization = true;
+}
 
 // not in use
 
@@ -343,7 +350,11 @@ void create_spruce_trees(int amount, int range) {
 
 void create_rocks(int amount, int range) {
 	// Create rock entities
-	for (int i = 0; i < amount; i++) {
+	// for (int i = 0; i < amount; i++) {
+
+	int last_entity_index = world->dimension->entity_count;
+
+	for (int i = last_entity_index; i < last_entity_index + amount; i++) {
 		Entity* en = entity_create();
 		setup_rock(en);
 		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
@@ -422,7 +433,7 @@ void render_ui()
 	// open inventory
 	if (is_key_just_pressed(KEY_TAB)) {
 		consume_key_just_pressed(KEY_TAB);
-		world->ux_state = (world->ux_state == UX_inventory ? UX_nil : UX_inventory);
+		world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
 	}
 
 	world->inventory_alpha_target = (world->ux_state == UX_inventory ? 1.0 : 0.0);
@@ -1192,15 +1203,15 @@ void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
 	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
 	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->spawn_mushrooms_weight, biome->size.x); }
-	if (biome->has_portals) {
-		for (int i = 0; i < biome->portal_count; i++){
-			PortalData* portal = &biome->portals;
-			if (portal->enabled){
-				// continue 2
-				// create_portal_to(biome->portals[i].destination, true);
-			}
-		}
-	}
+	// if (biome->has_portals) {
+	// 	for (int i = 0; i < biome->portal_count; i++){
+	// 		PortalData* portal = &biome->portals;
+	// 		if (portal->enabled){
+	// 			// continue 2
+	// 			// create_portal_to(biome->portals[i].destination, true);
+	// 		}
+	// 	}
+	// }
 	if (biome->spawn_ores) {
 		if (biome->spawn_ore_iron) {create_ores((int)biome->spawn_ore_iron_weight, biome->size.x, ORE_iron); }
 		if (biome->spawn_ore_gold) {create_ores((int)biome->spawn_ore_gold_weight, biome->size.x, ORE_gold); }
@@ -1212,21 +1223,36 @@ void spawn_biome(BiomeData* biome) {
 void load_dimension_entities(DimensionID id){
 	
 	BiomeID biome_id = world->dimension->biomes[0];
+	int min_entity_count = 10;	// spawn dimension entities only if "world->dimension->entity_count" is kinda low (min_entity_count). This fixes the issue of new entities spawning every time the dimension is changed -> MAX_ENTITY_COUNT is reached easily -> crash
+	// TODO: find a better solution for this mess
 
 	switch (id){
 		case DIM_overworld:
 		{
-			spawn_biome(&biomes[biome_id]);
+			if (get_dimensionData(id)->entity_count < min_entity_count){ 
+				spawn_biome(&biomes[biome_id]);
+			}
 		} break;
 
 		case DIM_cavern:
 		{
-			spawn_biome(&biomes[biome_id]);
+			if (get_dimensionData(id)->entity_count < min_entity_count){
+				spawn_biome(&biomes[biome_id]);
+			}
 		} break;
 
 		default:{}break;
 	}
 
+	// check if player entity already exists in the destination dimension
+	for (int i = 0; i < world->dimension->entity_count; i++){
+		Entity* en = &world->dimension->entities[i];
+		if (en->arch == ARCH_player){
+			return;
+		}
+
+	}
+	// if not, add player entity to destination dimension
 	world->dimension->entities[world->dimension->entity_count] = *get_player();
 	world->dimension->entity_count++;
 }
@@ -1237,17 +1263,10 @@ void change_dimensions(DimensionID new_dim){
 	world->dimension = get_dimensionData(new_dim);
 	world->current_biome_id = world->dimension->biomes[0];
 	load_dimension_entities(world->dimension_id);
-	// spawn portal back!!!		 set_portal_valid(1); ?????
 }
 
 
-// :Audio player ----------------------------------|
-void setup_audio_player(){
-	Audio_Playback_Config config = {0};
-	config.volume                = 0.5;
-	config.playback_speed        = 1.0;
-	config.enable_spacialization = true;
-}
+
 
 // not in use
 	// void sort_entities_by_prio_and_y(Entity* entities, int count) {
@@ -1846,6 +1865,7 @@ int entry(int argc, char **argv)
 
 
 		// Render ui
+		// should prolly move this way down
 		render_ui();
 
 
@@ -1919,7 +1939,7 @@ int entry(int argc, char **argv)
 
 			for (int i = 0; i < world->dimension->entity_count; i++){
 				Entity* en = &world->dimension->entities[i];
-				if (en->arch == ARCH_portal){ // #portal
+				if (en->arch == ARCH_portal || en->arch == ARCH_building){ // #portal or #building
 					if (en->is_valid){
 						float dist = fabsf(v2_dist(en->pos, get_player_pos()));
 						if (dist < entity_selection_radius){
@@ -1931,29 +1951,6 @@ int entry(int argc, char **argv)
 						}
 					}
 				}
-			}
-		}
-
-
-		// Render building ui
-		{
-			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
-					// open chest
-				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
-					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
-
-					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
-					Entity* selected_en = world_frame.selected_entity;
-					switch (selected_en->building_id){
-						case BUILDING_chest: {world->ux_state = UX_chest;}break;
-						case BUILDING_furnace: {world->ux_state = UX_furnace;}break;
-						default:{}break;
-					}
-				}
-			}
-
-			if (world->ux_state != UX_nil){
-				render_building_ui(world->ux_state);
 			}
 		}
 
@@ -2321,7 +2318,7 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
-							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, false); }
+							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
 						}
 					}
 				}
@@ -2332,6 +2329,32 @@ int entry(int argc, char **argv)
 					// entity_bin[entity_bin_size] = selected_en;
 					// entity_bin_size++;
 				}
+			}
+		}
+
+
+		// Render building ui
+		{
+			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
+					// open chest
+				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(player_use_key)) {
+					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+					if (world->ux_state == UX_nil){
+						consume_key_just_pressed(player_use_key);
+					}
+
+					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
+					Entity* selected_en = world_frame.selected_entity;
+					switch (selected_en->building_id){
+						case BUILDING_chest: {world->ux_state = UX_chest;}break;
+						case BUILDING_furnace: {world->ux_state = UX_furnace;}break;
+						default:{}break;
+					}
+				}
+			}
+
+			if (world->ux_state != UX_nil){
+				render_building_ui(world->ux_state);
 			}
 		}
 
@@ -2351,9 +2374,6 @@ int entry(int argc, char **argv)
 						case ARCH_portal:{ // #portal
 							{
 								if (selected_en->portal_data.enabled){
-									BiomeID destination = selected_en->portal_data.destination;
-									// change_biomes(world, destination);
-									// printf("WIP ------------------------------->\n");
 									change_dimensions(selected_en->portal_data.dim_destination);
 								}
 							}
@@ -2400,6 +2420,9 @@ int entry(int argc, char **argv)
 		// #dimension
 		// printf("Current Dimension = %s\n", world->dimension->name);
 
+		// player position
+		// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
+
 
 		// DEBUG: print UX state
 		// printf("UX STATE: ");
@@ -2432,19 +2455,6 @@ int entry(int argc, char **argv)
 		// 	printf("TOTAL ENTITY COUNT = %d\tworld->entity_count = %d\n", total, world->entity_count);
 		// }
 
-		// DEBUG: print current biome && #Biome
-		// if (1 == 0)
-		// {
-		// 	if (world->biome_id == 1){
-		// 		printf("Current Biome = FOREST\n");
-		// 	}
-		// 	else if (world->biome_id == 2){
-		// 		printf("Current Biome = CAVE\n");
-		// 	}
-		// 	else{
-		// 		printf("Current BiomeID = '%d'\n", world->biome_id);
-		// 	}
-		// }
 
 
 		if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}

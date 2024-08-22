@@ -150,15 +150,28 @@ DimensionData *get_dimensionData(DimensionID);
 		return entity_found;
 	}
 
-	// this is old func. leaves a gap behind in the entities list
-	// void entity_destroy(Entity* entity) {
-	// 	render_list.needs_sorting = true;
-	// 	// printf("Destroying entity '%s'\n", entity->name);
-	// 	// world->entity_count--;
-	// 	world->dimension->entity_count--;
-	// 	entity->is_valid = false;
-	// 	memset(entity, 0, sizeof(Entity));
-	// }
+	Entity* entity_create_to_dim(DimensionID dim) {
+		Entity* entity_found = 0;
+
+		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+			// Entity* existing_entity = &world->dimension->entities[i];
+			DimensionData* dimension = get_dimensionData(dim);
+			Entity* existing_entity = &dimension->entities[i];
+			if (!existing_entity->is_valid) {
+				dimension->entity_count++;
+				entity_found = existing_entity;
+				entity_found->rendering_prio = 10;
+				// &dimension->entities[i] = entity_found;
+				printf("CREATED ENTITY TO DIM '%s'\t", dimension->name);
+				break;
+			}
+		}
+
+		assert(entity_found, "No more free entities!");
+		entity_found->is_valid = true;
+
+		return entity_found;
+	}
 
 	void entity_destroy(Entity* entity) {
 
@@ -239,24 +252,18 @@ DimensionData *get_dimensionData(DimensionID);
 		return 0;
 	}
 
-	// void create_portal_to(BiomeID dest, bool create_portal_bothways){
 	void create_portal_to(DimensionID dest, bool create_portal_bothways){
-		// create portal entity
 
 		int result = block_portal_creation();
 
 		if (result == 0){
-			// BiomeID current_biome = world->current_biome_id;
 			BiomeID current_dim = world->dimension->dimension_id;
-			// BiomeID current_biome = world->dimension->biome_id;
 
 			Entity* en = entity_create();
-			// setup_portal(en, current_biome, dest);
 			setup_portal(en, current_dim, dest);
 			en->pos = get_mouse_pos_in_world_space();
-			// en->pos = round_v2_to_tile(en->pos);
 
-			// center portal
+			// center portal (not in use)
 			// en->pos.x -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 			// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 
@@ -274,16 +281,18 @@ DimensionData *get_dimensionData(DimensionID);
 			printf("Created portal to %s\n", get_dimensionData(dest)->name);
 
 			if (create_portal_bothways){
-				Entity* en = entity_create();
-				// setup_portal(en, dest, current_biome);
-				setup_portal(en, dest, current_dim);
-				en->pos = get_mouse_pos_in_world_space();
-				en->pos.x -= 10;
-				en->pos = round_v2_to_tile(en->pos);
-				add_biomeID_to_entity(en, dest);
-				en->is_valid = false;
-				en->portal_data.enabled = false;
-				// printf("Created another portal to %s\n", get_biome_data_from_id(world->current_biome_id).name);
+				Entity* en2 = entity_create_to_dim(dest);
+				setup_portal(en2, dest, current_dim);
+				en2->pos = get_mouse_pos_in_world_space();
+				// en->pos.x -= 10;
+				// en->pos = round_v2_to_tile(en->pos);
+
+				// ADD DESTINATION BIOME ????!!!!
+				// add_biomeID_to_entity(en, dest);
+
+
+				en2->is_valid = true;
+				en2->portal_data.enabled = true;
 				printf("Created another portal to %s\n", world->dimension->name);
 			}
 		}
@@ -651,6 +660,7 @@ DimensionData *get_dimensionData(DimensionID);
 		en->enable_shadow = true;
 	}
 
+
 	void setup_player(Player* player, Entity* en, Vector2 pos) {
 		setup_player_en(en, pos);
 		player->walking_speed = 50.0f;
@@ -984,10 +994,12 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
+
 	void add_all_biomes_to_dimensions() {
 		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
 		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
 	}
+
 
 	void trigger_pickup_text(Entity en) {
 		// printf("TRIGGERED PICKUP TEXT for %s\n", en.name);
@@ -1005,6 +1017,7 @@ DimensionData *get_dimensionData(DimensionID);
 			}
 		}
 	}
+
 
 	void update_pickup_text(float delta_time) {
 		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
@@ -1044,7 +1057,6 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-	// void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest){
 	void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest){
 		en->arch = ARCH_portal;
 		// en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
@@ -1059,6 +1071,8 @@ DimensionData *get_dimensionData(DimensionID);
 		BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
+
+		// add portal to current dim entities
 	}
 
 

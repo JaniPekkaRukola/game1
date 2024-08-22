@@ -329,12 +329,9 @@
         BiomeID current_biome_id;
         // struct BiomeData* biome_data;
 
-        DimensionID dimension_id;
-        DimensionData *dimension;
-        // int layer;
-        // Entity entities[MAX_ENTITY_COUNT];
-        // int entity_count;
-        InventoryItemData inventory_items[ITEM_MAX];
+        DimensionID dimension_id; // current dimension id
+        DimensionData *dimension; // current dimension data
+        InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
         UXState ux_state;
         
         // ui stuff
@@ -347,7 +344,7 @@
         float furnace_alpha;
         float furnace_alpha_target;
 
-        BuildingID placing_building;
+        BuildingID placing_building; // bad name
     } World;
 
     // :Biome --------------------------->
