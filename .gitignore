@@ -60,7 +60,10 @@ build/*
 
 *google_trace*
 
-.vscode\launch.json
 .vscode/launch.json
+.vscode/*
 res/sounds/*
 res/textures/*
+oogabooga/*
+oogabooga/font.c
+tests/*
