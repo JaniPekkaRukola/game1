@@ -603,7 +603,7 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-	void setup_player(Entity* en, Vector2 pos) {
+	void setup_player_en(Entity* en, Vector2 pos) {
 		// @reminder gotta remember to modify the range variale in "get_random_int_in_range" based on the amount of different variations per sprite
 		en->arch = ARCH_player;
 		en->name = STR("Player");
@@ -612,6 +612,15 @@ DimensionData *get_dimensionData(DimensionID);
 		en->pos = pos;
 		en->rendering_prio = 0;
 		en->enable_shadow = true;
+	}
+
+	void setup_player(Player* player, Entity* en, Vector2 pos) {
+		setup_player_en(en, pos);
+		player->walking_speed = 50.0f;
+		player->running_speed_amount = 100.0f;
+		player->is_running = false;
+		player->entity_selection_radius = 5.0f;
+		player->item_pickup_radius = 15.0f;
 	}
 
 

@@ -291,6 +291,35 @@
         // enemies
     } DimensionData;
 
+    // :ItemData ------------------------>
+    typedef struct ItemData {
+        string pretty_name;
+        // recipe
+        EntityArchetype for_structure;
+        ItemID output;
+        ItemID input[8];
+    } ItemData;
+
+    // :Player -------------------------->
+    typedef struct Player {
+        Entity* en;
+        // EntityArchetype arch;
+        Vector2 position;
+        float walking_speed;
+        float running_speed_amount;
+        bool is_running;
+        DimensionID dimension_id;
+
+        float health;
+        float item_pickup_radius;
+        float entity_selection_radius;
+        ItemData *selected_item;
+        Entity *selected_entity;
+        UXState ux_state;
+
+    } Player;
+
+
     // :World --------------------------->
     typedef struct World {
         BiomeID current_biome_id;
@@ -388,15 +417,6 @@
         int durability;
         int miningLevel;
     } ToolData;
-
-    // :ItemData ------------------------>
-    typedef struct ItemData {
-        string pretty_name;
-        // recipe
-        EntityArchetype for_structure;
-        ItemID output;
-        ItemID input[8];
-    } ItemData;
 
     // :BuildingData -------------------->
     typedef struct BuildingData { 

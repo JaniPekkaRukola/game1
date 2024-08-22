@@ -17,11 +17,11 @@ bool draw_grid = false;
 bool render_ground_texture = true;
 
 // PLAYER
-float player_speed = 50.0;			// pixels per second
-float player_running_speed = 100.0;
-bool player_running = false;
-float entity_selection_radius = 5.0f;
-const int player_pickup_radius = 15.0;
+// float player_speed = 50.0;			// pixels per second
+// float player_running_speed = 100.0;
+// bool player_running = false;
+// float entity_selection_radius = 5.0f;
+// const int player_pickup_radius = 15.0;
 float render_distance = 175;		// 170 is pretty good
 
 // keybinds
@@ -1814,9 +1814,11 @@ int entry(int argc, char **argv)
 
 	setup_audio_player();
 
-	// :Create player entity
-	Entity* player_en = entity_create();
-	setup_player(player_en, v2(0, 0));
+	// :Create player
+	Player* player = 0;
+	player = alloc(get_heap_allocator(), sizeof(Player));
+	setup_player(player, entity_create(), v2(0,0));
+
 
 	// setup all biomes && #Biome
 	setup_all_biomes();
@@ -1870,7 +1872,7 @@ int entry(int argc, char **argv)
 			Entity* en = &world->dimension->entities[i];
 			if (en->is_valid && en->arch == ARCH_player) {
 				world_frame.player = en;
-				player_en = get_player();
+				player->en = get_player();
 				// printf("PLAYER ENTITY FOUND FROM DIM %s\n", world->dimension->name);
 			}
 		}
@@ -1881,7 +1883,7 @@ int entry(int argc, char **argv)
 
 		// :camera
 		{
-			Vector2 target_pos = player_en->pos;
+			Vector2 target_pos = player->en->pos;
 			animate_v2_to_target(&camera_pos, target_pos, delta_t, 10.0f); // 4th value controls how smooth the camera transition is to the player
 
 			world_frame.world_view = m4_make_scale(v3(1.0, 1.0, 1.0)); // View zoom (zooms so pixel art is the correct size)
@@ -1918,7 +1920,7 @@ int entry(int argc, char **argv)
 					// world_frame.selected_entity = en;
 					if (en->is_valid){
 						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-						if (dist < entity_selection_radius){
+						if (dist < player->entity_selection_radius){
 							if (!world_frame.selected_entity || (dist < smallest_dist)){
 								printf("EN = %s\n", en->name);
 								if (IS_DEBUG){
@@ -1951,7 +1953,7 @@ int entry(int argc, char **argv)
 					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
 
 					// :select entity
-					if (dist < entity_selection_radius) {
+					if (dist < player->entity_selection_radius) {
 						if (!world_frame.selected_entity || (dist < smallest_dist)) {
 							world_frame.selected_entity = en;
 							// smallest_dist = dist; // imo entity selection works better with this line commented
@@ -2012,8 +2014,8 @@ int entry(int argc, char **argv)
 		if (draw_grid)
 		{	
 			// NOTE: rendering tiles has a big fkin impact on fps 
-			int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
-			int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
+			int player_tile_x = world_pos_to_tile_pos(player->en->pos.x);
+			int player_tile_y = world_pos_to_tile_pos(player->en->pos.y);
 			int tile_radius_x = 18;
 			int tile_radius_y = 12;
 
@@ -2047,8 +2049,8 @@ int entry(int argc, char **argv)
 
 			// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
 			// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
-			float player_pos_x = player_en->pos.x;
-			float player_pos_y = player_en->pos.y;
+			float player_pos_x = player->en->pos.x;
+			float player_pos_y = player->en->pos.y;
 
 			if (world->current_biome_id == BIOME_cave){
 				int asd = 1;
@@ -2231,7 +2233,7 @@ int entry(int argc, char **argv)
 					if (en->is_item) {
 						// TODO PHYSICS
 
-						if (fabsf(v2_dist(en->pos, player_en->pos)) < player_pickup_radius) {
+						if (fabsf(v2_dist(en->pos, player->en->pos)) < player->item_pickup_radius) {
 							// old way
 							// world->inventory_items[en->item_id].amount += 1;
 							// world->inventory_items[en->item_id].name = get_item_name_from_ItemID(en->item_id);
@@ -2570,8 +2572,8 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('9')) {selected_slot = 9 - 1;}
 
 		// Sprint
-		if (is_key_down(KEY_SHIFT)){ player_running = true;}
-		else { player_running = false;}
+		if (is_key_down(KEY_SHIFT)){ player->is_running = true;}
+		else { player->is_running = false;}
 
 		// Player movement
 		Vector2 input_axis = v2(0, 0);
@@ -2585,8 +2587,8 @@ int entry(int argc, char **argv)
 
 		// player_pos = player_pos + (input_axis * 10.0);
 		
-		if (player_running){ player_en->pos = v2_add(player_en->pos, v2_mulf(input_axis, player_running_speed * delta_t)); }
-		else { player_en->pos = v2_add(player_en->pos, v2_mulf(input_axis, player_speed * delta_t)); }
+		if (player->is_running){ player->en->pos = v2_add(player->en->pos, v2_mulf(input_axis, player->running_speed_amount * delta_t)); }
+		else { player->en->pos = v2_add(player->en->pos, v2_mulf(input_axis, player->walking_speed * delta_t)); }
 
 		gfx_update();
 
