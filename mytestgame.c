@@ -4,8 +4,8 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-bool print_fps = true;
-// bool print_fps = false;
+// bool print_fps = true;
+bool print_fps = false;
 // bool ENABLE_FRUSTRUM_CULLING = false;
 
 
@@ -38,10 +38,8 @@ const s32 layer_world = 10;
 
 // Global app stuff
 float64 delta_t;
-Gfx_Font* font;
-u32 font_height = 48;
-float screen_width = 240.0;
-float screen_height = 135.0;
+const float screen_width = 240.0;
+const float screen_height = 135.0;
 int selected_slot = 0;
 // Vector2 entity_positions[MAX_ENTITY_COUNT]; // not in use
 bool dragging = false;
@@ -50,7 +48,6 @@ bool dragging = false;
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 // maybe should move these into "functions.h"
 
-#define m4_identity m4_make_scale(v3(1, 1, 1))
 
 // "resizable" array helpers (by: randy)
 // void* array_add() {}
@@ -862,6 +859,7 @@ void render_ui()
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 				Entity* en = entity_create();
+				printf("DEBUG BUILDING CREATED TO WORLD. ENTITY COUNT + 1\n");
 				// entity_setup(en, building.to_build);
 				// setup_building(en, building.to_build);
 				setup_building(en, world->placing_building);
@@ -1210,61 +1208,6 @@ void spawn_biome(BiomeData* biome) {
 	}
 }
 
-// void unload_biome(World* world, BiomeID id){
-// 	// world->entities
-// 	int removed_entity_count = 0;
-// 	for (int i = 0; i < world->dimension->entity_count; i++)  {
-// 		// Entity* en = &world->entities[i];
-// 		Entity* en = &world->dimension->entities[i];
-// 		for (int i = 0; i < BIOME_MAX; i++){
-// 			if (en->arch == ARCH_portal){
-// 				en->portal_data.enabled = false;
-// 			}
-// 			if (en->biome_ids[i] == id){
-// 				// dealloc(get_heap_allocator(), &en);
-// 				// memset(&en, 0, sizeof(en)); // i dont know what im doing
-
-// 				// entity_destroy(en);
-// 				entity_clear(en);
-// 				removed_entity_count++;
-// 			}
-// 		}
-// 	}
-// 	world->dimension->entity_count -= removed_entity_count;
-// }
-
-// #Biome || :change biome
-void change_biomes(World* world, BiomeID new_id){
-	
-	printf("Changing biome: %s -> %s\n", get_biome_data_from_id(world->current_biome_id).name, get_biome_data_from_id(new_id).name);
-	
-	// dealloc all entities
-	// set new biome to world
-	// spawn new entities based on biome
-
-	// world->entities;
-
-	// if (new_id == BIOME_forest){
-	// 	int asdads = 1;
-	// }
-
-	// set_portal_valid(0);
-
-	// unload_biome(world, world->current_biome_id);
-
-	// world->entities;
-
-	world->current_biome_id = new_id;
-	// BiomeData biome = get_biome_data_from_id(new_id);
-	// spawn_biome(&biome);
-
-	// clear_empty_slots_in_entities(&world->dimension->entities, MAX_ENTITY_COUNT);
-	// spawn portal?!?!?!?
-
-	// set portal to valid
-	// set_portal_valid(1);
-
-}
 
 void load_dimension_entities(DimensionID id){
 	
@@ -1284,9 +1227,8 @@ void load_dimension_entities(DimensionID id){
 		default:{}break;
 	}
 
-	// Entity* en = entity_create();
-	// setup_player(en, get_player_pos());
 	world->dimension->entities[world->dimension->entity_count] = *get_player();
+	world->dimension->entity_count++;
 }
 
 void change_dimensions(DimensionID new_dim){
@@ -1307,42 +1249,43 @@ void setup_audio_player(){
 	config.enable_spacialization = true;
 }
 
+// not in use
+	// void sort_entities_by_prio_and_y(Entity* entities, int count) {
+	//     // sorts entities:
+	//     // primary sort: sort entities based on their rendering_prio value
+	//     // secondary sort: if rendering_prio is the same, sort based on their y coordinates in descending order
 
-void sort_entities_by_prio_and_y(Entity* entities, int count) {
-    // sorts entities:
-    // primary sort: sort entities based on their rendering_prio value
-    // secondary sort: if rendering_prio is the same, sort based on their y coordinates in descending order
+	//     for (int i = 0; i < count - 1; i++) {
+	//         for (int j = 0; j < count - i - 1; j++) {
+	//             int prio1 = entities[j].rendering_prio;
+	//             int prio2 = entities[j + 1].rendering_prio;
+	//             int y1 = entities[j].pos.y;
+	//             int y2 = entities[j + 1].pos.y;
 
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = 0; j < count - i - 1; j++) {
-            int prio1 = entities[j].rendering_prio;
-            int prio2 = entities[j + 1].rendering_prio;
-            int y1 = entities[j].pos.y;
-            int y2 = entities[j + 1].pos.y;
+	//             // Sort by rendering priority first (ascending order)
+	//             // If the priorities are equal, sort by y value (descending order)
+	//             if (prio1 > prio2 || (prio1 == prio2 && y1 < y2)) {
+	//                 Entity temp = entities[j];
+	//                 entities[j] = entities[j + 1];
+	//                 entities[j + 1] = temp;
+	//             }
+	//         }
+	//     }
 
-            // Sort by rendering priority first (ascending order)
-            // If the priorities are equal, sort by y value (descending order)
-            if (prio1 > prio2 || (prio1 == prio2 && y1 < y2)) {
-                Entity temp = entities[j];
-                entities[j] = entities[j + 1];
-                entities[j + 1] = temp;
-            }
-        }
-    }
+	// 	// Verification loop to ensure no empty slots
+	//     int shiftIndex = 0;
+	//     for (int i = 0; i < count; i++) {
+	// 		Entity* en = &entities[i];
+	//         if (en->arch == ARCH_nil) {
+	//             shiftIndex++;
+	//         } else if (shiftIndex > 0) {
+	//             // Shift the entity left to fill the gap
+	//             entities[i - shiftIndex] = entities[i];
+	//         }
+	//     }
 
-	// Verification loop to ensure no empty slots
-    int shiftIndex = 0;
-    for (int i = 0; i < count; i++) {
-		Entity* en = &entities[i];
-        if (en->arch == ARCH_nil) {
-            shiftIndex++;
-        } else if (shiftIndex > 0) {
-            // Shift the entity left to fill the gap
-            entities[i - shiftIndex] = entities[i];
-        }
-    }
-
-}
+	// }
+// 
 
 
 void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count) {
@@ -1451,7 +1394,7 @@ void render_entities(World* world) {
 	if (render_list.needs_sorting){
 		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
 		sort_entity_indices_by_prio_and_y(indices, &world->dimension->entities, entity_count);
-		// sort_entities_by_prio_and_y(world->entities, entity_count);
+		// sort_entities_by_prio_and_y(&world->dimension->entities, entity_count);
 		render_list.needs_sorting = false;
 	}
 
@@ -1653,7 +1596,6 @@ int entry(int argc, char **argv)
 	// Memory
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
-	// world->entity_count = 0;
 
 	// :Init Render List 	#renderlist || #render list || #render_list
 	// render_list.indices = (int*)alloc(get_heap_allocator(), MAX_ENTITY_COUNT * sizeof(int));
@@ -1761,7 +1703,11 @@ int entry(int argc, char **argv)
 
 	// set current dimension
 	world->dimension = get_dimensionData(DIM_overworld);
+	// world->dimension = get_dimensionData(DIM_cavern);
 	world->dimension_id = DIM_overworld;
+	// world->dimension_id = DIM_cavern;
+	world->dimension->entity_count = 0;
+
 
 
 	// Building resource setup
@@ -1903,6 +1849,7 @@ int entry(int argc, char **argv)
 		render_ui();
 
 
+
 		// :Entity selection by MOUSE
 		if (!world_frame.hover_consumed)
 		{	
@@ -1912,8 +1859,7 @@ int entry(int argc, char **argv)
 			// float smallest_dist = INFINITY; // compiler gives a warning
 			float smallest_dist = 9999999;
 
-			// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-			for (int i = 0; i < world->dimension->entity_count; i++){
+			for (int i = 0; i < MAX_ENTITY_COUNT; i++){		// NOTE: actually faster to use MAX_ENTITY_COUNT here
 				Entity* en = &world->dimension->entities[i];
 
 				if (IS_DEBUG){
@@ -1922,7 +1868,9 @@ int entry(int argc, char **argv)
 						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
 						if (dist < player->entity_selection_radius){
 							if (!world_frame.selected_entity || (dist < smallest_dist)){
-								printf("EN = %s\n", en->name);
+								if (en->arch == ARCH_item){
+									printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+								}
 								if (IS_DEBUG){
 									int asd = 1;
 								}
@@ -2224,8 +2172,7 @@ int entry(int argc, char **argv)
 		// :Update entities || :Item pick up
 		{
 			// bool is_pickup_text_visible = false;
-			// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-			for (int i = 0; i < world->dimension->entity_count; i++) {
+			for (int i = 0; i < MAX_ENTITY_COUNT; i++) { // NOTE: actually faster to use MAX_ENTITY_COUNT here
 				Entity* en = &world->dimension->entities[i];
 				if (en->is_valid) {
 
@@ -2234,17 +2181,15 @@ int entry(int argc, char **argv)
 						// TODO PHYSICS
 
 						if (fabsf(v2_dist(en->pos, player->en->pos)) < player->item_pickup_radius) {
-							// old way
-							// world->inventory_items[en->item_id].amount += 1;
-							// world->inventory_items[en->item_id].name = get_item_name_from_ItemID(en->item_id);
-							// world->inventory_items[en->item_id].sprite_id = en->sprite_id;
-							// world->inventory_items[en->item_id].valid = true;
 
-							// new func
-							add_item_to_inventory(en->item_id, get_item_name_from_ItemID(en->item_id), 1, en->arch, en->sprite_id, en->tool_id, true);
+							add_item_to_inventory(en->item_id, en->name, 1, en->arch, en->sprite_id, en->tool_id, true);
 							// printf("ADDED ITEM '%s' TO INVENTORY\n", get_item_name_from_ItemID(en->item_id));
 
+							// render_pickup_text(en);
+							trigger_pickup_text(*en);
+
 							entity_destroy(en);
+
 
 							// is_pickup_text_visible = true;
 						}
@@ -2321,6 +2266,7 @@ int entry(int argc, char **argv)
 
 									selected_en->health -= 1;
 									if (selected_en->health <= 0) {
+										// entity_destroy(selected_en);
 										generateLoot(lootTable_rock, 0, selected_en->pos);
 										allow_destroy = true;
 										play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
@@ -2360,6 +2306,7 @@ int entry(int argc, char **argv)
 
 						default: { 	// |------- OTHERS -------|
 							{
+								printf("DEBUG OTHER ENTITY CREATED. ENTITY COUNT +1. ITEMID = %d\n", selected_en->item_id);
 								Entity* en = entity_create();
 								setup_item(en, selected_en->item_id);
 								en->pos = selected_en->pos;
@@ -2374,7 +2321,7 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
-							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
+							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, false); }
 						}
 					}
 				}
@@ -2427,6 +2374,9 @@ int entry(int argc, char **argv)
 
 		// Render entities
 		render_entities(world);
+
+		update_pickup_text(delta_t);
+
 
 
 		// render keybinding
@@ -2509,6 +2459,7 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('M')) {change_dimensions(DIM_cavern);}
 
 		if (is_key_just_pressed('B')) {render_list.needs_sorting = true;}
+		// if (is_key_just_pressed('Y')) {trigger_pickup_text();}
 
 
 

@@ -4,7 +4,12 @@
 // GLOBAL VARIABLES
     #define MAX_ENTITY_COUNT 2048
     #define MAX_PORTAL_COUNT 32
+    #define MAX_PICKUP_TEXTS 10
+
     const int tile_width = 8;
+    Gfx_Font* font;
+    u32 font_height = 48;
+
 
 
     // Health
@@ -242,7 +247,6 @@
         ToolID tool_id;
         OreID ore_id;
         BiomeID biome_ids[BIOME_MAX];	// all biomes where the entity can spawn
-        int biome_count;				// how many biomes the entity is in
 
         // booleans
         bool is_valid;
@@ -252,10 +256,11 @@
         bool is_ore;
         bool enable_shadow;
 
-        PortalData portal_data;
-
         // other
+        PortalData portal_data;
+        int biome_count;				// how many biomes the entity is in
         int rendering_prio;
+        Vector4 pickup_text_col;
     } Entity;
 
     // :InventoryItemData --------------->
@@ -319,7 +324,6 @@
 
     } Player;
 
-
     // :World --------------------------->
     typedef struct World {
         BiomeID current_biome_id;
@@ -345,8 +349,6 @@
 
         BuildingID placing_building;
     } World;
-
-
 
     // :Biome --------------------------->
     typedef struct BiomeData {
@@ -449,6 +451,17 @@
         int itemCount;
     } LootTable;
 
+    typedef struct pickup_text_animation {
+        Vector2 start_pos;
+        Vector2 end_pos;
+        Vector2 pos_increase;
+        float start_alpha;
+        float end_alpha;
+        float duration;
+        float elapsed_time;
+        bool active;
+        Entity en;
+    } pickup_text_animation;
 
     // not in use????
     // :RenderList ---------------------->
@@ -478,6 +491,10 @@
     BuildingData buildings[BUILDING_MAX];
     Texture textures[TEXTURE_MAX];
     RenderList render_list;
+    pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
+
+
+
 // 
 
 

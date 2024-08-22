@@ -3,6 +3,8 @@
 
 #include "types.h"
 
+#define m4_identity m4_make_scale(v3(1, 1, 1))
+
 
 // Function Declarations (Prototypes)
 // void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
@@ -148,13 +150,33 @@ DimensionData *get_dimensionData(DimensionID);
 		return entity_found;
 	}
 
+	// this is old func. leaves a gap behind in the entities list
+	// void entity_destroy(Entity* entity) {
+	// 	render_list.needs_sorting = true;
+	// 	// printf("Destroying entity '%s'\n", entity->name);
+	// 	// world->entity_count--;
+	// 	world->dimension->entity_count--;
+	// 	entity->is_valid = false;
+	// 	memset(entity, 0, sizeof(Entity));
+	// }
+
 	void entity_destroy(Entity* entity) {
+
+		// printf("DESTROYED ENTITY %s\n", entity->name);
+
 		render_list.needs_sorting = true;
-		// printf("Destroying entity '%s'\n", entity->name);
-		// world->entity_count--;
+		int index = entity - world->dimension->entities;
+
 		world->dimension->entity_count--;
-		entity->is_valid = false;
-		memset(entity, 0, sizeof(Entity));
+
+		// move the last valid entity into the destroyed entity's place (fill the gap)
+		if (index < world->dimension->entity_count) {
+			world->dimension->entities[index] = world->dimension->entities[world->dimension->entity_count];
+		}
+
+		// invalidate the last entity (which was moved to fill the gap)
+		memset(&world->dimension->entities[world->dimension->entity_count], 0, sizeof(Entity));
+		world->dimension->entities[world->dimension->entity_count].is_valid = false;
 	}
 
 	void entity_clear(Entity* entity) {
@@ -370,28 +392,30 @@ DimensionData *get_dimensionData(DimensionID);
 		return item_data[id];
 	}
 
-	string get_item_name_from_ItemID(ItemID id) {
-		// FIX: @pin2 im defining item names in multiple different places eg.A: here
-		switch (id){
-			case ITEM_rock:{return STR("Rock");break;}
-			case ITEM_sprout:{return STR("Sprout");break;}
-			case ITEM_pine_wood:{return STR("Pine wood");break;}
-			case ITEM_mushroom0:{return STR("Mushroom");break;}
-			case ITEM_twig:{return STR("Twig");break;}
+	// not in use
+		// string get_item_name_from_ItemID(ItemID id) {
+		// 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
+		// 	switch (id){
+		// 		case ITEM_rock:{return STR("Rock");break;}
+		// 		case ITEM_sprout:{return STR("Sprout");break;}
+		// 		case ITEM_pine_wood:{return STR("Pine wood");break;}
+		// 		case ITEM_mushroom0:{return STR("Mushroom");break;}
+		// 		case ITEM_twig:{return STR("Twig");break;}
 
-			// -> pin2 
+		// 		// -> pin2 
 
-			// ores
-			case ITEM_ORE_iron:{return STR("Iron ore");break;}
-			case ITEM_ORE_gold:{return STR("Gold ore");break;}
-			case ITEM_ORE_copper:{return STR("Copper ore");break;}
-			
-			case ITEM_fossil0:{return STR("Fossil 0");break;}
-			case ITEM_fossil1:{return STR("Fossil 1");break;}
-			case ITEM_fossil2:{return STR("Fossil 2");break;}
-			default:{return STR("failed to get item name");break;}
-		}
-	}
+		// 		// ores
+		// 		case ITEM_ORE_iron:{return STR("Iron ore");break;}
+		// 		case ITEM_ORE_gold:{return STR("Gold ore");break;}
+		// 		case ITEM_ORE_copper:{return STR("Copper ore");break;}
+				
+		// 		case ITEM_fossil0:{return STR("Fossil 0");break;}
+		// 		case ITEM_fossil1:{return STR("Fossil 1");break;}
+		// 		case ITEM_fossil2:{return STR("Fossil 2");break;}
+		// 		default:{return STR("failed to get item name");break;}
+		// 	}
+		// }
+	// 
 
 
 	// :INVENTORY --------------------->
@@ -584,21 +608,34 @@ DimensionData *get_dimensionData(DimensionID);
 		en->is_item = true;
 		en->item_id = item_id;
 		en->enable_shadow = true;
-		// add_biomeID_to_entity(en, world->dimension->biome_id);
+		en->pickup_text_col = v4(1,1,1,1);
 		add_biomeID_to_entity(en, world->current_biome_id);
 
-		// printf("SETUP '%s'\n", get_archetype_name(en->arch));
-		if (item_id == ITEM_ORE_iron){
-			en->name = get_ore(ORE_iron)->name;
-			// printf("SETTING UP IRON ORE: %s\n", get_ore(ORE_iron)->name);
-		}
-		else if (item_id == ITEM_ORE_gold){
-			en->name = get_ore(ORE_gold)->name;
-			// printf("SETTING UP GOLD ORE: %s\n", get_ore(ORE_gold)->name);
-		}
-		else if (item_id == ITEM_ORE_copper){
-			en->name = get_ore(ORE_copper)->name;
-			// printf("SETTING UP COPPER ORE: %s\n", get_ore(ORE_copper)->name);
+		switch (item_id){
+			case ITEM_rock:{en->name = STR("Rock");en->pickup_text_col = v4(1,0,0,1);}break;
+			case ITEM_pine_wood:{en->name = STR("Pine Wood");}break;
+			case ITEM_sprout:{en->name = STR("Sprout");}break;
+			case ITEM_berry:{en->name = STR("Berry");}break;
+			case ITEM_mushroom0:{en->name = STR("Mushroom");}break;
+			case ITEM_twig:{en->name = STR("Twig");}break;
+			case ITEM_furnace:{en->name = STR("Furnace");}break;
+			case ITEM_workbench:{en->name = STR("Workbench");}break;
+			case ITEM_chest:{en->name = STR("Chest");}break;
+			case ITEM_fossil0:{en->name = STR("Ammonite Fossil");}break;
+			case ITEM_fossil1:{en->name = STR("Bone Fossil");}break;
+			case ITEM_fossil2:{en->name = STR("Fang Fossil");}break;
+			case ITEM_fossil3:{en->name = STR("WIP");}break;
+			case ITEM_ORE_iron:{en->name = get_ore(ORE_iron)->name;}break;
+			case ITEM_ORE_gold:{en->name = get_ore(ORE_gold)->name;}break;
+			case ITEM_ORE_copper:{en->name = get_ore(ORE_copper)->name;}break;
+			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe");}break;
+			case ITEM_TOOL_axe:{en->name = STR("Axe");}break;
+			case ITEM_TOOL_shovel:{en->name = STR("Shovel");}break;
+			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
+			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
+			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
+
+			default:{en->name = STR("case missing from 'setup_item()'");}break;
 		}
 	}
 
@@ -888,7 +925,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_ore_copper = true;
 					biome->spawn_ore_iron_weight = 20;
 					biome->spawn_ore_gold_weight = 20;
-					biome->spawn_ore_copper_weight = 20;
+					biome->spawn_ore_copper_weight = 5;
 
 					// fossils
 					biome->spawn_fossils = true;
@@ -950,6 +987,60 @@ DimensionData *get_dimensionData(DimensionID);
 	void add_all_biomes_to_dimensions() {
 		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
 		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
+	}
+
+	void trigger_pickup_text(Entity en) {
+		// printf("TRIGGERED PICKUP TEXT for %s\n", en.name);
+		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
+			if (!pickup_texts[i].active) {
+				pickup_texts[i].start_pos = v2(en.pos.x, en.pos.y);
+				pickup_texts[i].end_pos = v2(en.pos.x, en.pos.y + 15);
+				pickup_texts[i].elapsed_time = 0.0f;
+				pickup_texts[i].active = true;
+				pickup_texts[i].en = en;
+				pickup_texts[i].start_alpha = 1.0f;
+				pickup_texts[i].end_alpha = 0.0f;
+				pickup_texts[i].duration = 1.0f;
+				break;  // Exit after finding an available slot
+			}
+		}
+	}
+
+	void update_pickup_text(float delta_time) {
+		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
+			if (!pickup_texts[i].active) continue;
+
+			pickup_texts[i].elapsed_time += delta_time;
+
+			// Interpolation factors
+			float t = pickup_texts[i].elapsed_time / pickup_texts[i].duration;
+			if (t >= 1.0f) {
+				pickup_texts[i].active = false;
+				continue;
+			}
+
+			// calculate position
+			Vector3 current_pos = v3(
+				pickup_texts[i].start_pos.x + t * (pickup_texts[i].end_pos.x - pickup_texts[i].start_pos.x), 
+				pickup_texts[i].start_pos.y + t * (pickup_texts[i].end_pos.y - pickup_texts[i].start_pos.y), 
+				0
+			);
+
+			// fade out
+			float current_alpha = pickup_texts[i].start_alpha + t * (pickup_texts[i].end_alpha - pickup_texts[i].start_alpha);
+
+			// color
+			Vector4 color = pickup_texts[i].en.pickup_text_col;
+			color.a = current_alpha;
+
+
+			Matrix4 xform = m4_identity;
+			xform = m4_translate(xform, current_pos);
+
+
+			// Draw pickup text
+			draw_text_xform(font, sprint(temp_allocator, STR("+1 %s"), pickup_texts[i].en.name), font_height, xform, v2(0.1, 0.1), color);
+		}
 	}
 
 
