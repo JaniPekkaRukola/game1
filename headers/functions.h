@@ -112,8 +112,9 @@ DimensionData *get_dimensionData(DimensionID);
 		// 	return world_frame.player->pos;
 		// }
 
-		if (player){
-			return player->en->pos;
+		if (world->player){
+			// return player->en->pos;
+			return world->player->en->pos;
 		}
 	}
 // 
@@ -215,8 +216,59 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
+
+	// :PLAYER ------------------------>
 	Entity* get_player() {
-		return world_frame.player;
+		// return world_frame.player;
+		
+		// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+		// 	Entity* en = &world->dimension->entities[i];
+		// 	if (en->arch == ARCH_player){
+		// 		return en;
+		// 	}
+		// }
+
+		return world->player->en;
+	}
+
+	Entity* get_player_en_from_current_dim() {
+		for (int i = 0; i < world->dimension->entity_count; i++){
+			Entity* en = &world->dimension->entities[i];
+			if (en->arch == ARCH_player){
+				return en;
+			}
+		}
+	}
+
+	// Entity* get_player_en_from_dim(DimensionID dim) {
+		// 	for (int i = 0; i < DIM_MAX; i++){
+		// 		DimensionData* dimension = &dimensions[i];
+		// 		if (dimension->dimension_id == dim){
+		// 			for (int j = 0; j < dimension->entity_count; j++){
+		// 				Entity* en = &dimension->entities[j];
+		// 				if (en->arch == ARCH_player){
+		// 					return en;
+		// 				}
+		// 			}
+		// 		}
+
+		// 	}
+	// }
+
+	void sync_player_pos_between_dims(){
+		Vector2 current_pos = world->player->en->pos;
+		for (int i = 0; i < DIM_MAX; i++){
+			DimensionData* dimension = &dimensions[i];
+			if (dimension){
+				for (int j = 0; j < dimension->entity_count; j++){
+					Entity* en = &dimension->entities[j];
+					if (en->arch == ARCH_player){
+						en->pos = current_pos;
+						break;
+					}
+				}
+			}
+		}
 	}
 
 
@@ -244,17 +296,23 @@ DimensionData *get_dimensionData(DimensionID);
 			// printf("ADDED biomeid %d to dimension %s\n", biome_id, get_dimensionData(dim)->name);
 		}
 	}
+	
+	void add_all_biomes_to_dimensions() {
+		// TODO: for loop here pls
+		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
+		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
+	}
+
 
 	// :PORTAL ------------------------>
-
 	void register_portal_pair(int id, DimensionID dim1, DimensionID dim2, Vector2 pos1, Vector2 pos2) {
-		if (portal_pair_count < MAX_PORTAL_PAIRS) {
-			portal_pairs[portal_pair_count].id = id;
-			portal_pairs[portal_pair_count].dim1 = dim1;
-			portal_pairs[portal_pair_count].dim2 = dim2;
-			portal_pairs[portal_pair_count].pos1 = pos1;
-			portal_pairs[portal_pair_count].pos2 = pos2;
-			portal_pair_count++;
+		if (world->portal_pair_count < MAX_PORTAL_PAIRS) {
+			world->portal_pairs[world->portal_pair_count].id = id;
+			world->portal_pairs[world->portal_pair_count].dim1 = dim1;
+			world->portal_pairs[world->portal_pair_count].dim2 = dim2;
+			world->portal_pairs[world->portal_pair_count].pos1 = pos1;
+			world->portal_pairs[world->portal_pair_count].pos2 = pos2;
+			world->portal_pair_count++;
 		} 
 		else {
 			log_error("MAX_PORTAL_PAIRS reached. @ 'register_portal_pair'\n");
@@ -262,12 +320,14 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	void update_portal_pair(int id, DimensionID dim, Vector2 pos) {
-		for (int i = 0; i < portal_pair_count; i++) {
-			if (portal_pairs[i].id == id) {
-				if (portal_pairs[i].dim1 == dim) {
-					portal_pairs[i].pos1 = pos;
-				} else if (portal_pairs[i].dim2 == dim) {
-					portal_pairs[i].pos2 = pos;
+		// NOTE: find the portal pair and use it instead of doing "world->portal_pairs[i]" every time
+		for (int i = 0; i < world->portal_pair_count; i++) {
+			// PortalPair* pair = &world->portal_pairs[i]; // solution here (needs testing)
+			if (world->portal_pairs[i].id == id) {
+				if (world->portal_pairs[i].dim1 == dim) {
+					world->portal_pairs[i].pos1 = pos;
+				} else if (world->portal_pairs[i].dim2 == dim) {
+					world->portal_pairs[i].pos2 = pos;
 				}
 				return;
 			}
@@ -287,23 +347,36 @@ DimensionData *get_dimensionData(DimensionID);
 
 	void create_portal_to(DimensionID dest, bool create_portal_bothways){
 
-		if (world->dimension->portal_count >= MAX_PORTAL_COUNT){
-			log_error("MAX PORTALS REACHED FOR CURRENT DIM\n");
+		//  ________________________________________________________________________________________________________________________________________
+		// | LOGIC:
+		// | - check if portal is ok to be created (check for max_portal_count and block_portal_creation)
+		// | - setup the portal entity and add it to current dimension->entities (entity_create() should do this)
+		// | - add portal_data and entity settings to portal entity
+		// | - register a portal pair
+		// | - check if create_portal_bothways
+		// | - setup the second portal and add it to the destination dimension (entity_create_to_dim() should do this)
+		// | - add portal_data dn entity settings to the second portal entity
+		// | - update the portal_pair with the second portal's details (this necessary? cant i just register the pair at the end of this func?)
+		// |________________________________________________________________________________________________________________________________________
+		
+
+		if (world->portal_count >= MAX_PORTAL_COUNT){
+			log_error("MAX PORTALS REACHED FOR WORLD\n");
 			return;
 		}
 
-		world->dimension->portal_count++;
+		world->portal_count++;
 
 		int result = block_portal_creation();
 
 		// this is a bad way to do this
 		// FIX THIS
-		int id = get_random_int_in_range(0,1000);
+		// int id = get_random_int_in_range(0,1000);
+		int id = world->portal_count;
 
 		if (result == 0){
 			// BiomeID current_dim = world->dimension->dimension_id;
 			DimensionID current_dim = world->dimension->dimension_id;
-			// continue
 
 			Entity* en = entity_create();
 			setup_portal(en, current_dim, dest, get_dimensionData(dest)->portal_sprite_in);
@@ -384,7 +457,33 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 		}
 	}
+	
+	PortalData* get_portal_data(DimensionID dest, int id){
+		if (dest != DIM_nil){
+			for (int i = 0; i < get_dimensionData(dest)->entity_count; i++){
+				Entity* en = &get_dimensionData(dest)->entities[i];
+				if (en->arch == ARCH_portal){
+					if (en->portal_data.id == id){
+						return &en->portal_data;
+					}
+				}
+			}
+		}
+		else{
+			log_error("Failed to get portal data @ 'get_portal_data'. trying to get portal data from dim_nil\n");
+		}
+		return NULL;
+	}
 
+	PortalPair* get_portal_pair(int id){
+		for(int i = 0; i < world->portal_pair_count; i++){
+			PortalPair* pair = &world->portal_pairs[i];
+			if (pair->id == id){
+				return pair;
+			}
+		}
+		return NULL;
+	}
 
 	// :SPRITE ------------------------>
 	Sprite* get_sprite(SpriteID id) {
@@ -656,6 +755,61 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
+
+	// :PICKUP TEXT ------------------->
+	void trigger_pickup_text(Entity en) {
+		// printf("TRIGGERED PICKUP TEXT for %s\n", en.name);
+		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
+			if (!pickup_texts[i].active) {
+				pickup_texts[i].start_pos = v2(en.pos.x, en.pos.y);
+				pickup_texts[i].end_pos = v2(en.pos.x, en.pos.y + 15);
+				pickup_texts[i].elapsed_time = 0.0f;
+				pickup_texts[i].active = true;
+				pickup_texts[i].en = en;
+				pickup_texts[i].start_alpha = 1.0f;
+				pickup_texts[i].end_alpha = 0.0f;
+				pickup_texts[i].duration = 1.0f;
+				break;  // Exit after finding an available slot
+			}
+		}
+	}
+
+	void update_pickup_text(float delta_time) {
+		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
+			if (!pickup_texts[i].active) continue;
+
+			pickup_texts[i].elapsed_time += delta_time;
+
+			// Interpolation factors
+			float t = pickup_texts[i].elapsed_time / pickup_texts[i].duration;
+			if (t >= 1.0f) {
+				pickup_texts[i].active = false;
+				continue;
+			}
+
+			// calculate position
+			Vector3 current_pos = v3(
+				pickup_texts[i].start_pos.x + t * (pickup_texts[i].end_pos.x - pickup_texts[i].start_pos.x), 
+				pickup_texts[i].start_pos.y + t * (pickup_texts[i].end_pos.y - pickup_texts[i].start_pos.y), 
+				0
+			);
+
+			// fade out
+			float current_alpha = pickup_texts[i].start_alpha + t * (pickup_texts[i].end_alpha - pickup_texts[i].start_alpha);
+
+			// color
+			Vector4 color = pickup_texts[i].en.pickup_text_col;
+			color.a = current_alpha;
+
+
+			Matrix4 xform = m4_identity;
+			xform = m4_translate(xform, current_pos);
+
+
+			// Draw pickup text
+			draw_text_xform(font, sprint(temp_allocator, STR("+1 %s"), pickup_texts[i].en.name), font_height, xform, v2(0.1, 0.1), color);
+		}
+	}
 // 
 
 
@@ -704,7 +858,6 @@ DimensionData *get_dimensionData(DimensionID);
 
 
 	void setup_player_en(Entity* en, Vector2 pos) {
-		// @reminder gotta remember to modify the range variale in "get_random_int_in_range" based on the amount of different variations per sprite
 		en->arch = ARCH_player;
 		en->name = STR("Player");
 		en->sprite_id = SPRITE_player;
@@ -715,13 +868,22 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-	void setup_player(Player* player, Entity* en, Vector2 pos) {
-		setup_player_en(en, pos);
+	void setup_player() {
+		Player* player = NULL;
+		player = alloc(get_heap_allocator(), sizeof(Player));
+
+		Entity* en = entity_create();
+		setup_player_en(en, v2(0, 0));
+		
+		player->en = en;
 		player->walking_speed = 50.0f;
 		player->running_speed_amount = 100.0f;
 		player->is_running = false;
 		player->entity_selection_radius = 5.0f;
 		player->item_pickup_radius = 15.0f;
+
+		// add player to world struct
+		world->player = player;
 	}
 
 
@@ -729,6 +891,7 @@ DimensionData *get_dimensionData(DimensionID);
 		en->arch = ARCH_rock;
 		en->name = STR("Rock");
 		en->health = rock_health;
+		// @reminder gotta remember to modify the range variale in "get_random_int_in_range" based on the amount of different variations per sprite
 		int random = get_random_int_in_range(0,3);
 		if (random == 0){en->sprite_id = SPRITE_rock0;}
 		if (random == 1){en->sprite_id = SPRITE_rock1;en->health = 1;}		// REMINDER: different sprites can have different stats eg: health
@@ -1027,7 +1190,7 @@ DimensionData *get_dimensionData(DimensionID);
 		switch (id){
 			case DIM_overworld:{
 				{
-					dimension->name = STR("Overworld");
+					dimension->name = STR("Overworld (dim)");
 					dimension->portal_sprite_in = SPRITE_portal1;
 					// dimension->portal_sprite_out = SPRITE_portal0;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
@@ -1036,7 +1199,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 			case DIM_cavern:{
 				{
-					dimension->name = STR("Cavern");
+					dimension->name = STR("Cavern (dim)");
 					dimension->portal_sprite_in = SPRITE_portal0;
 					// dimension->portal_sprite_out = SPRITE_portal1;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
@@ -1056,73 +1219,9 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-	void add_all_biomes_to_dimensions() {
-		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
-		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
-	}
-
-
-	void trigger_pickup_text(Entity en) {
-		// printf("TRIGGERED PICKUP TEXT for %s\n", en.name);
-		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
-			if (!pickup_texts[i].active) {
-				pickup_texts[i].start_pos = v2(en.pos.x, en.pos.y);
-				pickup_texts[i].end_pos = v2(en.pos.x, en.pos.y + 15);
-				pickup_texts[i].elapsed_time = 0.0f;
-				pickup_texts[i].active = true;
-				pickup_texts[i].en = en;
-				pickup_texts[i].start_alpha = 1.0f;
-				pickup_texts[i].end_alpha = 0.0f;
-				pickup_texts[i].duration = 1.0f;
-				break;  // Exit after finding an available slot
-			}
-		}
-	}
-
-
-	void update_pickup_text(float delta_time) {
-		for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
-			if (!pickup_texts[i].active) continue;
-
-			pickup_texts[i].elapsed_time += delta_time;
-
-			// Interpolation factors
-			float t = pickup_texts[i].elapsed_time / pickup_texts[i].duration;
-			if (t >= 1.0f) {
-				pickup_texts[i].active = false;
-				continue;
-			}
-
-			// calculate position
-			Vector3 current_pos = v3(
-				pickup_texts[i].start_pos.x + t * (pickup_texts[i].end_pos.x - pickup_texts[i].start_pos.x), 
-				pickup_texts[i].start_pos.y + t * (pickup_texts[i].end_pos.y - pickup_texts[i].start_pos.y), 
-				0
-			);
-
-			// fade out
-			float current_alpha = pickup_texts[i].start_alpha + t * (pickup_texts[i].end_alpha - pickup_texts[i].start_alpha);
-
-			// color
-			Vector4 color = pickup_texts[i].en.pickup_text_col;
-			color.a = current_alpha;
-
-
-			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, current_pos);
-
-
-			// Draw pickup text
-			draw_text_xform(font, sprint(temp_allocator, STR("+1 %s"), pickup_texts[i].en.name), font_height, xform, v2(0.1, 0.1), color);
-		}
-	}
-
-
 	void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest, SpriteID sprite_id){
 		en->arch = ARCH_portal;
-		// en->name = (STR("Portal to '%s'"), get_biome_data_from_id(dest).name);
-		// en->name = STR("Portal to %s"), get_biome_data_from_id(dest).name;
-		en->name = (STR("Portal to %s"), get_dimensionData(dest)->name);
+		en->name = sprintf(get_heap_allocator(), "Portal to %s", get_dimensionData(dest)->name);
 		en->sprite_id = sprite_id;
 		en->destroyable = false;
 		en->rendering_prio = -1;
@@ -1133,32 +1232,7 @@ DimensionData *get_dimensionData(DimensionID);
 		// add_biomeID_to_entity(en, BIOME_cave);
 	}
 
-	PortalData* get_portal_data(DimensionID dest, int id){
-		if (dest != DIM_nil){
-			for (int i = 0; i < get_dimensionData(dest)->entity_count; i++){
-				Entity* en = &get_dimensionData(dest)->entities[i];
-				if (en->arch == ARCH_portal){
-					if (en->portal_data.id == id){
-						return &en->portal_data;
-					}
-				}
-			}
-		}
-		else{
-			log_error("Failed to get portal data @ 'get_portal_data'. trying to get portal data from dim_nil\n");
-		}
-		return NULL;
-	}
 
-	PortalPair* get_portal_pair(int id){
-		for(int i = 0; i < portal_pair_count; i++){
-			PortalPair* pair = &portal_pairs[i];
-			if (pair->id == id){
-				return pair;
-			}
-		}
-		return NULL;
-	}
 
 // 
 

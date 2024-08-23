@@ -4,8 +4,8 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-// bool print_fps = true;
-bool print_fps = false;
+bool print_fps = true;
+// bool print_fps = false;
 // bool ENABLE_FRUSTRUM_CULLING = false;
 bool runtime_debug = false;
 
@@ -540,24 +540,24 @@ void render_ui()
 				// center sprite
 				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
 
-				// ITEM DRAGGING LOGIC:
-				// ------------------------------------------------------------------------------------------------|
-				// check if cursor is on item
-				// check if mouse1 clicked
-				//		- true: 
-				// 			- save item to another variable
-				// 			- delete original item
-				// 			- draw ghost item on cursor with item count
-				// 	check if mouse1 is released
-				// 		- true:
-				// 			- check if inside inventory
-				// 				- true
-				// 					put item back into inventory using the saved item
-				// 				- false
-				// 					spawn item on the world (next to player?) (cooldown on picking it up again?)
-				// 		- false:
-				// 			- continue dragging
-				// ------------------------------------------------------------------------------------------------|
+				//  ________________________________________________________________________________________________________________________________________
+				// | ITEM DRAGGING LOGIC:
+				// | - check if cursor is on item
+				// | - check if mouse1 clicked
+				// | -	-> true: 
+				// | -		 save item to another variable
+				// | -		 delete original item
+				// | -		 draw ghost item on cursor with item count
+				// | -	check if mouse1 is released
+				// | -		-> true:
+				// | -			 check if inside inventory
+				// | -				-> true
+				// | -					put item back into inventory using the saved item
+				// | -				-> false
+				// | -					spawn item on the world (next to player?) (cooldown on picking it up again?)
+				// | -		-> false:
+				// | -			 continue dragging
+				// |________________________________________________________________________________________________________________________________________
 
 				// Item selected (HOVERING)
 				if (is_selected_alpha){
@@ -1268,15 +1268,14 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 		default:{}break;
 	}
 
-	// world_frame.player->pos = dest_pos;
-	printf("PLAYER POS BEFORE = %.0f,%.0f\n", player->en->pos.x, player->en->pos.y);
-	player->en->pos = dest_pos;
-	printf("PLAYER POS AFTER = %.0f,%.0f\n", player->en->pos.x, player->en->pos.y);
+	world->player->en->pos = dest_pos;
+	// world->player->en->pos = get_player_en_from_dim(id)->pos;
 
 	// check if player entity already exists in the destination dimension
 	for (int i = 0; i < world->dimension->entity_count; i++){
 		Entity* en = &world->dimension->entities[i];
 		if (en->arch == ARCH_player){
+			world->player->en->pos = dest_pos;
 			return;
 		}
 
@@ -1284,13 +1283,11 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 	// if not, add player entity to destination dimension
 	world->dimension->entities[world->dimension->entity_count] = *get_player();
 	world->dimension->entity_count++;
-	// printf("PLAYER POS BEFORE = %.1f, %.1f\n", world_frame.player->pos.x, world_frame.player->pos.y);
-	// world_frame.player->pos = dest_portal.pos;
-	// printf("PLAYER POS AFTER = %.1f, %.1f\n", world_frame.player->pos.x, world_frame.player->pos.y);
 }
 
 void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	printf("Changing DIMENSION: %s -> %s\n", world->dimension->name, get_dimensionData(new_dim)->name);
+	// world->player->en->pos = dest_pos;
 	world->dimension_id = new_dim;
 	world->dimension = get_dimensionData(new_dim);
 	world->current_biome_id = world->dimension->biomes[0];
@@ -1458,6 +1455,8 @@ void render_entities(World* world) {
 
 			// float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
 			float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
+			// printf("rendering entity %s, from dimension = %s\n", en->name, world->dimension->name);
+			// printf("Entity pos = %.0f, %.0f\n", en->pos.x, en->pos.y);
 
 			switch (en->arch) {
 
@@ -1470,7 +1469,8 @@ void render_entities(World* world) {
 						Matrix4 xform = m4_identity;
 
 						xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));
-						xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+						// xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+						xform = m4_translate(xform, v3(get_player_pos().x, get_player_pos().y, 0));
 						xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
 
 						// draw shadow
@@ -1499,6 +1499,7 @@ void render_entities(World* world) {
 						if (IS_DEBUG){
 							xform = m4_translate(xform, v3(-3.5, -3, 0));
 							draw_text_xform(font, STR("DEBUG"), font_height, xform, v2(0.1, 0.1), COLOR_RED);
+							draw_text_xform(font, sprint(temp_allocator, STR("%.0f,%.0f"), get_player_pos().x, get_player_pos().y), font_height, m4_translate(xform, v3(0, -5, 0)), v2(0.1, 0.1), COLOR_WHITE);
 						}
 					}
 
@@ -1812,11 +1813,8 @@ int entry(int argc, char **argv)
 
 	setup_audio_player();
 
-	// // :Create player
-	// Player* player = 0;
-	player = alloc(get_heap_allocator(), sizeof(Player));
-	setup_player(player, entity_create(), v2(0,0));
-
+	// setup player
+	setup_player();
 
 	// setup all biomes && #Biome
 	setup_all_biomes();
@@ -1867,16 +1865,10 @@ int entry(int argc, char **argv)
 		last_time = now;
 		os_update(); 
 
+		// player
+		world->player->en = get_player_en_from_current_dim();
+		sync_player_pos_between_dims();
 
-		// find player entity
-		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-			Entity* en = &world->dimension->entities[i];
-			if (en->is_valid && en->arch == ARCH_player) {
-				world_frame.player = en;
-				player->en = get_player();
-				// printf("PLAYER ENTITY FOUND FROM DIM %s\n", world->dimension->name);
-			}
-		}
 
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
@@ -1886,7 +1878,7 @@ int entry(int argc, char **argv)
 
 		// :camera
 		{
-			Vector2 target_pos = player->en->pos;
+			Vector2 target_pos = world->player->en->pos;
 			animate_v2_to_target(&camera_pos, target_pos, delta_t, 10.0f); // 4th value controls how smooth the camera transition is to the player
 
 			world_frame.world_view = m4_make_scale(v3(1.0, 1.0, 1.0)); // View zoom (zooms so pixel art is the correct size)
@@ -1924,7 +1916,7 @@ int entry(int argc, char **argv)
 					// world_frame.selected_entity = en;
 					if (en->is_valid){
 						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-						if (dist < player->entity_selection_radius){
+						if (dist < world->player->entity_selection_radius){
 							if (!world_frame.selected_entity || (dist < smallest_dist)){
 								if (en->arch == ARCH_item){
 									printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
@@ -1962,7 +1954,7 @@ int entry(int argc, char **argv)
 					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
 
 					// :select entity
-					if (dist < player->entity_selection_radius) {
+					if (dist < world->player->entity_selection_radius) {
 						if (!world_frame.selected_entity || (dist < smallest_dist)) {
 							world_frame.selected_entity = en;
 							// smallest_dist = dist; // imo entity selection works better with this line commented
@@ -1980,8 +1972,8 @@ int entry(int argc, char **argv)
 
 			for (int i = 0; i < world->dimension->entity_count; i++){
 				Entity* en = &world->dimension->entities[i];
-				if (en->arch == ARCH_portal || en->arch == ARCH_building){ // #portal or #building
-					if (en->is_valid){
+				if (en->is_valid){
+					if (en->arch == ARCH_portal || en->arch == ARCH_building){ // #portal or #building
 						float dist = fabsf(v2_dist(en->pos, get_player_pos()));
 						if (dist < entity_selection_radius){
 							if (!world_frame.selected_entity || (dist < smallest_dist)){
@@ -2000,8 +1992,8 @@ int entry(int argc, char **argv)
 		if (draw_grid)
 		{	
 			// NOTE: rendering tiles has a big fkin impact on fps 
-			int player_tile_x = world_pos_to_tile_pos(player->en->pos.x);
-			int player_tile_y = world_pos_to_tile_pos(player->en->pos.y);
+			int player_tile_x = world_pos_to_tile_pos(world->player->en->pos.x);
+			int player_tile_y = world_pos_to_tile_pos(world->player->en->pos.y);
 			int tile_radius_x = 18;
 			int tile_radius_y = 12;
 
@@ -2035,18 +2027,20 @@ int entry(int argc, char **argv)
 
 			// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
 			// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
-			float player_pos_x = player->en->pos.x;
-			float player_pos_y = player->en->pos.y;
+			float player_pos_x = world->player->en->pos.x;
+			float player_pos_y = world->player->en->pos.y;
 
 			if (world->current_biome_id == BIOME_cave){
 				int asd = 1;
 			}
 			Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
 
-			// xfrom logic:
-			// A 	 B		C
-			// D 	 M 	 	E
-			// F 	 G		H
+			//  ______________
+			// | Xform LOGIC:
+			// | - A B C
+			// | - D M E
+			// | - F G H
+			// |______________
 
 			Matrix4 xform_M = m4_identity;
 			Matrix4 xform_A = m4_identity;
@@ -2209,7 +2203,6 @@ int entry(int argc, char **argv)
 
 		// :Update entities || :Item pick up
 		{
-			// bool is_pickup_text_visible = false;
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++) { // NOTE: actually faster to use MAX_ENTITY_COUNT here
 				Entity* en = &world->dimension->entities[i];
 				if (en->is_valid) {
@@ -2218,9 +2211,7 @@ int entry(int argc, char **argv)
 					if (en->is_item) {
 						// TODO PHYSICS
 
-						if (fabsf(v2_dist(en->pos, player->en->pos)) < player->item_pickup_radius) {
-
-
+						if (fabsf(v2_dist(en->pos, world->player->en->pos)) < world->player->item_pickup_radius) {
 							add_item_to_inventory(en->item_id, en->name, 1, en->arch, en->sprite_id, en->tool_id, true);
 							// printf("ADDED ITEM '%s' TO INVENTORY\n", get_item_name_from_ItemID(en->item_id));
 
@@ -2228,8 +2219,6 @@ int entry(int argc, char **argv)
 							trigger_pickup_text(*en);
 
 							entity_destroy(en);
-
-							// is_pickup_text_visible = true;
 						}
 					}
 				}
@@ -2413,21 +2402,7 @@ int entry(int argc, char **argv)
 						case ARCH_portal:{ // #portal
 							{
 								if (selected_en->portal_data.enabled){
-
-									PortalPair* pair = get_portal_pair(selected_en->portal_data.id);
-									if (pair->id == selected_en->portal_data.id){
-										printf("DEBUG: selected portal id = %d, pair id = %d\n", selected_en->portal_data.id, pair->id);
-										printf("DEBUG: current pos = %.0f,%.0f  teleporting to %.0f,%.0f\n",get_player_pos().x, get_player_pos().y, pair->pos1.x, pair->pos1.y);
-										printf("DEBUG: selected_en pos = %.0f,%.0f\n", selected_en->pos.x, selected_en->pos.y);
-										change_dimensions(selected_en->portal_data.dim_destination, pair->pos1);
-									}
-									printf("DEBUG: pos after = %.0f,%.0f\n",get_player_pos().x, get_player_pos().y);
-									printf("\n");
-									// PortalData* dest_portal = get_portal_data(selected_en->portal_data.dim_destination, selected_en->portal_data.id);
-									// if (selected_en->portal_data.id == dest_portal->id){
-									// 	Vector2 pos = v2(0,0);
-									// 	change_dimensions(selected_en->portal_data.dim_destination, pos);
-									// }
+									change_dimensions(selected_en->portal_data.dim_destination, selected_en->pos);
 								}
 							}
 						} break;
@@ -2447,9 +2422,6 @@ int entry(int argc, char **argv)
 		// Render entities
 		render_entities(world);
 
-		// update_pickup_text(delta_t);
-
-
 
 		// render keybinding
 		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
@@ -2459,25 +2431,24 @@ int entry(int argc, char **argv)
 
 		// DEBUG STUFF ------------------------------------------------------------------------------->
 
+		// if (world_frame.selected_entity){
+		// 	printf("Selected entity = %s\n", world_frame.selected_entity->name);
+		// 	if (world_frame.selected_entity->arch == ARCH_portal){
+		// 		printf("Selected portal id = %d\n", world_frame.selected_entity->portal_data.id);
+		// 		printf("Selected portal pos = %.1f,%.1f\n", world_frame.selected_entity->portal_data.pos.x, world_frame.selected_entity->portal_data.pos.y);
+
+		// 	}
+		// 		printf("\n");
+		// }
+
 		// ENTER DEBUG MODE FROM GAME
 		if (is_key_just_pressed(KEY_CTRL)){
 			if (!runtime_debug){runtime_debug = true;}
-			// else{runtime_debug = false;}
+			else{runtime_debug = false;}
 			// player->en->pos.x -= 10; 
 			// world_frame.player->pos.x -= 10;
-			printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
+			// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
 		}
-
-		// 	printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
-
-		// if (is_key_just_pressed(KEY_SPACEBAR)){
-		// 	printf("SPACE PRESSED\n");
-			// draw_text(font, STR("X"), font_height, v2(0, 0), v2(0.1, 0.1), COLOR_WHITE);
-			// Matrix4 xform = m4_scalar(1.0);
-			// xform         = m4_translate(xform, v3(0, 0, 0));
-		// }
-
-
 
 		// #Biome
 		// printf("%s\n",get_biome_data_from_id(world->dimension.biome_id).name);
@@ -2487,7 +2458,6 @@ int entry(int argc, char **argv)
 
 		// player position
 		// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
-
 
 		// DEBUG: print UX state
 		// printf("UX STATE: ");
@@ -2598,8 +2568,8 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed('9')) {selected_slot = 9 - 1;}
 
 		// Sprint
-		if (is_key_down(KEY_SHIFT)){ player->is_running = true;}
-		else { player->is_running = false;}
+		if (is_key_down(KEY_SHIFT)){ world->player->is_running = true;}
+		else { world->player->is_running = false;}
 
 		// Player movement
 		Vector2 input_axis = v2(0, 0);
@@ -2613,8 +2583,8 @@ int entry(int argc, char **argv)
 
 		// player_pos = player_pos + (input_axis * 10.0);
 		
-		if (player->is_running){ player->en->pos = v2_add(player->en->pos, v2_mulf(input_axis, player->running_speed_amount * delta_t)); }
-		else { player->en->pos = v2_add(player->en->pos, v2_mulf(input_axis, player->walking_speed * delta_t)); }
+		if (world->player->is_running){ world->player->en->pos = v2_add(world->player->en->pos, v2_mulf(input_axis, world->player->running_speed_amount * delta_t)); }
+		else { world->player->en->pos = v2_add(world->player->en->pos, v2_mulf(input_axis, world->player->walking_speed * delta_t)); }
 
 		gfx_update();
 

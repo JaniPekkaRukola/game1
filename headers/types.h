@@ -7,7 +7,7 @@
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
 
-    int portal_pair_count = 0;
+    // int portal_pair_count = 0;
     const int tile_width = 8;
     Gfx_Font* font;
     u32 font_height = 48;
@@ -229,12 +229,20 @@
 
     // :Portal -------------------------->
     typedef struct PortalData {
-        BiomeID destination;
         DimensionID dim_destination;
         bool enabled;
         int id; // unique id for linking portals
         Vector2 pos;
     } PortalData;
+
+    typedef struct PortalPair {
+        int id; // unique id for portal pair
+        DimensionID dim1;
+        DimensionID dim2;
+        Vector2 pos1;
+        Vector2 pos2;
+    } PortalPair;
+
 
     // :BuildingData -------------------->
     typedef struct BuildingData { 
@@ -300,7 +308,7 @@
         Matrix4 world_projection;
         Matrix4 world_view;
         bool hover_consumed;
-        Entity* player;
+        // Entity* player;
     } WorldFrame;
 
     // :Dimension ----------------------->
@@ -314,7 +322,7 @@
 
         SpriteID portal_sprite_in;
         SpriteID portal_sprite_out;
-        int portal_count;
+        // int portal_count;
 
         // color
         // enemies
@@ -348,6 +356,8 @@
 
     } Player;
 
+    
+
     // :World --------------------------->
     typedef struct World {
         BiomeID current_biome_id;
@@ -369,6 +379,13 @@
         float furnace_alpha_target;
 
         BuildingID placing_building; // bad name
+
+        Entity portals[MAX_PORTAL_COUNT];
+        int portal_count;
+        PortalPair portal_pairs[MAX_PORTAL_PAIRS];
+        int portal_pair_count;
+
+        Player *player;
     } World;
 
     // :Biome --------------------------->
@@ -423,8 +440,7 @@
         // portal
         bool has_portals;
         // PortalData portals[MAX_PORTAL_COUNT];
-        Entity portals[MAX_PORTAL_COUNT];
-        int portal_count;
+
 
     } BiomeData;
 
@@ -482,13 +498,6 @@
     } RenderList;
 
 
-    typedef struct PortalPair {
-        int id; // unique id for portal pair
-        DimensionID dim1;
-        DimensionID dim2;
-        Vector2 pos1;
-        Vector2 pos2;
-    } PortalPair;
 
 
 // 
@@ -514,7 +523,6 @@
     Texture textures[TEXTURE_MAX];
     RenderList render_list;
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
-    PortalPair portal_pairs[MAX_PORTAL_PAIRS];
 
 
 
@@ -537,6 +545,6 @@
     inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
 // 
 
-    Player* player = NULL;
+    // Player* player = NULL;
 
 #endif

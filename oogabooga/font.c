@@ -12,8 +12,8 @@ TODO:
 // #Memory #Speed
 // This is terruble  and huge waste of video memory. We should have a constant codepoint range
 // with arbitrary atlas sizes instead.
-#define FONT_ATLAS_WIDTH  2048
-#define FONT_ATLAS_HEIGHT 2048
+#define FONT_ATLAS_WIDTH  500
+#define FONT_ATLAS_HEIGHT 500
 #define MAX_FONT_HEIGHT 512
 
 typedef struct Gfx_Font Gfx_Font;
