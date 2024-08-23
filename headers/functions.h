@@ -127,7 +127,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :ENTITY ------------------------>
 	Entity* entity_create() {
-		render_list.needs_sorting = true;
+		// render_list.needs_sorting = true;
 		// int entity_index = -1;
 
 		Entity* entity_found = 0;
@@ -182,7 +182,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 		// printf("DESTROYED ENTITY %s\n", entity->name);
 
-		render_list.needs_sorting = true;
+		// render_list.needs_sorting = true;
 		int index = entity - world->dimension->entities;
 
 		world->dimension->entity_count--;
@@ -198,7 +198,7 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	void entity_clear(Entity* entity) {
-		render_list.needs_sorting = true;
+		// render_list.needs_sorting = true;
 		// printf("Clearing entity '%s'\n", entity->name);
 		// world->entity_count--;
 		entity->is_valid = false;
@@ -810,6 +810,41 @@ DimensionData *get_dimensionData(DimensionID);
 			draw_text_xform(font, sprint(temp_allocator, STR("+1 %s"), pickup_texts[i].en.name), font_height, xform, v2(0.1, 0.1), color);
 		}
 	}
+
+
+	// Dimension change animation ----->
+	void update_dim_change_animation(float delta_time) {
+
+		animation.elapsed_time += delta_time;
+
+		// Interpolation factors
+		float t = animation.elapsed_time / animation.duration;
+		if (t >= 1.0f) {
+			animation.active = false;
+			return;
+		}
+
+		animate_v2_to_target(&animation.start_pos, animation.end_pos, delta_time, 1.0f); // 4th value controls how smooth the camera transition is to the player
+
+		// printf("Camera pos = %.2f, %.2f\n", animation.start_pos.x, animation.start_pos.y);
+
+		world_frame.world_view = m4_make_scale(v3(1.0, 1.0, 1.0)); // View zoom (zooms so pixel art is the correct size)
+		world_frame.world_view = m4_mul(world_frame.world_view, m4_make_translation(v3(animation.start_pos.x, animation.start_pos.y, 0)));
+		world_frame.world_view = m4_mul(world_frame.world_view, m4_make_scale(v3(view_zoom, view_zoom, 1.0)));
+
+	}
+
+
+	void trigger_dim_change_animation(Vector2 camera_pos){
+		// printf("TRIGGERED DIM CHANGE ANIMATION\n");
+		animation.active = true;
+		animation.duration = 1.0f;
+		animation.elapsed_time = 0.0f;
+		// animation.start_pos = v2(0, 0);
+		animation.start_pos = camera_pos;
+		animation.end_pos = camera_pos;
+		animation.end_pos.y -= 10;
+	}
 // 
 
 
@@ -1186,12 +1221,14 @@ DimensionData *get_dimensionData(DimensionID);
 		DimensionData* dimension = 0;
 		dimension = alloc(get_heap_allocator(), sizeof(DimensionData));
 		dimension->dimension_id = id;
+		dimension->ground_color = v4(1, 1, 1, 1);
 
 		switch (id){
 			case DIM_overworld:{
 				{
 					dimension->name = STR("Overworld (dim)");
 					dimension->portal_sprite_in = SPRITE_portal1;
+					dimension->ground_color = v4(67, 105, 58, 1);
 					// dimension->portal_sprite_out = SPRITE_portal0;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
 				}
@@ -1201,6 +1238,7 @@ DimensionData *get_dimensionData(DimensionID);
 				{
 					dimension->name = STR("Cavern (dim)");
 					dimension->portal_sprite_in = SPRITE_portal0;
+					dimension->ground_color = v4(30, 30, 30, 1);
 					// dimension->portal_sprite_out = SPRITE_portal1;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
 				}

@@ -1215,8 +1215,6 @@ void render_building_ui(UXState ux_state)
 }
 
 
-
-
 // ----- ::SPAWN BIOME -----------------------------------------------------------------------------|
 
 // #biome
@@ -1288,13 +1286,17 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	printf("Changing DIMENSION: %s -> %s\n", world->dimension->name, get_dimensionData(new_dim)->name);
 	// world->player->en->pos = dest_pos;
+	// printf("Changed window color form %.0f, %.0f, %.0f", window.clear_color.r, window.clear_color.g, window.clear_color.b);
+	window.clear_color = get_dimensionData(new_dim)->ground_color;
+	// printf("   to   %.0f, %.0f, %.0f\n", window.clear_color.r, window.clear_color.g, window.clear_color.b);
 	world->dimension_id = new_dim;
 	world->dimension = get_dimensionData(new_dim);
 	world->current_biome_id = world->dimension->biomes[0];
 	load_dimension_entities(world->dimension_id, dest_pos);
+	if (new_dim == DIM_cavern){
+		trigger_dim_change_animation(camera_pos);
+	}
 }
-
-
 
 
 // not in use
@@ -1414,11 +1416,9 @@ void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count
 // :Render entities || :Entity render
 void render_entities(World* world) {
 
-	// NOTE: its cheaper to use "world->entity_count" here instead of "MAX_ENTITY_COUNT". But if world->entity_count is used, the "first item spawned is invisible" bug happens
-	// NOTE: bugfix for this is to do "world->entity_count + 1". Don't know about the side effects of this fix tho
+	// NOTE: bugfix for (first item spawning is invisible) is to do "world->entity_count + 1". Don't know about the side effects of this fix tho
+	// UPDATE: might be already fixed (because entity counts should work now correctly)
 	int entity_count = world->dimension->entity_count + 1;
-
-	// printf("ENTITY COUNT FOR DIM '%s' IS %d\n", world->dimension->name, world->dimension->entity_count);
 
     // Create an array of indices
     int indices[entity_count];
@@ -1433,18 +1433,18 @@ void render_entities(World* world) {
 	// update_entity_render_order(&render_list, world->entities, render_list.count);
 
 
-	render_list.needs_sorting = true;
+	// render_list.needs_sorting = true;
 
 	if (world->current_biome_id == BIOME_cave){
 		int asd = 1;
 	}
 
-	if (render_list.needs_sorting){
+	// if (render_list.needs_sorting){
 		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
 		sort_entity_indices_by_prio_and_y(indices, &world->dimension->entities, entity_count);
 		// sort_entities_by_prio_and_y(&world->dimension->entities, entity_count);
-		render_list.needs_sorting = false;
-	}
+	// 	render_list.needs_sorting = false;
+	// }
 
    for (int i = 0; i < entity_count; i++)  {
 
@@ -1453,10 +1453,7 @@ void render_entities(World* world) {
 
 		if (en->is_valid) {
 
-			// float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
 			float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
-			// printf("rendering entity %s, from dimension = %s\n", en->name, world->dimension->name);
-			// printf("Entity pos = %.0f, %.0f\n", en->pos.x, en->pos.y);
 
 			switch (en->arch) {
 
@@ -1470,7 +1467,7 @@ void render_entities(World* world) {
 
 						xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));
 						// xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-						xform = m4_translate(xform, v3(get_player_pos().x, get_player_pos().y, 0));
+						xform = m4_translate(xform, v3(get_player_pos().x, get_player_pos().y, 0)); // NOTE: have to use get_player_pos() here because of shit coding. too lazy to rewrite stuff
 						xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
 
 						// draw shadow
@@ -1569,7 +1566,7 @@ void render_entities(World* world) {
 
 							}
 							else{
-								xform         = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
+								xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile if not item
 
 								if (en->enable_shadow){
 									Vector2 shadow_pos = en->pos;
@@ -1584,8 +1581,8 @@ void render_entities(World* world) {
 								// printf("BUILDING\n");
 							}
 
-							xform         = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-							xform         = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+							xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+							xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
 
 							Vector4 col = COLOR_WHITE;
 							if (world_frame.selected_entity == en){
@@ -1640,8 +1637,8 @@ int entry(int argc, char **argv)
 	window.y = window.height * 0.5;				// window.y = 200; // default value
 
 	// bg color
-	window.clear_color = hex_to_rgba(0x43693aff);
-	// window.clear_color = v4(1,1,1,1);
+	// window.clear_color = hex_to_rgba(0x43693aff);
+	window.clear_color = v4(1,1,1,1);
 
 	// window.enable_vsync = true;
 
@@ -1841,9 +1838,7 @@ int entry(int argc, char **argv)
 	s32 frame_count = 0;
 	float64 last_time = os_get_current_time_in_seconds();
 
-
-	float view_zoom = 0.1875; 			// view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
-	Vector2 camera_pos = v2(0, 0);
+	// Vector2 camera_pos = v2(0, 0);
 
 
 
@@ -1867,23 +1862,25 @@ int entry(int argc, char **argv)
 
 		// player
 		world->player->en = get_player_en_from_current_dim();
-		sync_player_pos_between_dims();
-
+		sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
 
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
 		world_frame.world_projection = m4_make_orthographic_projection(window.width * -0.5, window.width * 0.5, window.height * -0.5, window.height * 0.5, -1, 10);
 
 
-
 		// :camera
+		if (!animation.active)
 		{
 			Vector2 target_pos = world->player->en->pos;
-			animate_v2_to_target(&camera_pos, target_pos, delta_t, 10.0f); // 4th value controls how smooth the camera transition is to the player
+			animate_v2_to_target(&camera_pos, target_pos, delta_t, 10.0f); // 4th value controls how smooth the camera transition is to the player (lower = slower)
 
 			world_frame.world_view = m4_make_scale(v3(1.0, 1.0, 1.0)); // View zoom (zooms so pixel art is the correct size)
 			world_frame.world_view = m4_mul(world_frame.world_view, m4_make_translation(v3(camera_pos.x, camera_pos.y, 0)));
 			world_frame.world_view = m4_mul(world_frame.world_view, m4_make_scale(v3(view_zoom, view_zoom, 1.0)));
+		}
+		else {
+			update_dim_change_animation(delta_t);
 		}
 
 		set_world_space();
@@ -2388,7 +2385,7 @@ int entry(int argc, char **argv)
 			}
 		}
 
-		// :Player use
+		// :Player use 'F
 		{
 			if (is_key_just_pressed('F')){
 				consume_key_just_pressed('F');
@@ -2421,6 +2418,10 @@ int entry(int argc, char **argv)
 
 		// Render entities
 		render_entities(world);
+
+		update_pickup_text(delta_t);
+
+
 
 
 		// render keybinding
@@ -2494,6 +2495,7 @@ int entry(int argc, char **argv)
 
 		if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
 		if (is_key_just_pressed('G')) {create_portal_to(BIOME_cave, true);}
+		if (is_key_just_pressed('R')) {trigger_dim_change_animation(camera_pos);}
 
 		// #Biome
 		// if (is_key_just_pressed('N')) {change_biomes(world, BIOME_forest);}
@@ -2503,7 +2505,6 @@ int entry(int argc, char **argv)
 		// if (is_key_just_pressed('N')) {change_dimensions(DIM_overworld);}
 		// if (is_key_just_pressed('M')) {change_dimensions(DIM_cavern);}
 
-		if (is_key_just_pressed('B')) {render_list.needs_sorting = true;}
 		// if (is_key_just_pressed('Y')) {trigger_pickup_text();}
 
 

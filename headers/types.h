@@ -243,7 +243,6 @@
         Vector2 pos2;
     } PortalPair;
 
-
     // :BuildingData -------------------->
     typedef struct BuildingData { 
         EntityArchetype to_build;
@@ -324,7 +323,7 @@
         SpriteID portal_sprite_out;
         // int portal_count;
 
-        // color
+        Vector4 ground_color;
         // enemies
     } DimensionData;
 
@@ -355,8 +354,6 @@
         UXState ux_state;
 
     } Player;
-
-    
 
     // :World --------------------------->
     typedef struct World {
@@ -477,6 +474,21 @@
         int itemCount;
     } LootTable;
 
+
+
+    // not in use????
+        // :RenderList ---------------------->
+        // typedef struct RenderList {
+        //     int* indices;
+        //     int count;
+        //     bool needs_sorting;
+        // } RenderList;
+    // 
+// 
+
+// :ANIMATIONS --------------------------------------------------------------------------------------->
+
+    // :Pickup text animation ------------>
     typedef struct pickup_text_animation {
         Vector2 start_pos;
         Vector2 end_pos;
@@ -489,21 +501,18 @@
         Entity en;
     } pickup_text_animation;
 
-    // not in use????
-    // :RenderList ---------------------->
-    typedef struct RenderList {
-        int* indices;
-        int count;
-        bool needs_sorting;
-    } RenderList;
-
-
+    // :Dimension change animation ------->
+    typedef struct dim_change_animation {
+        Vector2 start_pos;
+        Vector2 end_pos;
+        Vector2 pos_increase;
+        float duration;
+        float elapsed_time;
+        bool active;
+    } dim_change_animation;
 
 
 // 
-
-
-
 
 // :GLOBALS ------------------------------------------------------------------------------------------>
 
@@ -521,10 +530,15 @@
     ItemData item_data[ITEM_MAX];
     BuildingData buildings[BUILDING_MAX];
     Texture textures[TEXTURE_MAX];
-    RenderList render_list;
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
+    dim_change_animation animation = {};
+
+    Vector2 camera_pos = {0, 0};
+	float view_zoom = 0.1875;   // view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
 
 
+
+    // RenderList render_list;
 
 // 
 
@@ -533,18 +547,17 @@
 
     // Yoinked Range.c stuff
     typedef struct Range1f {
-    float min;
-    float max;
+        float min;
+        float max;
     } Range1f;
 
     typedef struct Range2f {
-    Vector2 min;
-    Vector2 max;
+        Vector2 min;
+        Vector2 max;
     } Range2f;
 
     inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
 // 
 
-    // Player* player = NULL;
 
 #endif
