@@ -271,6 +271,22 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
+	bool check_player_inventory_for_items(ItemID item, int count){
+		// checks if the player has enough (count) of items (item) in their inventory
+		// returns "true" if player has the items
+		// returns "false" if player doesn't have the items
+
+		for (int i = 0; i < world->inventory_items_count; i++){
+			InventoryItemData* inventory_item = &world->inventory_items[i];
+			if (inventory_item->item_id == item){
+				if (inventory_item->amount >= count){
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 
 	// :BIOME ------------------------->
 	BiomeData get_biome_data_from_id(BiomeID id){
@@ -300,7 +316,7 @@ DimensionData *get_dimensionData(DimensionID);
 	void add_all_biomes_to_dimensions() {
 		// TODO: for loop here pls
 		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
-		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_pine_forest}, 1);
+		// add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_pine_forest}, 1);
 		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
 	}
 
@@ -590,6 +606,7 @@ DimensionData *get_dimensionData(DimensionID);
 		world->inventory_items[item].tool_id = tool_id;
 		world->inventory_items[item].valid = valid;
 		world->inventory_items[item].item_id = item;
+		world->inventory_items_count++;
 	}
 
 	void add_item_to_inventory_quick(InventoryItemData* item){
@@ -609,6 +626,7 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 		else{
 			world->inventory_items[item].amount	-= amount;
+			world->inventory_items_count--;
 		}
 		dealloc(temp_allocator, &item); // maybe should move this into the if above?
 	}
@@ -1169,7 +1187,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
-					biome->grass_color = v4(0.32, 0.97, 0.62, 1);
+					// biome->grass_color = v4(0.32, 0.97, 0.62, 1);
 					// biome->grass_color = v4(1, 0.97, 0.62, 1);
 					// biome->leaves_color	= v4(0, 1, 0, 1);
 					biome->ground_texture = TEXTURE_cave_floor;
@@ -1264,7 +1282,7 @@ DimensionData *get_dimensionData(DimensionID);
 				{
 					dimension->name = STR("Overworld (dim)");
 					dimension->portal_sprite_in = SPRITE_portal1;
-					dimension->ground_color = v4(67, 105, 58, 1);
+					// dimension->ground_color = v4(67, 105, 58, 1);
 					// dimension->portal_sprite_out = SPRITE_portal0;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
 				}
@@ -1274,7 +1292,7 @@ DimensionData *get_dimensionData(DimensionID);
 				{
 					dimension->name = STR("Cavern (dim)");
 					dimension->portal_sprite_in = SPRITE_portal0;
-					dimension->ground_color = v4(30, 30, 30, 1);
+					// dimension->ground_color = v4(30, 30, 30, 1);
 					// dimension->portal_sprite_out = SPRITE_portal1;
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
 				}
@@ -1308,11 +1326,15 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	void item_data_setup(){
-		item_data[ITEM_rock] = (ItemData) {.name=STR("Rock"), .sprite_id=SPRITE_item_rock, .crafting_recipe_count=2, .crafting_recipe={{ITEM_pine_wood, 2}}};
-		item_data[ITEM_pine_wood] = (ItemData) {.name=STR("Pine wood"), .sprite_id=SPRITE_item_pine_wood, .crafting_recipe_count=2, .crafting_recipe={{ITEM_rock, 2}}};
-		item_data[ITEM_TOOL_pickaxe] = (ItemData) {.name=STR("Pickaxe"), .sprite_id=SPRITE_tool_pickaxe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
-		item_data[ITEM_TOOL_axe] = (ItemData) {.name=STR("Axe"), .sprite_id=SPRITE_tool_axe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
-		item_data[ITEM_TOOL_shovel] = (ItemData) {.name=STR("Shovel"), .sprite_id=SPRITE_tool_shovel, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+		// item_data[ITEM_rock] = (ItemData) {.name=STR("Rock"), .sprite_id=SPRITE_item_rock, .crafting_recipe_count=2, .crafting_recipe={{ITEM_pine_wood, 2}}};
+		// item_data[ITEM_pine_wood] = (ItemData) {.name=STR("Pine wood"), .sprite_id=SPRITE_item_pine_wood, .crafting_recipe_count=2, .crafting_recipe={{ITEM_rock, 2}}};
+		// item_data[ITEM_TOOL_pickaxe] = (ItemData) {.name=STR("Pickaxe"), .sprite_id=SPRITE_tool_pickaxe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+		// item_data[ITEM_TOOL_axe] = (ItemData) {.name=STR("Axe"), .sprite_id=SPRITE_tool_axe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+		// item_data[ITEM_TOOL_shovel] = (ItemData) {.name=STR("Shovel"), .sprite_id=SPRITE_tool_shovel, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+		item_data[ITEM_ingot_iron] = (ItemData) {.name=STR("Iron ingot"), .sprite_id=SPRITE_INGOT_iron, .item_id=ITEM_ingot_iron, .crafting_recipe_count=1, .crafting_recipe={{ITEM_ORE_iron, 2}}};
+		item_data[ITEM_ingot_gold] = (ItemData) {.name=STR("Gold ingot"), .sprite_id=SPRITE_INGOT_gold, .item_id=ITEM_ingot_copper, .crafting_recipe_count=1, .crafting_recipe={{ITEM_ORE_gold, 3}}};
+		item_data[ITEM_ingot_copper] = (ItemData) {.name=STR("Copper ingot"), .sprite_id=SPRITE_INGOT_copper, .item_id=ITEM_ingot_copper, .crafting_recipe_count=1, .crafting_recipe={{ITEM_ORE_copper, 4}}};
+
 	}
 
 

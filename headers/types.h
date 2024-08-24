@@ -104,9 +104,9 @@
         SPRITE_ORE_copper,
 
         // Ingots
-        // SPRITE_INGOT_iron,
-        // SPRITE_INGOT_gold,
-        // SPRITE_INGOT_copper,
+        SPRITE_INGOT_iron,
+        SPRITE_INGOT_gold,
+        SPRITE_INGOT_copper,
 
         // Tools
         SPRITE_tool_pickaxe,
@@ -162,6 +162,11 @@
         ITEM_ORE_iron,
         ITEM_ORE_gold,
         ITEM_ORE_copper,
+
+        // ingots
+        ITEM_ingot_iron,
+        ITEM_ingot_gold,
+        ITEM_ingot_copper,
 
 
         // tools (test)
@@ -271,10 +276,11 @@
         string name;
         EntityArchetype for_structure;
         ItemAmount crafting_recipe[MAX_RECIPE_ITEMS];
-        int crafting_recipe_count;
+        int crafting_recipe_count; // how many types of items in recipe ?????
         ItemID output;
         ItemID input[8];
         SpriteID sprite_id;
+        ItemID item_id;
     } ItemData;
 
     // :Entity -------------------------->
@@ -379,6 +385,7 @@
         DimensionID dimension_id; // current dimension id
         DimensionData *dimension; // current dimension data
         InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
+        int inventory_items_count;
         UXState ux_state;
         
         // ui stuff

@@ -1032,8 +1032,55 @@ void render_ui()
 
 
 
-	ItemData* selected_recipe = NULL;
-	Matrix4 selected_recipe_xfrom;
+
+bool smelt_button(string label, Vector2 pos, Vector2 size, bool enabled) {
+
+	Vector4 color = v4(.25, .25, .25, 1);
+	
+	float L = pos.x;
+	float R = L + size.x;
+	float B = pos.y;
+	float T = B + size.y;
+	
+	float mx = input_frame.mouse_x - window.width/2;
+	float my = input_frame.mouse_y - window.height/2;
+
+	bool pressed = false;
+
+	if (mx >= L && mx < R && my >= B && my < T) {
+		color = v4(.15, .15, .15, 1);
+		if (is_key_down(MOUSE_BUTTON_LEFT)) {
+			color = v4(.05, .05, .05, 1);
+		}
+		
+		pressed = is_key_just_released(MOUSE_BUTTON_LEFT);
+	}
+	
+	if (enabled) {
+		color = v4_add(color, v4(.1, .1, .1, 0));
+	}
+
+	draw_rect(pos, size, color);
+	
+	Gfx_Text_Metrics m = measure_text(font, label, font_height, v2(0.1, 0.1));
+	
+	Vector2 bottom_left = v2_sub(pos, m.functional_pos_min);
+	bottom_left.x += size.x/2;
+	bottom_left.x -= m.functional_size.x/2;
+	
+	bottom_left.y += size.y/2;
+	bottom_left.y -= m.functional_size.y/2;
+	
+	draw_text(font, label, font_height, bottom_left, v2(0.1, 0.1), COLOR_WHITE);
+	
+	return pressed;
+}
+
+
+
+ItemData* selected_recipe = NULL;
+Matrix4 selected_recipe_xfrom;
+bool is_recipe_selected = false;
 
 
 
@@ -1133,12 +1180,13 @@ void render_building_ui(UXState ux_state)
 
 	// :RENDER FURNACE UI
 	else if (ux_state == UX_furnace){
+
 		// printf("RENDERING FURNACE UI\n");
 
 		// furnace ui size variables
-		const int max_icons_row = 9;
+		const int max_icons_row = 6;
 		const int max_icons_col = 4;
-		const int icon_size = 8;
+		const int icon_size = 16;
 		const int padding = 2;
 		const int padding_bg_vert = 15;
 		// int slot_index = 0;
@@ -1149,6 +1197,7 @@ void render_building_ui(UXState ux_state)
 		
 
 		// const Vector2 furnace_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
+		// const Vector2 furnace_ui_size = v2((max_icons_row * icon_size) + (max_icons_row * padding) + padding, (max_icons_col * icon_size) + (max_icons_col * padding) + padding + padding_bg_vert);
 		const Vector2 furnace_ui_size = v2((max_icons_row * icon_size) + (max_icons_row * padding) + padding, (max_icons_col * icon_size) + (max_icons_col * padding) + padding + padding_bg_vert);
 		Vector2 furnace_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
 		furnace_ui_pos = v2(furnace_ui_pos.x - (furnace_ui_size.x * 0.5), furnace_ui_pos.y - (furnace_ui_size.y * 0.5));
@@ -1156,8 +1205,8 @@ void render_building_ui(UXState ux_state)
 		const float x_start_pos = furnace_ui_pos.x;
 		const float y_start_pos = furnace_ui_pos.y;
 
-		Gfx_Text_Metrics recipe_title;
-		Gfx_Text_Metrics furnace_title;
+		// Gfx_Text_Metrics recipe_title;
+		// Gfx_Text_Metrics furnace_title;
 
 		// recipe info panel variables
 		const Vector2 recipe_panel_size = v2(40, furnace_ui_size.y - 5);
@@ -1176,18 +1225,17 @@ void render_building_ui(UXState ux_state)
 		bool is_furnace_enabled = world->furnace_alpha_target == 1.0;
 
 
+		// FURNACE PANEL
 		if (world->furnace_alpha_target != 0.0)
 		{
 			Matrix4 xform_bg = m4_identity;
 
 			xform_bg = m4_translate(xform_bg, v3(furnace_ui_pos.x, furnace_ui_pos.y, 0));
-
-
 			// draw backgrounds
 			draw_rect_xform(xform_bg, v2(furnace_ui_size.x, furnace_ui_size.y), furnace_bg);
 
-			// center titles
-			furnace_title = measure_text(font, STR("Furnace"), font_height, v2(0.1, 0.1));
+			// center furnace title
+			Gfx_Text_Metrics furnace_title = measure_text(font, STR("Furnace"), font_height, v2(0.1, 0.1));
 			Vector2 justified1 = v2_sub(justified1, v2_divf(furnace_title.functional_size, 2));
 			xform_bg = m4_translate(xform_bg, v3(furnace_ui_size.x * 0.5, furnace_ui_size.y, 0));		// center text box
 			xform_bg = m4_translate(xform_bg, v3(justified1.x, justified1.y, 0));						// center text
@@ -1220,32 +1268,26 @@ void render_building_ui(UXState ux_state)
 
 					Sprite* sprite = get_sprite(item->sprite_id);
 					
-					icon_pos = v2(icon_start_pos.x + (row_index * (icon_size + padding)), icon_start_pos.y - (col_index * (icon_size + padding)));
+					icon_pos = v2(icon_start_pos.x + (row_index * (icon_size + padding)), icon_start_pos.y - (col_index * (icon_size + padding)) - 5);
 					
 					xform_icon = m4_translate(xform_icon, v3(icon_pos.x, icon_pos.y, 0));
 
 					// draw_image_xform(sprite->image, xform_icon, get_sprite_size(sprite), COLOR_WHITE);
 					Draw_Quad* quad = draw_image_xform(sprite->image, xform_icon, v2(icon_size, icon_size), COLOR_WHITE);
 
-					// selecting icon
+					// collision checking for icon
 					Range2f icon_box = quad_to_range(*quad);
 					if (is_furnace_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
-						// printf("ASD\n");
 
-
+						// selecting icon
 						if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 							consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 
 							selected_recipe = item;
 							selected_recipe_xfrom = xform_icon;
+							is_recipe_selected = true;
 
-							printf("selected item = %s\n",selected_recipe->name);
-
-							
-
-
-
-
+							// printf("selected item = %s\n", selected_recipe->name);
 						}
 					}
 					row_index++;
@@ -1256,8 +1298,7 @@ void render_building_ui(UXState ux_state)
 			if (selected_recipe){
 
 				// draw indicator on selected recipe
-				draw_rect_xform(selected_recipe_xfrom, v2(icon_size, 1), COLOR_WHITE);
-
+				draw_rect_xform(m4_translate(selected_recipe_xfrom, v3(0,-1,0)), v2(icon_size, 1), COLOR_WHITE);
 
 				// draw recipe panel
 				Matrix4 xform_recipe_panel = m4_identity;
@@ -1268,15 +1309,20 @@ void render_building_ui(UXState ux_state)
 				// center title
 				Gfx_Text_Metrics recipe_title = measure_text(font, STR("Recipe"), font_height, v2(0.1, 0.1));
 				Vector2 justified2 = v2_sub(justified2, v2_divf(recipe_title.functional_size, 2));
-				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(recipe_panel_size.x * 0.5, recipe_panel_size.y, 0));	// center text box
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(recipe_panel_size.x * 0.5, recipe_panel_size.y * 0.75 , 0));	// center text box
 				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(justified2.x, justified2.y, 0));						// center text
 				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(0, -5, 0));											// bring down a bit
-
+				// draw_rect_xform(xform_recipe_panel, justified2, COLOR_WHITE);
 				draw_text_xform(font, STR("Recipe"), font_height, xform_recipe_panel, v2(0.1, 0.1), COLOR_WHITE);
 
-				Vector2 panel_icon_start_pos = v2(recipe_panel_pos.x + padding, recipe_panel_pos.y + recipe_panel_size.y - icon_size - padding - recipe_title.visual_size.y);
+				Vector2 panel_icon_start_pos = v2(recipe_panel_pos.x + padding, recipe_panel_pos.y + (recipe_panel_size.y * 0.5) - icon_size - padding - recipe_title.visual_size.y);
 
-
+				// draw recipe icon
+				Matrix4 xform_recipe_icon = m4_identity;
+				Sprite* recipe_icon_sprite = get_sprite(selected_recipe->sprite_id);
+				Vector2 recipe_icon_sprite_size = get_sprite_size(recipe_icon_sprite);
+				xform_recipe_icon = m4_translate(xform_recipe_icon, v3(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) - (recipe_icon_sprite_size.x * 0.5), recipe_panel_pos.y + recipe_panel_size.y - recipe_icon_sprite_size.y - 5, 0));
+				draw_image_xform(get_sprite(selected_recipe->sprite_id)->image, xform_recipe_icon, recipe_icon_sprite_size, COLOR_WHITE);
 
 				const int MAX_ICONS_PER_ROW_panel = 5;
 				int recipe_icon_index = 0;
@@ -1284,7 +1330,7 @@ void render_building_ui(UXState ux_state)
 				int recipe_col_index = 0;
 				Vector2 pos;
 
-				// draw recipe icons
+				// draw recipe materials
 				for (int i = 0; i < MAX_RECIPE_ITEMS; i++){
 					ItemAmount* recipe_item = &selected_recipe->crafting_recipe[i];
 
@@ -1302,32 +1348,73 @@ void render_building_ui(UXState ux_state)
 						// icon_pos = v2(icon_panel_icon_start_pos.x + (row_index * (icon_size + padding)), icon_panel_icon_start_pos.y - (col_index * (icon_size + padding)));
 						// xform_icon = m4_translate(xform_icon, v3(icon_pos.x, icon_pos.y, 0));
 
-						pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y - (recipe_col_index * (icon_size + padding)));
+						// pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y - (recipe_col_index * (icon_size + padding)));
+						pos = v2(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) + (recipe_icon_index * (icon_size + padding)) - (icon_size * 0.5), panel_icon_start_pos.y - (recipe_col_index * (icon_size + padding)));
 
 						// pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y);
 
 						xform = m4_translate(xform, v3(pos.x, pos.y, 0));
 						
 						draw_image_xform(sprite->image, xform, v2(icon_size, icon_size), COLOR_WHITE);
+						draw_text_xform(font, sprint(temp_allocator, STR("%dx"), recipe_item->amount), font_height, m4_translate(xform, v3(-8, + (icon_size * 0.5), 0)), v2(0.1, 0.1), COLOR_WHITE);
 
 						recipe_icon_index++;
 					}
 
 				}
 
+				// SMELT BUTTON
+				// smelt_button(STR("Smelt"), v2(recipe_panel_pos.x, recipe_panel_pos.y), v2(recipe_panel_size.x, 10), true);
+
+				// if (smelt_button){
+				// 	printf("PRESSED_BUTTON\n");
+				// }
+				// if (button(STR("Song"), rect.xy, rect.zw, song_playing)) {
+
+				Matrix4 smelt_xform = m4_identity;
+				smelt_xform = m4_translate(smelt_xform, v3(recipe_panel_pos.x, recipe_panel_pos.y, 0));
+				Draw_Quad* quad = draw_rect_xform(smelt_xform, v2(recipe_panel_size.x, 10), v4(0.5, 0.5, 0.5, 0.5));
+				Gfx_Text_Metrics smelt_text = measure_text(font, STR("Smelt"), font_height, v2(0.1, 0.1));
+				Vector2 justified3 = v2_sub(justified3, v2_divf(smelt_text.functional_size, 2));
+				smelt_xform = m4_translate(smelt_xform, v3(recipe_panel_size.x * 0.5, 4, 0));	// center text box
+				smelt_xform = m4_translate(smelt_xform, v3(justified3.x, justified3.y, 0));						// center text
+				// smelt_xform = m4_translate(smelt_xform, v3(0, -5, 0));											// bring down a bit
+				draw_text_xform(font, STR("Smelt"), font_height, smelt_xform, v2(0.1, 0.1), COLOR_WHITE);
+
+				// selecting smelt button
+				if (range2f_contains(quad_to_range(*quad), get_mouse_pos_in_ndc())) {
+					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+						printf("SMELT\n");
+						for (int i = 0; i < selected_recipe->crafting_recipe_count; i++){
+							ItemAmount* recipe_item = &selected_recipe->crafting_recipe[i];
+							printf("searching for itemID '%d'\n", recipe_item->id);
+							bool result = check_player_inventory_for_items(recipe_item->id, recipe_item->amount);
+							printf("RESULT = %d\n", result);
+						}
+					}
+				}
+
+
+	
+	
 			}
 
-
-
-
-
-
-
-
-
-
-
 			
+
+
+
+
+
+
+
+
+			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+				selected_recipe = NULL;
+				selected_recipe_xfrom = m4_identity;
+				is_recipe_selected = false;
+			}
 
 		}
 	}
@@ -1410,15 +1497,17 @@ void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	printf("Changing DIMENSION: %s -> %s\n", world->dimension->name, get_dimensionData(new_dim)->name);
 	// world->player->en->pos = dest_pos;
 	// printf("Changed window color form %.0f, %.0f, %.0f", window.clear_color.r, window.clear_color.g, window.clear_color.b);
-	window.clear_color = get_dimensionData(new_dim)->ground_color;
 	// printf("   to   %.0f, %.0f, %.0f\n", window.clear_color.r, window.clear_color.g, window.clear_color.b);
+	
 	world->dimension_id = new_dim;
 	world->dimension = get_dimensionData(new_dim);
 	world->current_biome_id = world->dimension->biomes[0];
 	load_dimension_entities(world->dimension_id, dest_pos);
-	if (new_dim == DIM_cavern){
-		trigger_dim_change_animation(camera_pos);
-	}
+	// window.clear_color = get_dimensionData(new_dim)->ground_color;
+
+	// if (new_dim == DIM_cavern){
+	// 	trigger_dim_change_animation(camera_pos);
+	// }
 }
 
 
@@ -1787,6 +1876,8 @@ int entry(int argc, char **argv)
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
 
+	world->inventory_items_count = 0;
+
 	// :Init Render List 	#renderlist || #render list || #render_list
 	// render_list.indices = (int*)alloc(get_heap_allocator(), MAX_ENTITY_COUNT * sizeof(int));
 	// render_list.count = 0;
@@ -1832,6 +1923,9 @@ int entry(int argc, char **argv)
 	sprites[SPRITE_item_fossil0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil0.png"), get_heap_allocator())};
 	sprites[SPRITE_item_fossil1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil1.png"), get_heap_allocator())};
 	sprites[SPRITE_item_fossil2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil2.png"), get_heap_allocator())};
+	sprites[SPRITE_INGOT_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_iron.png"), get_heap_allocator())};
+	sprites[SPRITE_INGOT_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_gold.png"), get_heap_allocator())};
+	sprites[SPRITE_INGOT_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_copper.png"), get_heap_allocator())};
 
 	// :Load tool sprites
 	sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
@@ -1920,6 +2014,7 @@ int entry(int argc, char **argv)
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
 			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
 			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_tool_shovel, TOOL_shovel, true);
+			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 5, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 
@@ -1966,6 +2061,7 @@ int entry(int argc, char **argv)
 	setup_all_biomes();
 
 	world->current_biome_id = BIOME_forest;
+	
 
 	// spawning
 	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
@@ -2049,42 +2145,45 @@ int entry(int argc, char **argv)
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
 			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
 
-			float smallest_dist = 9999999;
+			if (world->ux_state == UX_nil){
 
-			for (int i = 0; i < MAX_ENTITY_COUNT; i++){		// NOTE: actually faster to use MAX_ENTITY_COUNT here
-				Entity* en = &world->dimension->entities[i];
+				float smallest_dist = 9999999;
 
-				if (IS_DEBUG){
-					// world_frame.selected_entity = en;
-					if (en->is_valid){
-						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-						if (dist < world->player->entity_selection_radius){
-							if (!world_frame.selected_entity || (dist < smallest_dist)){
-								if (en->arch == ARCH_item){
-									printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
-								}
-								else if (en->arch == ARCH_portal){
-									printf("selected portal = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+				for (int i = 0; i < MAX_ENTITY_COUNT; i++){		// NOTE: actually faster to use MAX_ENTITY_COUNT here
+					Entity* en = &world->dimension->entities[i];
+
+					if (IS_DEBUG){
+						// world_frame.selected_entity = en;
+						if (en->is_valid){
+							float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+							if (dist < world->player->entity_selection_radius){
+								if (!world_frame.selected_entity || (dist < smallest_dist)){
+									if (en->arch == ARCH_item){
+										printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+									}
+									else if (en->arch == ARCH_portal){
+										printf("selected portal = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+									}
 								}
 							}
 						}
 					}
-				}
 
-				else if (en->is_valid && en->destroyable && en->arch != ARCH_portal){
-					// Sprite* sprite = get_sprite(en->sprite_id);
+					else if (en->is_valid && en->destroyable && en->arch != ARCH_portal){
+						// Sprite* sprite = get_sprite(en->sprite_id);
 
-					// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
-					// int entity_tile_y = world_pos_to_tile_pos(en->pos.y);
+						// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
+						// int entity_tile_y = world_pos_to_tile_pos(en->pos.y);
 
-					float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
 
-					// :select entity
-					if (dist < world->player->entity_selection_radius) {
-						if (!world_frame.selected_entity || (dist < smallest_dist)) {
-							// this is selected entity by mouse. RENAME
-							world_frame.selected_entity = en;
-							// smallest_dist = dist; // imo entity selection works better with this line commented
+						// :select entity
+						if (dist < world->player->entity_selection_radius) {
+							if (!world_frame.selected_entity || (dist < smallest_dist)) {
+								// this is selected entity by mouse. RENAME
+								world_frame.selected_entity = en;
+								// smallest_dist = dist; // imo entity selection works better with this line commented
+							}
 						}
 					}
 				}
@@ -2604,14 +2703,14 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed(KEY_CTRL)){
 			if (!runtime_debug){runtime_debug = true;}
 			else{runtime_debug = false;}
-			update_biome();
+			// update_biome();
 			// player->en->pos.x -= 10; 
 			// world_frame.player->pos.x -= 10;
 			// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
 		}
 
 		// #Biome
-		// printf("%s\n",get_biome_data_from_id(world->dimension.biome_id).name);
+		// printf("%s\n",get_biome_data_from_id(world->current_biome_id).name);
 
 		// #dimension
 		// printf("Current Dimension = %s\n", world->dimension->name);
