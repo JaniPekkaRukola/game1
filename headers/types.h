@@ -6,6 +6,7 @@
     #define MAX_PORTAL_COUNT 10
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
+    #define MAX_RECIPE_ITEMS 8
 
     // int portal_pair_count = 0;
     const int tile_width = 8;
@@ -50,6 +51,7 @@
 
         // Above ground biomes
         BIOME_forest,
+        BIOME_pine_forest,
 
         // Underground biomes
         BIOME_cave,
@@ -215,6 +217,7 @@
         // buildings
         UX_chest,
         UX_furnace,
+        UX_workbench,
 
 
 
@@ -257,15 +260,32 @@
         // etc
     } BuildingData;
 
+    // ItemAmount
+    typedef struct ItemAmount{
+        ItemID id;
+        int amount;
+    } ItemAmount;
+
+    // :ItemData ------------------------>
+    typedef struct ItemData {
+        string name;
+        EntityArchetype for_structure;
+        ItemAmount crafting_recipe[MAX_RECIPE_ITEMS];
+        int crafting_recipe_count;
+        ItemID output;
+        ItemID input[8];
+        SpriteID sprite_id;
+    } ItemData;
+
     // :Entity -------------------------->
     typedef struct Entity {
         // main
         EntityArchetype arch;
         string name;
-        int health;
         Vector2 pos;
+        int health;
 
-        // ids
+        // id
         SpriteID sprite_id;
         ItemID item_id;
         BuildingID building_id;
@@ -273,20 +293,25 @@
         OreID ore_id;
         BiomeID biome_ids[BIOME_MAX];	// all biomes where the entity can spawn
 
+        // data
+        PortalData portal_data;
+        BuildingData building_data;
+        ItemData item_data;
+
         // booleans
-        bool is_valid;
-        // bool render_sprite;
         bool destroyable;
+        bool is_valid;
         bool is_item;
         bool is_ore;
+        bool is_crafting_station;
+        bool is_selectable_by_mouse;
         bool enable_shadow;
+        // bool render_sprite;
 
         // other
-        PortalData portal_data;
         int biome_count;				// how many biomes the entity is in
         int rendering_prio;
         Vector4 pickup_text_col;
-        BuildingData building_data;
 
     } Entity;
 
@@ -327,15 +352,6 @@
         // enemies
     } DimensionData;
 
-    // :ItemData ------------------------>
-    typedef struct ItemData {
-        string pretty_name;
-        // recipe
-        EntityArchetype for_structure;
-        ItemID output;
-        ItemID input[8];
-    } ItemData;
-
     // :Player -------------------------->
     typedef struct Player {
         Entity* en; // player position inside en
@@ -349,7 +365,7 @@
         float health;
         float item_pickup_radius;
         float entity_selection_radius;
-        ItemData *selected_item;
+        // ItemData *selected_item;
         Entity *selected_entity;
         UXState ux_state;
 
@@ -376,6 +392,7 @@
         float furnace_alpha_target;
 
         BuildingID placing_building; // bad name
+        Entity* open_crafting_station;
 
         Entity portals[MAX_PORTAL_COUNT];
         int portal_count;

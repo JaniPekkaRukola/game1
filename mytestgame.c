@@ -790,7 +790,7 @@ void render_ui()
 	}
 
 
-	// :Building UI || :Render Building UI
+	// :Building MENU UI || :Render Building UI
 	{
 		// open building menu
 		if (is_key_just_pressed('C')) {
@@ -1027,6 +1027,18 @@ void render_ui()
 	pop_z_layer();
 }
 
+
+
+
+
+
+	ItemData* selected_recipe = NULL;
+	Matrix4 selected_recipe_xfrom;
+
+
+
+
+
 // :Chest UI || :Render Chest UI
 void render_building_ui(UXState ux_state)
 {
@@ -1045,8 +1057,13 @@ void render_building_ui(UXState ux_state)
 	set_screen_space();
 	push_z_layer(layer_ui);
 
-	// RENDER CHEST UI
-	if (ux_state == UX_chest){
+	// :RENDER WORKBENCH UI
+	if (ux_state == UX_workbench){
+		printf("rendering workbench ui\n");
+	}
+
+	// :RENDER CHEST UI
+	else if (ux_state == UX_chest){
 
 		// printf("RENDERING CHEST UI\n");
 
@@ -1113,26 +1130,41 @@ void render_building_ui(UXState ux_state)
 		}
 	}
 
-	// RENDER FURNACE UI
+
+	// :RENDER FURNACE UI
 	else if (ux_state == UX_furnace){
-		printf("RENDERING FURNACE UI\n");
+		// printf("RENDERING FURNACE UI\n");
 
-		// furnace size variables
-		const int max_slots_row = 9;
-		const int max_slots_col = 4;
-		const int slot_size = 8;
+		// furnace ui size variables
+		const int max_icons_row = 9;
+		const int max_icons_col = 4;
+		const int icon_size = 8;
 		const int padding = 2;
-		const int slot_offset_from_center = 20;
-		float slot_border_width = 1;
-		int slot_index = 0;
+		const int padding_bg_vert = 15;
+		// int slot_index = 0;
 		int row_index = 0;
+		int col_index = 0;
+		Vector2 icon_pos;
+		const int MAX_ICONS_PER_ROW = 3;
+		
 
-		const Vector2 furnace_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
+		// const Vector2 furnace_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
+		const Vector2 furnace_ui_size = v2((max_icons_row * icon_size) + (max_icons_row * padding) + padding, (max_icons_col * icon_size) + (max_icons_col * padding) + padding + padding_bg_vert);
 		Vector2 furnace_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
 		furnace_ui_pos = v2(furnace_ui_pos.x - (furnace_ui_size.x * 0.5), furnace_ui_pos.y - (furnace_ui_size.y * 0.5));
 
 		const float x_start_pos = furnace_ui_pos.x;
 		const float y_start_pos = furnace_ui_pos.y;
+
+		Gfx_Text_Metrics recipe_title;
+		Gfx_Text_Metrics furnace_title;
+
+		// recipe info panel variables
+		const Vector2 recipe_panel_size = v2(40, furnace_ui_size.y - 5);
+		Vector2 recipe_panel_pos = v2(furnace_ui_pos.x + furnace_ui_size.x + padding, furnace_ui_pos.y + (5 * 0.5));
+
+		
+
 
 		// Colors
 		Vector4 furnace_bg = v4(0.15, 0.15, 0.15, 0.8);
@@ -1146,29 +1178,144 @@ void render_building_ui(UXState ux_state)
 
 		if (world->furnace_alpha_target != 0.0)
 		{
-			Matrix4 xform_input_slot = m4_identity;
-			Matrix4 xform_output_slot = m4_identity;
-			Matrix4 xform_fuel_slot = m4_identity;
 			Matrix4 xform_bg = m4_identity;
 
-			xform_input_slot = m4_translate(xform_input_slot, v3(furnace_ui_pos.x + (furnace_ui_size.x * 0.5)- (slot_size * 0.5) - slot_offset_from_center, 	furnace_ui_pos.y + (furnace_ui_size.y * 0.5) - (slot_size * 0.5) + (padding * 5), 0));
-			xform_output_slot = m4_translate(xform_output_slot, v3(furnace_ui_pos.x + (furnace_ui_size.x * 0.5)- (slot_size * 0.5) + slot_offset_from_center, 	furnace_ui_pos.y + (furnace_ui_size.y * 0.5) - (slot_size * 0.5), 0));
-			xform_fuel_slot = m4_translate(xform_fuel_slot, v3(furnace_ui_pos.x + (furnace_ui_size.x * 0.5)- (slot_size * 0.5) - slot_offset_from_center, 		furnace_ui_pos.y + (furnace_ui_size.y * 0.5) - (slot_size * 0.5) - (padding * 5), 0));
 			xform_bg = m4_translate(xform_bg, v3(furnace_ui_pos.x, furnace_ui_pos.y, 0));
 
 
-			// draw background
+			// draw backgrounds
 			draw_rect_xform(xform_bg, v2(furnace_ui_size.x, furnace_ui_size.y), furnace_bg);
 
+			// center titles
+			furnace_title = measure_text(font, STR("Furnace"), font_height, v2(0.1, 0.1));
+			Vector2 justified1 = v2_sub(justified1, v2_divf(furnace_title.functional_size, 2));
+			xform_bg = m4_translate(xform_bg, v3(furnace_ui_size.x * 0.5, furnace_ui_size.y, 0));		// center text box
+			xform_bg = m4_translate(xform_bg, v3(justified1.x, justified1.y, 0));						// center text
+			xform_bg = m4_translate(xform_bg, v3(0, -5, 0));											// bring down a bit
+
+			// draw title
+			draw_text_xform(font, STR("Furnace"), font_height, xform_bg, v2(0.1, 0.1), COLOR_WHITE);
+
+			// draw icons
+			Matrix4 xform_icon = m4_identity;
+
+			Vector2 icon_start_pos = v2(furnace_ui_pos.x + padding, furnace_ui_pos.y + furnace_ui_size.y - icon_size - padding - furnace_title.visual_size.y);
+
+
+			// xform_icon = m4_translate(xform_icon, v3(furnace_ui_size.x * 0.5, furnace_ui_size.y * 0.5, 0));
+
+			// draw icons
+			for (int i = 0; i < ITEM_MAX; i++){
+				ItemData* item = &item_data[i];
+
+				if (item->crafting_recipe_count != 0){
+
+					if (row_index >= MAX_ICONS_PER_ROW){
+						row_index = 0;
+						col_index++;
+					}
+
+					// printf("ITEM NAME = %s\n", item->name);
+					xform_icon = m4_identity;
+
+					Sprite* sprite = get_sprite(item->sprite_id);
+					
+					icon_pos = v2(icon_start_pos.x + (row_index * (icon_size + padding)), icon_start_pos.y - (col_index * (icon_size + padding)));
+					
+					xform_icon = m4_translate(xform_icon, v3(icon_pos.x, icon_pos.y, 0));
+
+					// draw_image_xform(sprite->image, xform_icon, get_sprite_size(sprite), COLOR_WHITE);
+					Draw_Quad* quad = draw_image_xform(sprite->image, xform_icon, v2(icon_size, icon_size), COLOR_WHITE);
+
+					// selecting icon
+					Range2f icon_box = quad_to_range(*quad);
+					if (is_furnace_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
+						// printf("ASD\n");
+
+
+						if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+							consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+							selected_recipe = item;
+							selected_recipe_xfrom = xform_icon;
+
+							printf("selected item = %s\n",selected_recipe->name);
+
+							
 
 
 
-			// // quad for checking if mouse is ontop item
-			// Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
-			// Range2f icon_box = quad_to_range(*quad);
-			// if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
-			// 	is_selected_alpha = true;
-			// }
+
+						}
+					}
+					row_index++;
+				}
+			}
+
+			// :RECIPE PANEL || recipe selected || draw recipe panel
+			if (selected_recipe){
+
+				// draw indicator on selected recipe
+				draw_rect_xform(selected_recipe_xfrom, v2(icon_size, 1), COLOR_WHITE);
+
+
+				// draw recipe panel
+				Matrix4 xform_recipe_panel = m4_identity;
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(recipe_panel_pos.x, recipe_panel_pos.y, 0));
+				draw_rect_xform(xform_recipe_panel, v2(recipe_panel_size.x, recipe_panel_size.y), furnace_bg);
+
+
+				// center title
+				Gfx_Text_Metrics recipe_title = measure_text(font, STR("Recipe"), font_height, v2(0.1, 0.1));
+				Vector2 justified2 = v2_sub(justified2, v2_divf(recipe_title.functional_size, 2));
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(recipe_panel_size.x * 0.5, recipe_panel_size.y, 0));	// center text box
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(justified2.x, justified2.y, 0));						// center text
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(0, -5, 0));											// bring down a bit
+
+				draw_text_xform(font, STR("Recipe"), font_height, xform_recipe_panel, v2(0.1, 0.1), COLOR_WHITE);
+
+				Vector2 panel_icon_start_pos = v2(recipe_panel_pos.x + padding, recipe_panel_pos.y + recipe_panel_size.y - icon_size - padding - recipe_title.visual_size.y);
+
+
+
+				const int MAX_ICONS_PER_ROW_panel = 5;
+				int recipe_icon_index = 0;
+				int recipe_row_index = 0;
+				int recipe_col_index = 0;
+				Vector2 pos;
+
+				// draw recipe icons
+				for (int i = 0; i < MAX_RECIPE_ITEMS; i++){
+					ItemAmount* recipe_item = &selected_recipe->crafting_recipe[i];
+
+					// draw recipe icon
+					if (recipe_item->amount != 0){
+
+						if (recipe_icon_index >= MAX_ICONS_PER_ROW_panel){
+							recipe_icon_index = 0;
+							recipe_col_index++;
+						}
+
+						Matrix4 xform = m4_identity;
+						Sprite* sprite = get_sprite(get_sprite_from_itemID(recipe_item->id));
+
+						// icon_pos = v2(icon_panel_icon_start_pos.x + (row_index * (icon_size + padding)), icon_panel_icon_start_pos.y - (col_index * (icon_size + padding)));
+						// xform_icon = m4_translate(xform_icon, v3(icon_pos.x, icon_pos.y, 0));
+
+						pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y - (recipe_col_index * (icon_size + padding)));
+
+						// pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y);
+
+						xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+						
+						draw_image_xform(sprite->image, xform, v2(icon_size, icon_size), COLOR_WHITE);
+
+						recipe_icon_index++;
+					}
+
+				}
+
+			}
 
 
 
@@ -1179,33 +1326,10 @@ void render_building_ui(UXState ux_state)
 
 
 
-
-			// draw slot border and then draw input slot
-			draw_rect_xform(xform_input_slot, v2(slot_size, slot_size), slot_border_color);
-			draw_rect_xform(m4_translate(xform_input_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
-
-			// draw output slot
-			draw_rect_xform(xform_output_slot, v2(slot_size, slot_size), slot_border_color);
-			draw_rect_xform(m4_translate(xform_output_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
-
-
-			// draw fuel slot
-			draw_rect_xform(xform_fuel_slot, v2(slot_size, slot_size), slot_border_color);
-			draw_rect_xform(m4_translate(xform_fuel_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0)), v2(slot_size - slot_border_width, slot_size - slot_border_width), furnace_bg);
-
-
-			// draw text above slots
-			draw_text_xform(font, STR("INPUT"), 	font_height, m4_translate(xform_input_slot, 	v3(1, slot_size + padding, 0)), v2(0.05, 0.05), COLOR_WHITE);
-			draw_text_xform(font, STR("FUEL"), 		font_height, m4_translate(xform_fuel_slot, 		v3(1, slot_size + padding, 0)), v2(0.05, 0.05), COLOR_WHITE);
-			draw_text_xform(font, STR("OUTPUT"), 	font_height, m4_translate(xform_output_slot, 	v3(0, slot_size + padding, 0)), v2(0.05, 0.05), COLOR_WHITE);
 
 			
 
 		}
-
-
-
-
 	}
 
 
@@ -1215,9 +1339,8 @@ void render_building_ui(UXState ux_state)
 }
 
 
-// ----- ::SPAWN BIOME -----------------------------------------------------------------------------|
 
-// #biome
+// :SPAWN BIOME
 void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->spawn_pine_tree_weight, biome->size.x); }
 	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spawn_spruce_tree_weight, biome->size.x); }
@@ -1241,7 +1364,7 @@ void spawn_biome(BiomeData* biome) {
 	}
 }
 
-
+// :load dimension entities
 void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 	
 	BiomeID biome_id = world->dimension->biomes[0];
@@ -1282,7 +1405,7 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 	world->dimension->entities[world->dimension->entity_count] = *get_player();
 	world->dimension->entity_count++;
 }
-
+// :change dimension
 void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	printf("Changing DIMENSION: %s -> %s\n", world->dimension->name, get_dimensionData(new_dim)->name);
 	// world->player->en->pos = dest_pos;
@@ -1337,7 +1460,7 @@ void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	// }
 // 
 
-
+// :sort entities
 void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count) {
 	// sorts entities:
 	// primary sort: sort entities based on their rendering_prio value
@@ -1611,7 +1734,7 @@ void render_entities(World* world) {
 	}
 }
 
-
+// :render keybinding
 void render_keybinding(Entity* en, char keybind) {
 	Matrix4 xform = m4_identity;
 	xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
@@ -1621,12 +1744,30 @@ void render_keybinding(Entity* en, char keybind) {
 }
 
 
+float distanceSquared(Vector2 v1, Vector2 v2) {
+    return (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y);
+}
+
+
+// should rename biome_size to biome location. AND add separate biome size vector2
+void update_biome(){
+	Vector2 player_pos = get_player_pos();
+	Vector2 biome_position = get_biome_data_from_id(world->current_biome_id).size;
+	
+
+	if (player_pos.x >= -biome_position.x && player_pos.x <= biome_position.x &&
+        player_pos.y >= -biome_position.y && player_pos.y <= biome_position.y) {
+        printf("player is in biome\n");
+    } else {
+        printf("Player is NOT in biome\n");
+    }
+}
+
+
 // ----- SETUP -----------------------------------------------------------------------------------------|
 // ::Entry
 int entry(int argc, char **argv) 
 {
-
-
 	// Window
 	window.title = STR("Game.");
 	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
@@ -1767,9 +1908,13 @@ int entry(int argc, char **argv)
 		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_chest};
 	}
 
+	// crafting data setup
+	// change this ( VVVVV ) name?
+	item_data_setup();
 
 	// :TESTS
-	{
+	{	
+		// add item to inventory
 		{
 			// test adding items to inventory
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
@@ -1786,7 +1931,7 @@ int entry(int argc, char **argv)
 			{
 				Entity* en = entity_create();
 				setup_building(en, BUILDING_furnace);
-				en->pos = v2(-25, 0);
+				en->pos = v2(-15, 0);
 				en->pos = round_v2_to_tile(en->pos);
 			}
 
@@ -1798,6 +1943,14 @@ int entry(int argc, char **argv)
 				en->pos = v2(-25, -10);
 				en->pos = round_v2_to_tile(en->pos);
 			}
+
+			// workbench
+			{
+				Entity* en = entity_create();
+				setup_building(en, BUILDING_workbench);
+				en->pos = v2(-28, -20);
+				en->pos = round_v2_to_tile(en->pos);
+			}
 		}
 	}
 
@@ -1805,20 +1958,16 @@ int entry(int argc, char **argv)
 
 
 	// ::INIT
-
 	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
+	// setups
 	setup_audio_player();
-
-	// setup player
 	setup_player();
-
-	// setup all biomes && #Biome
 	setup_all_biomes();
 
-	// set current biome
 	world->current_biome_id = BIOME_forest;
 
+	// spawning
 	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
 	spawn_biome(&temp_data);
 	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
@@ -1837,10 +1986,6 @@ int entry(int argc, char **argv)
 	float64 seconds_counter = 0.0;
 	s32 frame_count = 0;
 	float64 last_time = os_get_current_time_in_seconds();
-
-	// Vector2 camera_pos = v2(0, 0);
-
-
 
 	// view_zoom += 0.2;		// zoom out a bit
 
@@ -1863,6 +2008,7 @@ int entry(int argc, char **argv)
 		// player
 		world->player->en = get_player_en_from_current_dim();
 		sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
+		// update_biome();
 
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
@@ -1903,7 +2049,6 @@ int entry(int argc, char **argv)
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
 			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
 
-			// float smallest_dist = INFINITY; // compiler gives a warning
 			float smallest_dist = 9999999;
 
 			for (int i = 0; i < MAX_ENTITY_COUNT; i++){		// NOTE: actually faster to use MAX_ENTITY_COUNT here
@@ -1921,28 +2066,12 @@ int entry(int argc, char **argv)
 								else if (en->arch == ARCH_portal){
 									printf("selected portal = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
 								}
-								if (IS_DEBUG){
-									int asd = 1;
-								}
 							}
 						}
 					}
 				}
 
-				// portal
-				if (en->arch == ARCH_portal){
-					// if (en->is_valid){
-					// 	float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-					// 	if (dist < entity_selection_radius){
-					// 		if (!world_frame.selected_entity || (dist < smallest_dist)){
-					// 			// printf("PORTAL SELECTED\n");
-					// 			world_frame.selected_entity = en;
-					// 		}
-					// 	}
-					// }
-				}
-
-				else if (en->is_valid && en->destroyable){
+				else if (en->is_valid && en->destroyable && en->arch != ARCH_portal){
 					// Sprite* sprite = get_sprite(en->sprite_id);
 
 					// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
@@ -1953,6 +2082,7 @@ int entry(int argc, char **argv)
 					// :select entity
 					if (dist < world->player->entity_selection_radius) {
 						if (!world_frame.selected_entity || (dist < smallest_dist)) {
+							// this is selected entity by mouse. RENAME
 							world_frame.selected_entity = en;
 							// smallest_dist = dist; // imo entity selection works better with this line commented
 						}
@@ -2031,6 +2161,13 @@ int entry(int argc, char **argv)
 				int asd = 1;
 			}
 			Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
+			Vector4 color = COLOR_WHITE;
+
+			// add color adjustment to texture
+			// Vector4 col_adjustment = get_biome_data_from_id(world->current_biome_id).grass_color;
+			if (get_biome_data_from_id(world->current_biome_id).grass_color.a != 0){
+				color = get_biome_data_from_id(world->current_biome_id).grass_color;
+			}
 
 			//  ______________
 			// | Xform LOGIC:
@@ -2186,15 +2323,15 @@ int entry(int argc, char **argv)
 				xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
 			}
 
-			draw_image_xform(texture->image, xform_M, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_A, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_B, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_C, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_D, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_E, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_F, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_G, texture_size, COLOR_WHITE);
-			draw_image_xform(texture->image, xform_H, texture_size, COLOR_WHITE);
+			draw_image_xform(texture->image, xform_M, texture_size, color);
+			draw_image_xform(texture->image, xform_A, texture_size, color);
+			draw_image_xform(texture->image, xform_B, texture_size, color);
+			draw_image_xform(texture->image, xform_C, texture_size, color);
+			draw_image_xform(texture->image, xform_D, texture_size, color);
+			draw_image_xform(texture->image, xform_E, texture_size, color);
+			draw_image_xform(texture->image, xform_F, texture_size, color);
+			draw_image_xform(texture->image, xform_G, texture_size, color);
+			draw_image_xform(texture->image, xform_H, texture_size, color);
 		}
 
 
@@ -2222,8 +2359,35 @@ int entry(int argc, char **argv)
 			}
 		}
 
+		// :player use || :trigger building ui || MOUSE BUTTON RIGHT
+		{
+			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
+					// open chest
+				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(player_use_key)) {
+					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
 
-		// :Player attack || :Spawn item
+					// this might do none
+					if (world->ux_state == UX_nil){
+						consume_key_just_pressed(player_use_key);
+					}
+
+					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
+					// Entity* selected_en = world_frame.selected_entity;
+					switch (world_frame.selected_entity->building_id){
+						case BUILDING_chest: {world->ux_state = UX_chest;}break;
+						case BUILDING_furnace: {world->ux_state = UX_furnace;}break;
+						case BUILDING_workbench: {world->ux_state = UX_workbench;}break;
+						default:{}break;
+					}
+				}
+			}
+
+			if (world->ux_state != UX_nil){
+				render_building_ui(world->ux_state);
+			}
+		}
+
+		// :Player attack || :Spawn item || :MOUSE BUTTON LEFT
 		{
 			// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
 			// and in the generateLoot func decide what loot table to use based on the passed arch
@@ -2360,32 +2524,9 @@ int entry(int argc, char **argv)
 		}
 
 
-		// Render building ui
-		{
-			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
-					// open chest
-				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(player_use_key)) {
-					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
-					if (world->ux_state == UX_nil){
-						consume_key_just_pressed(player_use_key);
-					}
 
-					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
-					Entity* selected_en = world_frame.selected_entity;
-					switch (selected_en->building_id){
-						case BUILDING_chest: {world->ux_state = UX_chest;}break;
-						case BUILDING_furnace: {world->ux_state = UX_furnace;}break;
-						default:{}break;
-					}
-				}
-			}
 
-			if (world->ux_state != UX_nil){
-				render_building_ui(world->ux_state);
-			}
-		}
-
-		// :Player use 'F
+		// :Player use 'F'
 		{
 			if (is_key_just_pressed('F')){
 				consume_key_just_pressed('F');
@@ -2430,7 +2571,24 @@ int entry(int argc, char **argv)
 		}
 
 
-		// DEBUG STUFF ------------------------------------------------------------------------------->
+		// ::DEBUG STUFF ------------------------------------------------------------------------------->
+
+
+		// if(runtime_debug){
+			// {
+			// 	// Vector2 size = v2(30, 20) ;
+			// 	Matrix4 xform = m4_identity;
+			// 	xform = m4_translate(xform, v3(0, 10, 0));
+
+			// 	Sprite* sprite = &(Sprite){.image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
+			// 	Vector2 size = get_sprite_size(sprite);
+
+			// 	Vector4 col = v4(0.6, 0.7, 1.0, 1);
+
+			// 	draw_image_xform(sprite->image, xform, v2(size.x, size.y), col);
+
+			// }
+		// }
 
 		// if (world_frame.selected_entity){
 		// 	printf("Selected entity = %s\n", world_frame.selected_entity->name);
@@ -2446,6 +2604,7 @@ int entry(int argc, char **argv)
 		if (is_key_just_pressed(KEY_CTRL)){
 			if (!runtime_debug){runtime_debug = true;}
 			else{runtime_debug = false;}
+			update_biome();
 			// player->en->pos.x -= 10; 
 			// world_frame.player->pos.x -= 10;
 			// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
@@ -2459,6 +2618,7 @@ int entry(int argc, char **argv)
 
 		// player position
 		// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
+		// printf("\n");
 
 		// DEBUG: print UX state
 		// printf("UX STATE: ");

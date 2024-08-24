@@ -300,6 +300,7 @@ DimensionData *get_dimensionData(DimensionID);
 	void add_all_biomes_to_dimensions() {
 		// TODO: for loop here pls
 		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
+		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_pine_forest}, 1);
 		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
 	}
 
@@ -1123,13 +1124,13 @@ DimensionData *get_dimensionData(DimensionID);
 			case BIOME_forest:{
 				{
 					biome->name = STR("Forest");
-					biome->size = v2(400, 400);
+					biome->size = v2(400, 400); // actually the biome position
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
-					biome->grass_color = v4(0.32, 0.97, 0.62, 1);
-					// biome->grass_color = v4(1, 0.97, 0.62, 1);
-					biome->leaves_color	= v4(0, 1, 0, 1);
+					// biome->grass_color = v4(0.32, 0.97, 0.62, 1);
+					biome->grass_color = v4(1, 1, 1, 1);
+					// biome->leaves_color	= v4(0, 1, 0, 1);
 					biome->ground_texture = TEXTURE_grass;
 
 					// trees
@@ -1158,15 +1159,13 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->fossil1_drop_chance = 5;
 					biome->fossil2_drop_chance = 5;
 					// biome->fossil_rarity_level = 2;
-
-					// biomes[id] = *biome;
 				}
 			} break;
 
 			case BIOME_cave:{
 				{
 					biome->name = STR("Cave");
-					biome->size = v2(400, 400);
+					biome->size = v2(400, 400); // actually the biome position
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
@@ -1198,10 +1197,47 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->fossil1_drop_chance = 15;
 					biome->fossil2_drop_chance = 15;
 					// biome->fossil_rarity_level = 2;
-				
-					// biomes[id] = *biome;
 				}
 			} break;
+
+			case BIOME_pine_forest:{
+				{
+					biome->name = STR("Pine forest");
+					biome->size = v2(400, -400); // actually the biome position
+					// TODO: maybe make a Vector4 with biome corners
+					// biome->biome_pos;
+					biome->enabled = true;
+					biome->spawn_animals = false;
+					biome->spawn_water = false;
+					biome->grass_color = v4(0.6, 0.7, 1.0, 1);
+					biome->ground_texture = TEXTURE_grass;
+
+					// entities
+					biome->spawn_rocks = true;
+					biome->spawn_rocks_weight = 85;
+					biome->spawn_mushrooms = true;
+					biome->spawn_mushrooms_weight = 35;
+					// biome->spawn_twigs = false;
+					// biome->spawn_twigs_weight = 0;
+
+					// ores
+					biome->spawn_ores = false;
+					biome->spawn_ore_iron = false;
+					biome->spawn_ore_gold = false;
+					biome->spawn_ore_copper = false;
+					biome->spawn_ore_iron_weight = 0;
+					biome->spawn_ore_gold_weight = 0;
+					biome->spawn_ore_copper_weight = 0;
+
+					// fossils
+					biome->spawn_fossils = true;
+					biome->fossil0_drop_chance = 15;
+					biome->fossil1_drop_chance = 15;
+					biome->fossil2_drop_chance = 15;
+					// biome->fossil_rarity_level = 2;
+				}
+			}
+
 		}
 
 		// add biome to biomes list
@@ -1265,11 +1301,19 @@ DimensionData *get_dimensionData(DimensionID);
 		en->rendering_prio = -1;
 		en->enable_shadow = false;
 		en->portal_data.dim_destination = dest;
+		en->is_selectable_by_mouse = false;
 		BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
 	}
 
+	void item_data_setup(){
+		item_data[ITEM_rock] = (ItemData) {.name=STR("Rock"), .sprite_id=SPRITE_item_rock, .crafting_recipe_count=2, .crafting_recipe={{ITEM_pine_wood, 2}}};
+		item_data[ITEM_pine_wood] = (ItemData) {.name=STR("Pine wood"), .sprite_id=SPRITE_item_pine_wood, .crafting_recipe_count=2, .crafting_recipe={{ITEM_rock, 2}}};
+		item_data[ITEM_TOOL_pickaxe] = (ItemData) {.name=STR("Pickaxe"), .sprite_id=SPRITE_tool_pickaxe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+		item_data[ITEM_TOOL_axe] = (ItemData) {.name=STR("Axe"), .sprite_id=SPRITE_tool_axe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+		item_data[ITEM_TOOL_shovel] = (ItemData) {.name=STR("Shovel"), .sprite_id=SPRITE_tool_shovel, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
+	}
 
 
 // 
