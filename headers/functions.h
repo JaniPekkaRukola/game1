@@ -276,8 +276,8 @@ DimensionData *get_dimensionData(DimensionID);
 		// returns "true" if player has the items
 		// returns "false" if player doesn't have the items
 
-		for (int i = 0; i < world->inventory_items_count; i++){
-			InventoryItemData* inventory_item = &world->inventory_items[i];
+		for (int i = 0; i < world->player->inventory_items_count; i++){
+			InventoryItemData* inventory_item = &world->player->inventory[i];
 			if (inventory_item->item_id == item){
 				if (inventory_item->amount >= count){
 					return true;
@@ -599,14 +599,14 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :INVENTORY --------------------->
 	void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid){
-		world->inventory_items[item].name = name;
-		world->inventory_items[item].amount += amount;
-		world->inventory_items[item].arch = arch;
-		world->inventory_items[item].sprite_id = sprite_id;
-		world->inventory_items[item].tool_id = tool_id;
-		world->inventory_items[item].valid = valid;
-		world->inventory_items[item].item_id = item;
-		world->inventory_items_count++;
+		world->player->inventory[item].name = name;
+		world->player->inventory[item].amount += amount;
+		world->player->inventory[item].arch = arch;
+		world->player->inventory[item].sprite_id = sprite_id;
+		world->player->inventory[item].tool_id = tool_id;
+		world->player->inventory[item].valid = valid;
+		world->player->inventory[item].item_id = item;
+		world->player->inventory_items_count++;
 	}
 
 	void add_item_to_inventory_quick(InventoryItemData* item){
@@ -620,13 +620,13 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	void delete_item_from_inventory(ItemID item, int amount){
-		if (world->inventory_items[item].amount <= 0){
-			world->inventory_items[item].amount = 0;
-			printf("Cant delete anymore items '(%s)' from inventory\n", world->inventory_items[item].name);
+		if (world->player->inventory[item].amount <= 0){
+			world->player->inventory[item].amount = 0;
+			printf("Cant delete anymore items '(%s)' from inventory\n", world->player->inventory[item].name);
 		}
 		else{
-			world->inventory_items[item].amount	-= amount;
-			world->inventory_items_count--;
+			world->player->inventory[item].amount -= amount;
+			world->player->inventory_items_count--;
 		}
 		dealloc(temp_allocator, &item); // maybe should move this into the if above?
 	}

@@ -473,7 +473,7 @@ void render_ui()
 		// get how many different items in inventory
 		int item_count = 0;
 		for (int i = 0; i < ITEM_MAX; i++) {
-			InventoryItemData* item = &world->inventory_items[i];
+			InventoryItemData* item = &world->player->inventory[i];
 			if (item->amount > 0){
 				item_count += 1;
 			}
@@ -504,7 +504,7 @@ void render_ui()
 			}
 
 			// ItemData* item_data = get_item_data(i);
-			InventoryItemData* item = &world->inventory_items[i];
+			InventoryItemData* item = &world->player->inventory[i];
 			if (item->amount > 0){
 				float slot_index_offset = slot_index * icon_width;
 
@@ -914,7 +914,7 @@ void render_ui()
 				break;
 			}
 
-			InventoryItemData* item = &world->inventory_items[i];
+			InventoryItemData* item = &world->player->inventory[i];
 
 			if (item->amount > 0){
 				
@@ -1876,8 +1876,6 @@ int entry(int argc, char **argv)
 	world = alloc(get_heap_allocator(), sizeof(World));
 	memset(world, 0, sizeof(World));
 
-	world->inventory_items_count = 0;
-
 	// :Init Render List 	#renderlist || #render list || #render_list
 	// render_list.indices = (int*)alloc(get_heap_allocator(), MAX_ENTITY_COUNT * sizeof(int));
 	// render_list.count = 0;
@@ -2006,7 +2004,44 @@ int entry(int argc, char **argv)
 	// change this ( VVVVV ) name?
 	item_data_setup();
 
-	// :TESTS
+
+	// ::INIT
+	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
+
+	// setups
+	setup_audio_player();
+	setup_player();
+	setup_all_biomes();
+
+	world->current_biome_id = BIOME_forest;
+	world->player->inventory_items_count = 0;
+	
+
+	// spawning
+	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
+	spawn_biome(&temp_data);
+	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
+
+	// test adding stuff to loot table (can't be in a scope) 
+	// FIX: @pin2 im defining item names in multiple different places eg.A: here
+	LootTable *lootTable_rock = createLootTable();
+	addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
+	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->current_biome_id).fossil0_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->current_biome_id).fossil1_drop_chance);
+	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->current_biome_id).fossil2_drop_chance);
+	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
+
+
+	// Timing
+	float64 seconds_counter = 0.0;
+	s32 frame_count = 0;
+	float64 last_time = os_get_current_time_in_seconds();
+
+	// view_zoom += 0.2;		// zoom out a bit
+
+
+
+		// :TESTS
 	{	
 		// add item to inventory
 		{
@@ -2048,42 +2083,6 @@ int entry(int argc, char **argv)
 			}
 		}
 	}
-
-
-
-
-	// ::INIT
-	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
-
-	// setups
-	setup_audio_player();
-	setup_player();
-	setup_all_biomes();
-
-	world->current_biome_id = BIOME_forest;
-	
-
-	// spawning
-	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
-	spawn_biome(&temp_data);
-	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
-
-	// test adding stuff to loot table (can't be in a scope) 
-	// FIX: @pin2 im defining item names in multiple different places eg.A: here
-	LootTable *lootTable_rock = createLootTable();
-	addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
-	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->current_biome_id).fossil0_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->current_biome_id).fossil1_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->current_biome_id).fossil2_drop_chance);
-	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
-
-
-	// Timing
-	float64 seconds_counter = 0.0;
-	s32 frame_count = 0;
-	float64 last_time = os_get_current_time_in_seconds();
-
-	// view_zoom += 0.2;		// zoom out a bit
 
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 

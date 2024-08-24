@@ -375,6 +375,9 @@
         Entity *selected_entity;
         UXState ux_state;
 
+        InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
+        int inventory_items_count; // might be useless
+
     } Player;
 
     // :World --------------------------->
@@ -384,8 +387,8 @@
 
         DimensionID dimension_id; // current dimension id
         DimensionData *dimension; // current dimension data
-        InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
-        int inventory_items_count;
+        // InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
+        // int inventory_items_count;
         UXState ux_state;
         
         // ui stuff
