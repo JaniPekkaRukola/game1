@@ -360,7 +360,7 @@
 
     // :Player -------------------------->
     typedef struct Player {
-        Entity* en; // player position inside en
+        Entity* en; // player position is inside en
         // EntityArchetype arch;
         // Vector2 position; // this is kinda useless. USE "en->pos" for position
         float walking_speed;
@@ -373,7 +373,7 @@
         float entity_selection_radius;
         // ItemData *selected_item;
         Entity *selected_entity;
-        UXState ux_state;
+        // UXState ux_state;
 
         InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
         int inventory_items_count; // might be useless
@@ -389,7 +389,7 @@
         DimensionData *dimension; // current dimension data
         // InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
         // int inventory_items_count;
-        UXState ux_state;
+        UXState ux_state; // move this into player struct !?
         
         // ui stuff
         float inventory_alpha;
@@ -402,7 +402,7 @@
         float furnace_alpha_target;
 
         BuildingID placing_building; // bad name
-        Entity* open_crafting_station;
+        Entity* open_crafting_station; // currently opened crafting station
 
         Entity portals[MAX_PORTAL_COUNT];
         int portal_count;

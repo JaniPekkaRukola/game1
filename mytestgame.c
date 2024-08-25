@@ -422,9 +422,11 @@ void clear_empty_slots_in_entities(Entity* entities, int count){
 
 // inventory render (randy's solution #2) (NOT centered inventory - status: WORKING)
 // :Render UI
+
+
+/*
 void render_ui()
 {
-	// NOTE: THIS FUNCTION CAUSES THE STUTTER AFTER PICKING UP AN ITEM. (ATLEAST ONE OF THEM)
 	// InventoryItemData* dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
 	set_screen_space();
@@ -470,14 +472,14 @@ void render_ui()
 		int icon_row_index = 0;
 
 
-		// get how many different items in inventory
-		int item_count = 0;
-		for (int i = 0; i < ITEM_MAX; i++) {
-			InventoryItemData* item = &world->player->inventory[i];
-			if (item->amount > 0){
-				item_count += 1;
-			}
-		}
+		// get how many different items in inventory (not in use)
+		// int item_count = 0;
+		// for (int i = 0; i < ITEM_MAX; i++) {
+		// 	InventoryItemData* item = &world->player->inventory[i];
+		// 	if (item->amount > 0){
+		// 		item_count += 1;
+		// 	}
+		// }
 
 		// inventory background_box rendering
 		// {
@@ -508,21 +510,14 @@ void render_ui()
 			if (item->amount > 0){
 				float slot_index_offset = slot_index * icon_width;
 
-				// Matrix4 xform = m4_scalar(1.0);
 				xform = m4_identity;
 				float pos_x = (padding) + x_start_pos + slot_index_offset + (padding) * slot_index;
 				float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
 				xform = m4_translate(xform, v3(pos_x, pos_y, 0));
 
 				// get sprite
-				Sprite* sprite = get_sprite(get_sprite_from_itemID(i));
+				Sprite* sprite = &item->sprite_id;
 
-				// update sprite if its a tool (temp solution)
-				if (item->arch == ARCH_tool){
-					sprite = get_sprite(item->sprite_id);
-				}
-
-				
 				// draw icon background
 				// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
 
@@ -585,58 +580,58 @@ void render_ui()
 					}
 				}
 
-			// printf("DEBUG TIME\n");
-			// printf("Dragging_now:\nDRAGGING = %d\n", dragging);
-			// printf("Name = %s\n", dragging_now->name);
-			// printf("Amount = %d\n", dragging_now->amount);
+				// printf("DEBUG TIME\n");
+				// printf("Dragging_now:\nDRAGGING = %d\n", dragging);
+				// printf("Name = %s\n", dragging_now->name);
+				// printf("Amount = %d\n", dragging_now->amount);
+				
+				// printf("\n");
+
+				// printf("ITEM:\nDRAGGING = %d\n", dragging);
+				// printf("Name = %s\n", item->name);
+				// printf("Amount = %d\n", item->amount);
+
+				// printf("\n----------------------------------------------\n");
+				
 			
-			// printf("\n");
-
-			// printf("ITEM:\nDRAGGING = %d\n", dragging);
-			// printf("Name = %s\n", item->name);
-			// printf("Amount = %d\n", item->amount);
-
-			// printf("\n----------------------------------------------\n");
 			
 		
-		
-	
-			// TODO: FIX
-			/*
-				this is the terminal debug output when dragging ONLY pine wood (10) and releasing into inventory quickly
-				these prints come from under rendering ghost image below
-				wtf
+				// TODO: FIX
+				// /*
+				// 	this is the terminal debug output when dragging ONLY pine wood (10) and releasing into inventory quickly
+				// 	these prints come from under rendering ghost image below
+				// 	wtf
 
-				Deleted item 'Pine wood' from inventory
-				TEST ITEM AMOUNT 10
-				DRAGGING NAME = Pine wood
-				DRAGGING NOW AMOUNT = 10
-				--------------
-				DRAGGING NAME = Pine wood
-				DRAGGING NOW AMOUNT = 10
-				--------------
-				DRAGGING NAME = Pine wood
-				DRAGGING NOW AMOUNT = 10
-				--------------
-				DRAGGING NAME = Pine wood
-				DRAGGING NOW AMOUNT = 10
-				--------------
-				Deleted item 'Pickaxe' from inventory
-				TEST ITEM AMOUNT 1
-				DRAGGING NAME = Pickaxe
-				DRAGGING NOW AMOUNT = 1
-				--------------
-				DRAGGING NAME = Pickaxe
-				DRAGGING NOW AMOUNT = 1
-				--------------
-				DRAGGING NAME = Pickaxe
-				DRAGGING NOW AMOUNT = 1
-				--------------
-				Deleted item 'AXE' from inventory
-				TEST ITEM AMOUNT 1
-				DRAGGING NAME = AXE
-				DRAGGING NOW AMOUNT = 1
-			*/
+				// 	Deleted item 'Pine wood' from inventory
+				// 	TEST ITEM AMOUNT 10
+				// 	DRAGGING NAME = Pine wood
+				// 	DRAGGING NOW AMOUNT = 10
+				// 	--------------
+				// 	DRAGGING NAME = Pine wood
+				// 	DRAGGING NOW AMOUNT = 10
+				// 	--------------
+				// 	DRAGGING NAME = Pine wood
+				// 	DRAGGING NOW AMOUNT = 10
+				// 	--------------
+				// 	DRAGGING NAME = Pine wood
+				// 	DRAGGING NOW AMOUNT = 10
+				// 	--------------
+				// 	Deleted item 'Pickaxe' from inventory
+				// 	TEST ITEM AMOUNT 1
+				// 	DRAGGING NAME = Pickaxe
+				// 	DRAGGING NOW AMOUNT = 1
+				// 	--------------
+				// 	DRAGGING NAME = Pickaxe
+				// 	DRAGGING NOW AMOUNT = 1
+				// 	--------------
+				// 	DRAGGING NAME = Pickaxe
+				// 	DRAGGING NOW AMOUNT = 1
+				// 	--------------
+				// 	Deleted item 'AXE' from inventory
+				// 	TEST ITEM AMOUNT 1
+				// 	DRAGGING NAME = AXE
+				// 	DRAGGING NOW AMOUNT = 1
+				// 
 
 
 				// :DRAGGING
@@ -1026,9 +1021,220 @@ void render_ui()
 	set_world_space();
 	pop_z_layer();
 }
+*/
+
+InventoryItemData inventory_selected_item;
+
+Vector2 get_mouse_pos_in_screen(){
+	Vector2 pos = get_mouse_pos_in_ndc();
+	return v2(pos.x * (0.5 * screen_width) + (0.5 * screen_width), pos.y * (0.5 * screen_height) + (0.5 * screen_height));
+}
+
+
+void render_ui2(){
+	set_screen_space();
+	push_z_layer(layer_ui);
+
+	// :Render inventory
+	{
+		// open inventory
+		if (is_key_just_pressed(KEY_TAB)) {
+			consume_key_just_pressed(KEY_TAB);
+			world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
+		}
+
+		world->inventory_alpha_target = (world->ux_state == UX_inventory ? 1.0 : 0.0);
+		animate_f32_to_target(&world->inventory_alpha, world->inventory_alpha_target, delta_t, 15.0);
+		bool is_inventory_enabled = world->inventory_alpha_target == 1.0;
+
+		if (world->inventory_alpha_target != 0.0){ // temp line for instant opening of the inventory, since global draw frame alpha is not a thing (yet)
+
+			// Inventory variables
+			const int slot_size = 8;
+			const float padding = 2.0;
+			const int max_slots_row = 6;
+			const int max_rows = 4;
+			Draw_Quad* quad_item;	// pointer to item
+			// float box_width = (max_icons_per_row * icon_width) + ((max_icons_per_row * padding) + padding);
+
+			Vector2 inventory_bg_size = v2(max_slots_row * slot_size + (max_slots_row * padding) + padding * 2, max_rows * slot_size + (max_rows * padding) + padding * 2);
+			Vector2 inventory_bg_pos = v2(screen_width * 0.5 - inventory_bg_size.x * 0.5, screen_height * 0.5 - inventory_bg_size.y * 0.5);
+
+			// Colors
+			Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+			Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.5);
+			Vector4 tooltip_bg = inventory_bg;
+			Vector4 slot_color = v4(0.5, 0.5, 0.5, 0.6);
+
+			// init xform
+			Matrix4 xform_inventory_bg = m4_identity;
+
+			// xform translate inventory background
+			xform_inventory_bg = m4_translate(xform_inventory_bg, v3(inventory_bg_pos.x, inventory_bg_pos.y, 0));
+
+			// draw inventory background and take quad for collisions
+			Draw_Quad* quad_bg = draw_rect_xform(xform_inventory_bg, v2(inventory_bg_size.x, inventory_bg_size.y), inventory_bg);
+
+			// position where drawing items starts (top left)
+			Vector2 item_start_pos = v2(inventory_bg_pos.x + padding, inventory_bg_pos.y + inventory_bg_size.y - slot_size - padding);
+
+			// item variables
+			int slot_index = 0; // basically column index but with sexier name
+			int row_index = 0;
+
+			// draw empty slots
+			for (int i = 0; i < max_slots_row * max_rows; i++){
+				
+				if (slot_index >= max_slots_row){
+					slot_index = 0;
+					row_index++;
+				}
+
+				Matrix4 xform_item = m4_identity;
+				xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding * 0.5), item_start_pos.y - (row_index * slot_size) - (row_index * padding) - padding * 0.5, 0));
+
+				// draw empty slot
+				draw_rect_xform(xform_item, v2(slot_size, slot_size), slot_color);
+
+				slot_index++;
+			}
+
+			// reset these variables
+			slot_index = 0;
+			row_index = 0;
+
+			// draw items
+			for(int i = 0; i < ITEM_MAX; i++){
+				InventoryItemData* inventory_item = &world->player->inventory[i];
+				if (inventory_item != NULL && inventory_item->amount > 0){
+
+					// change to next row if row is full
+					if (slot_index >= max_slots_row){
+						slot_index = 0;
+						row_index++;
+					}
+
+					// get sprite
+					Sprite* sprite = get_sprite(inventory_item->sprite_id);
+
+					// skip to next item if sprite is null. NOTE: prolly useless since the "inventory_item != NULL" if statement.
+					if (!sprite || !sprite->image){
+						continue;
+					}
+
+					Matrix4 xform_item = m4_identity;
+					// xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding), item_start_pos.y - (row_index * slot_size) - padding, 0));
+					xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding * 0.5), item_start_pos.y - (row_index * slot_size) - (row_index * padding) - padding * 0.5, 0));
+
+
+					// save xform_item for later when drawing item counts
+					Matrix4 xform_item_count = xform_item;
 
 
 
+					// get quad
+					quad_item = draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), v4(0,0,0,0));
+
+					slot_index++;
+
+					// hovering item
+					if (quad_item && range2f_contains(quad_to_range(*quad_item), get_mouse_pos_in_ndc())){
+
+						// tooltip
+						if (enable_tooltip){
+							const Vector2 tooltip_size = v2(30, 20);
+							Matrix4 xform_tooltip = xform_item;
+
+							xform_tooltip = m4_translate(xform_tooltip, v3((tooltip_size.x * -0.5) + slot_size * 0.5, -tooltip_size.y - padding, 0));
+
+							Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
+
+							string item_name = inventory_item->name;
+
+							Gfx_Text_Metrics tooltip_metrics = measure_text(font, item_name, font_height, v2(0.1, 0.1));
+							Vector2 justified = v2_sub(justified, v2_divf(tooltip_metrics.functional_size, 2));
+							xform_tooltip = m4_translate(xform_tooltip, v3(tooltip_size.x * 0.5, tooltip_size.y - 5, 0));
+							xform_tooltip = m4_translate(xform_tooltip, v3(justified.x, justified.y, 0));
+							draw_text_xform(font, item_name, font_height, xform_tooltip, v2(0.1, 0.1), COLOR_WHITE);
+						}
+
+						// scale item
+						float scale_adjust = 1.3;
+						xform_item = m4_scale(xform_item, v3(scale_adjust, scale_adjust, 1));
+
+						// selecting item
+						if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+							consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+							inventory_selected_item = *inventory_item;
+							delete_item_from_inventory(inventory_item->item_id, inventory_item->amount);
+						}
+					} // quad
+
+					// draw item
+					draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), COLOR_WHITE);
+
+					// draw item count (not for tools)
+					if (inventory_item->arch != ARCH_tool){
+						draw_text_xform(font, sprint(temp_allocator, STR("%d"), inventory_item->amount), font_height, xform_item_count, v2(0.1, 0.1), COLOR_WHITE);
+					}
+				} // inventory_item != NULL && inventory_item->amount > 0
+			} // for loop
+
+
+			// dragging release
+			if (is_key_up(MOUSE_BUTTON_LEFT) && inventory_selected_item.valid){
+
+				// check if item is released inside of the inventory our outside
+				if (range2f_contains(quad_to_range(*quad_bg), get_mouse_pos_in_ndc())){
+					// printf("Released inside inv\n");
+					add_item_to_inventory_quick(&inventory_selected_item);
+				}
+				else{
+					Vector2 pos = get_player_pos();
+					// printf("Released outside inv %.0f, %.0f\n", pos.x, pos.y);
+					if (!spawn_item_to_world(inventory_selected_item, v2(pos.x - 15, pos.y))){
+						log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
+						add_item_to_inventory_quick(&inventory_selected_item);
+					}
+				}
+
+				// reset selected item. Setting the valid to false functions here like nullptr
+				inventory_selected_item.valid = false;
+			}
+			
+			// dragging
+			if (inventory_selected_item.valid){
+				
+				// get mouse pos
+				Vector2 mouse_pos_screen = get_mouse_pos_in_screen();
+
+				Matrix4 xform_item_drag = m4_identity;
+				xform_item_drag = m4_translate(xform_item_drag, v3(mouse_pos_screen.x, mouse_pos_screen.y, 0));
+				xform_item_drag = m4_translate(xform_item_drag, v3(slot_size * -0.5, slot_size * -0.5, 0));
+
+				Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(inventory_selected_item.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
+			}
+		}
+	}
+
+
+
+
+
+
+
+
+	// :Render building menu
+
+	// :Render building placement mode || :Build mode
+
+	// :Render Hotbar
+
+
+	set_world_space();
+	pop_z_layer();
+}
 
 
 
@@ -2134,7 +2340,8 @@ int entry(int argc, char **argv)
 
 		// Render ui
 		// should prolly move this way down
-		render_ui();
+		// render_ui();
+		render_ui2();
 
 
 
@@ -2671,6 +2878,16 @@ int entry(int argc, char **argv)
 
 		// ::DEBUG STUFF ------------------------------------------------------------------------------->
 
+		// ENTER DEBUG MODE FROM GAME
+		if (is_key_just_pressed(KEY_CTRL)){
+			if (!runtime_debug){runtime_debug = true;}
+			else{runtime_debug = false;}
+			// update_biome();
+			// player->en->pos.x -= 10; 
+			// world_frame.player->pos.x -= 10;
+			// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
+		}
+
 
 		// if(runtime_debug){
 			// {
@@ -2698,15 +2915,7 @@ int entry(int argc, char **argv)
 		// 		printf("\n");
 		// }
 
-		// ENTER DEBUG MODE FROM GAME
-		if (is_key_just_pressed(KEY_CTRL)){
-			if (!runtime_debug){runtime_debug = true;}
-			else{runtime_debug = false;}
-			// update_biome();
-			// player->en->pos.x -= 10; 
-			// world_frame.player->pos.x -= 10;
-			// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
-		}
+
 
 		// #Biome
 		// printf("%s\n",get_biome_data_from_id(world->current_biome_id).name);
@@ -2752,7 +2961,7 @@ int entry(int argc, char **argv)
 
 
 		if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
-		if (is_key_just_pressed('G')) {create_portal_to(BIOME_cave, true);}
+		if (is_key_just_pressed('G')) {create_portal_to(DIM_cavern, true);}
 		if (is_key_just_pressed('R')) {trigger_dim_change_animation(camera_pos);}
 
 		// #Biome

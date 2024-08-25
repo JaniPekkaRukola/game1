@@ -565,12 +565,6 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
-
-	// :ITEM -------------------------->
-	ItemData get_item_data(ItemID id) {
-		return item_data[id];
-	}
-
 	// not in use
 		// string get_item_name_from_ItemID(ItemID id) {
 		// 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
@@ -597,17 +591,37 @@ DimensionData *get_dimensionData(DimensionID);
 	// 
 
 
-	// :INVENTORY --------------------->
-	void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid){
-		world->player->inventory[item].name = name;
-		world->player->inventory[item].amount += amount;
-		world->player->inventory[item].arch = arch;
-		world->player->inventory[item].sprite_id = sprite_id;
-		world->player->inventory[item].tool_id = tool_id;
-		world->player->inventory[item].valid = valid;
-		world->player->inventory[item].item_id = item;
-		world->player->inventory_items_count++;
-	}
+	// :INVENTORY || :ITEM ------------>
+void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid) {
+    Player *player = world->player;
+    int i;
+
+    // Check if the item already exists in the inventory
+    for (i = 0; i < ITEM_MAX; i++) {
+        if (player->inventory[i].valid && player->inventory[i].item_id == item) {
+            // If the item already exists, increase the amount
+            player->inventory[i].amount += amount;
+            return;
+        }
+    }
+
+    // If the item does not exist, find the first empty slot
+    for (i = 0; i < ITEM_MAX; i++) {
+        if (!player->inventory[i].valid) {
+            player->inventory[i].name = name;
+            player->inventory[i].amount = amount;
+            player->inventory[i].arch = arch;
+            player->inventory[i].sprite_id = sprite_id;
+            player->inventory[i].tool_id = tool_id;
+            player->inventory[i].valid = valid;
+            player->inventory[i].item_id = item;
+            player->inventory_items_count++;
+            return;
+        }
+    }
+
+    printf("Inventory FULL!\n");
+}
 
 	void add_item_to_inventory_quick(InventoryItemData* item){
 		// quicker way of adding item to inventory using InventoryItemData
@@ -619,16 +633,68 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
-	void delete_item_from_inventory(ItemID item, int amount){
-		if (world->player->inventory[item].amount <= 0){
-			world->player->inventory[item].amount = 0;
-			printf("Cant delete anymore items '(%s)' from inventory\n", world->player->inventory[item].name);
+	void delete_item_from_inventory(ItemID item_id, int amount){
+		for (int i = 0; i < ITEM_MAX; i++){
+			InventoryItemData* inventory_item = &world->player->inventory[i];
+			if (inventory_item->item_id == item_id){
+				if (inventory_item->amount > 0){
+					inventory_item->amount -= amount;
+				}
+				if (inventory_item->amount <= 0){
+					// dealloc(temp_allocator, &inventory_item); // prolly does none
+					world->player->inventory[i].name.count = 0;
+					world->player->inventory[i].name.data = NULL;
+					world->player->inventory[i].arch = 0;
+					world->player->inventory[i].sprite_id = 0;
+					world->player->inventory[i].tool_id = 0;
+					world->player->inventory[i].item_id = 0;
+					world->player->inventory[i].valid = 0;
+
+					// Shift items down to fill the empty slot
+					for (int j = i; j < ITEM_MAX - 1; j++) {
+						world->player->inventory[j] = world->player->inventory[j + 1];
+					}
+
+					// Clear the last slot after shifting
+					world->player->inventory[ITEM_MAX - 1].name.count = 0;
+					world->player->inventory[ITEM_MAX - 1].name.data = NULL;
+					world->player->inventory[ITEM_MAX - 1].arch = 0;
+					world->player->inventory[ITEM_MAX - 1].sprite_id = 0;
+					world->player->inventory[ITEM_MAX - 1].tool_id = 0;
+					world->player->inventory[ITEM_MAX - 1].item_id = 0;
+					world->player->inventory[ITEM_MAX - 1].valid = 0;
+
+					break;
+				}
+				break;
+			}
 		}
-		else{
-			world->player->inventory[item].amount -= amount;
-			world->player->inventory_items_count--;
+	}
+
+	bool spawn_item_to_world(InventoryItemData item, Vector2 pos){
+		// spawns items to worldspace and returns the success as bool
+
+		if (item.amount <= 0 || !item.valid){
+			return false;
 		}
-		dealloc(temp_allocator, &item); // maybe should move this into the if above?
+
+		for (int i = 0; i < item.amount; i++){
+				Entity* en = entity_create();
+				setup_item(en, item.item_id);
+				en->pos = pos;
+				en->pos.x -= i;
+				en->arch = item.arch;
+				en->sprite_id = item.sprite_id;
+				en->tool_id = item.tool_id;
+				printf("Spawned item '%s' to world\n", item.name);
+		}
+
+		return true;
+	}
+
+	ItemData get_item_data(ItemID id) {
+		// this might be an old func that is now useless
+		return item_data[id];
 	}
 
 
@@ -765,6 +831,15 @@ DimensionData *get_dimensionData(DimensionID);
 		log_error("Failed to get ore @ 'get_ore'\n");
 	}
 
+	string get_ore_name(OreID id){
+		switch (id){
+			case ORE_iron:{return STR("Iron ore");}break;
+			case ORE_gold:{return STR("Iron Gold");}break;
+			case ORE_copper:{return STR("Iron Copper");}break;
+			default:{return STR("Failed to get ore name");}break;
+		}
+	}
+
 	// :TOOL -------------------------->
 	string get_tool_name(ToolID id) {
 		switch (id) {
@@ -882,6 +957,8 @@ DimensionData *get_dimensionData(DimensionID);
 		en->pickup_text_col = v4(1,1,1,1);
 		add_biomeID_to_entity(en, world->current_biome_id);
 
+		// naming (maybe figure out a better solution. Or just hardcode everything but only once! @pin2)
+		// #crash: happens when get_ore can't find the name of the ore. prolly not because of get_ore func but because of this switch case. Happens prolly because trying to assing the result from get_ore to an entity which doesn't exist. idk why the setups above swich dont crash. idk
 		switch (item_id){
 			case ITEM_rock:{en->name = STR("Rock");}break;
 			case ITEM_pine_wood:{en->name = STR("Pine Wood");}break;
@@ -896,9 +973,9 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_fossil1:{en->name = STR("Bone Fossil");}break;
 			case ITEM_fossil2:{en->name = STR("Fang Fossil");}break;
 			case ITEM_fossil3:{en->name = STR("WIP");}break;
-			case ITEM_ORE_iron:{en->name = get_ore(ORE_iron)->name;}break;
-			case ITEM_ORE_gold:{en->name = get_ore(ORE_gold)->name;}break;
-			case ITEM_ORE_copper:{en->name = get_ore(ORE_copper)->name;}break;
+			case ITEM_ORE_iron:{en->name = get_ore_name(ORE_iron);}break;
+			case ITEM_ORE_gold:{en->name = get_ore_name(ORE_gold);}break;
+			case ITEM_ORE_copper:{en->name = get_ore_name(ORE_copper);}break;
 			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe");}break;
 			case ITEM_TOOL_axe:{en->name = STR("Axe");}break;
 			case ITEM_TOOL_shovel:{en->name = STR("Shovel");}break;
