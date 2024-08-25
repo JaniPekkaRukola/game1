@@ -1,19 +1,21 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-// GLOBAL VARIABLES
+// GLOBALS
     #define MAX_ENTITY_COUNT 2048
     #define MAX_PORTAL_COUNT 10
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
     #define MAX_RECIPE_ITEMS 8
 
+    const float screen_width = 240.0;
+    const float screen_height = 135.0;
+
     // int portal_pair_count = 0;
     const int tile_width = 8;
+    int selected_slot = 0;
     Gfx_Font* font;
     u32 font_height = 48;
-
-
 
     // Health
     int player_health = 3;
@@ -26,6 +28,7 @@
 // :ENUMS -------------------------------------------------------------------------------------------->
 
     typedef enum EntityArchetype {
+        // TODO: un-number these
         ARCH_nil = 0,
         ARCH_rock = 1,
         ARCH_tree = 2,
@@ -196,9 +199,11 @@
 
     typedef enum BuildingID {
         BUILDING_nil,
+
         BUILDING_furnace,	
         BUILDING_workbench,
         BUILDING_chest,
+        
         BUILDING_MAX,
     } BuildingID;
 
@@ -254,11 +259,8 @@
     // :BuildingData -------------------->
     typedef struct BuildingData { 
         EntityArchetype to_build;
-        SpriteID icon;
-        ItemID slot1;
-        ItemID slot2;
-        ItemID slot3;
-        // BuildingID id;
+        SpriteID sprite_id;
+        BuildingID building_id;
         // display name
         // cost
         // health
@@ -274,13 +276,14 @@
     // :ItemData ------------------------>
     typedef struct ItemData {
         string name;
-        EntityArchetype for_structure;
+        // EntityArchetype for_structure;
         ItemAmount crafting_recipe[MAX_RECIPE_ITEMS];
-        int crafting_recipe_count; // how many types of items in recipe ?????
-        ItemID output;
-        ItemID input[8];
+        int crafting_recipe_count; // how many types of items in recipe ????? or output????
+        // ItemID output;
+        // ItemID input[8];
         SpriteID sprite_id;
         ItemID item_id;
+        float cooking_time;
     } ItemData;
 
     // :Entity -------------------------->
@@ -546,27 +549,27 @@
     // ItemID held_item; // old
     OreID ores[ORE_MAX];
 
-    InventoryItemData* dragging_now;
-    // InventoryItemData* selected_item;
+    // InventoryItemData* dragging_now;
     WorldFrame world_frame;
     DimensionData dimensions[DIM_MAX];
     World* world = 0;
     BiomeData biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];
-    // Sprite* icon_drag = NULL; // old
-    ItemData item_data[ITEM_MAX];
+    ItemData crafting_recipes[ITEM_MAX];
+    ItemData furnace_recipes[ITEM_MAX];
     BuildingData buildings[BUILDING_MAX];
     Texture textures[TEXTURE_MAX];
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
     dim_change_animation animation = {};
-    int selected_slot_index = 0;
 
     Vector2 camera_pos = {0, 0};
 	float view_zoom = 0.1875;   // view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
 
-
-
-    // RenderList render_list;
+    // ui rendering
+    InventoryItemData inventory_selected_item;	// hardcopy of item from inventory, when starting to drag item
+    InventoryItemData* item_in_hand = NULL;	// selected item in hotbar. Renders in hand
+    BuildingData* selected_building = NULL; // selected building in build mode
+    int selected_slot_index = 0;
 
 // 
 

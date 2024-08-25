@@ -17,12 +17,6 @@ bool render_other_entities = true;
 bool draw_grid = false;
 bool render_ground_texture = true;
 
-// PLAYER
-// float player_speed = 50.0;			// pixels per second
-// float player_running_speed = 100.0;
-// bool player_running = false;
-// float entity_selection_radius = 5.0f;
-// const int player_pickup_radius = 15.0;
 float render_distance = 175;		// 170 is pretty good
 
 // keybinds
@@ -39,11 +33,7 @@ const s32 layer_world = 10;
 
 // Global app stuff
 float64 delta_t;
-const float screen_width = 240.0;
-const float screen_height = 135.0;
-int selected_slot = 0;
-// Vector2 entity_positions[MAX_ENTITY_COUNT]; // not in use
-bool dragging = false;
+
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 // maybe should move these into "functions.h"
@@ -419,636 +409,22 @@ void clear_empty_slots_in_entities(Entity* entities, int count){
 
 // ----- ::FUNC Dump (name by randy) -------------------------------------------------------------------|
 
-// inventory render (randy's solution #2) (NOT centered inventory - status: WORKING)
 // :Render UI
-
-
-/*
-void render_ui()
-{
-	// InventoryItemData* dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
+void render_ui(){
+	// sexy ui render func
 
 	set_screen_space();
 	push_z_layer(layer_ui);
 
-	// NOTE: should this (the inventory rendering) be put into a scope?
-
-	// open inventory
-	if (is_key_just_pressed(KEY_TAB)) {
+	// Open Inventory
+	if (is_key_just_pressed(KEY_TAB))
+	{
 		consume_key_just_pressed(KEY_TAB);
 		world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
 	}
-
-	world->inventory_alpha_target = (world->ux_state == UX_inventory ? 1.0 : 0.0);
-	animate_f32_to_target(&world->inventory_alpha, world->inventory_alpha_target, delta_t, 15.0);
-	bool is_inventory_enabled = world->inventory_alpha_target == 1.0;
-
-	// if (world->inventory_alpha != 0.0)
-	// :Inventory UI || :Render Inventory UI
-	if (world->inventory_alpha_target != 0.0) // temp line for instant opening of the inventory, since global draw frame alpha is not a thing (yet)
-	{
-
-		// TODO: some opacity thing here (by: randy)
-
-		float inventory_tile_size = 8.0;
-		float padding = 2.0;
-		const int max_icons_per_row = 9;
-		const int max_rows = 4;
-
-		// Colors
-		Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
-		Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.5);
-		Vector4 tooltip_bg = inventory_bg;
-
-		// float icon_width = inventory_tile_size * padding;
-		float icon_width = inventory_tile_size;
-		float box_width = (max_icons_per_row * icon_width) + ((max_icons_per_row * padding) + padding);
-		float x_start_pos = (screen_width / 2.0) - (box_width / 2.0);
-		float y_start_pos = 115.0;
-		float box_size_y = (icon_width + padding) * max_rows;
-
-		int slot_index = 0;
-		int icon_row_index = 0;
-
-
-		// get how many different items in inventory (not in use)
-		// int item_count = 0;
-		// for (int i = 0; i < ITEM_MAX; i++) {
-		// 	InventoryItemData* item = &world->player->inventory[i];
-		// 	if (item->amount > 0){
-		// 		item_count += 1;
-		// 	}
-		// }
-
-		// inventory background_box rendering
-		// {
-			Matrix4 xform_inventory_box = m4_identity;
-			xform_inventory_box = m4_translate(xform_inventory_box, v3(x_start_pos, (y_start_pos - box_size_y) + icon_width + padding, 0.0));
-			draw_rect_xform(xform_inventory_box, v2(box_width, box_size_y), inventory_bg);
-		// }
-
-		// inventory item rendering
-		for (int i = 0; i < ITEM_MAX; i++) {
-
-			Matrix4 xform = m4_identity;
-			Matrix4 xform2 = m4_identity;
-			Matrix4 box_bottom_right_xform = m4_identity;
-			Sprite* sprite = NULL;
-			Draw_Quad* quad = NULL;
-			float is_selected_alpha = 0.0;
-			Sprite* icon = NULL;
-
-			// when row is full, jump to next row
-			if (slot_index >= max_icons_per_row){
-					slot_index = 0;
-					icon_row_index += 1;
-			}
-
-			// ItemData* item_data = get_item_data(i);
-			InventoryItemData* item = &world->player->inventory[i];
-			if (item->amount > 0){
-				float slot_index_offset = slot_index * icon_width;
-
-				xform = m4_identity;
-				float pos_x = (padding) + x_start_pos + slot_index_offset + (padding) * slot_index;
-				float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
-				xform = m4_translate(xform, v3(pos_x, pos_y, 0));
-
-				// get sprite
-				Sprite* sprite = &item->sprite_id;
-
-				// draw icon background
-				// draw_rect_xform(xform, v2(inventory_tile_size, inventory_tile_size), icon_background_col);
-
-				// quad for checking if mouse is ontop item
-				Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
-				Range2f icon_box = quad_to_range(*quad);
-				if (is_inventory_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
-					is_selected_alpha = true;
-				}
-
-				// save xfrom for later when drawing item counts
-				// Matrix4 box_bottom_right_xform = xform;
-				box_bottom_right_xform = xform;
-
-				// center sprite
-				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
-
-				//  ________________________________________________________________________________________________________________________________________
-				// | ITEM DRAGGING LOGIC:
-				// | - check if cursor is on item
-				// | - check if mouse1 clicked
-				// | -	-> true: 
-				// | -		 save item to another variable
-				// | -		 delete original item
-				// | -		 draw ghost item on cursor with item count
-				// | -	check if mouse1 is released
-				// | -		-> true:
-				// | -			 check if inside inventory
-				// | -				-> true
-				// | -					put item back into inventory using the saved item
-				// | -				-> false
-				// | -					spawn item on the world (next to player?) (cooldown on picking it up again?)
-				// | -		-> false:
-				// | -			 continue dragging
-				// |________________________________________________________________________________________________________________________________________
-
-				// Item selected (HOVERING)
-				if (is_selected_alpha){
-					// Scale item
-					// float scale_adjust = 0.5 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
-					float scale_adjust = 1.5;
-					Matrix4 xform = m4_scale(xform, v3(scale_adjust, scale_adjust, 1));
-
-					// get the icon under cursor
-					icon_drag = get_sprite(item->sprite_id);
-
-					// start dragging item
-					if (is_key_down(MOUSE_BUTTON_LEFT)){	// this runs only once when mousebutton is pressed
-						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-						dragging = true;
-
-						// save the item to another variable (stfu)
-						*dragging_now = *item;
-
-						if (dragging_now != NULL){
-							printf("Deleted item '%s' from inventory\n", item->name);
-							printf("TEST ITEM AMOUNT %d\n", item->amount);
-							delete_item_from_inventory(item->item_id, item->amount);
-						}
-					}
-				}
-
-				// printf("DEBUG TIME\n");
-				// printf("Dragging_now:\nDRAGGING = %d\n", dragging);
-				// printf("Name = %s\n", dragging_now->name);
-				// printf("Amount = %d\n", dragging_now->amount);
-				
-				// printf("\n");
-
-				// printf("ITEM:\nDRAGGING = %d\n", dragging);
-				// printf("Name = %s\n", item->name);
-				// printf("Amount = %d\n", item->amount);
-
-				// printf("\n----------------------------------------------\n");
-				
-			
-			
-		
-				// TODO: FIX
-				// /*
-				// 	this is the terminal debug output when dragging ONLY pine wood (10) and releasing into inventory quickly
-				// 	these prints come from under rendering ghost image below
-				// 	wtf
-
-				// 	Deleted item 'Pine wood' from inventory
-				// 	TEST ITEM AMOUNT 10
-				// 	DRAGGING NAME = Pine wood
-				// 	DRAGGING NOW AMOUNT = 10
-				// 	--------------
-				// 	DRAGGING NAME = Pine wood
-				// 	DRAGGING NOW AMOUNT = 10
-				// 	--------------
-				// 	DRAGGING NAME = Pine wood
-				// 	DRAGGING NOW AMOUNT = 10
-				// 	--------------
-				// 	DRAGGING NAME = Pine wood
-				// 	DRAGGING NOW AMOUNT = 10
-				// 	--------------
-				// 	Deleted item 'Pickaxe' from inventory
-				// 	TEST ITEM AMOUNT 1
-				// 	DRAGGING NAME = Pickaxe
-				// 	DRAGGING NOW AMOUNT = 1
-				// 	--------------
-				// 	DRAGGING NAME = Pickaxe
-				// 	DRAGGING NOW AMOUNT = 1
-				// 	--------------
-				// 	DRAGGING NAME = Pickaxe
-				// 	DRAGGING NOW AMOUNT = 1
-				// 	--------------
-				// 	Deleted item 'AXE' from inventory
-				// 	TEST ITEM AMOUNT 1
-				// 	DRAGGING NAME = AXE
-				// 	DRAGGING NOW AMOUNT = 1
-				// 
-
-
-				// :DRAGGING
-				{
-					if (dragging){
-						Vector2 mouse_pos_screen = get_mouse_pos_in_ndc();
-						mouse_pos_screen = v2(mouse_pos_screen.x * (0.5 * screen_width) + (0.5 * screen_width), mouse_pos_screen.y * (0.5 * screen_height) + (0.5 * screen_height));
-
-						xform2 = m4_identity;
-						xform2 = m4_translate(xform2, v3(mouse_pos_screen.x, mouse_pos_screen.y, 0));
-
-						Matrix4 box_bottom_right_xform2 = xform2;
-
-						box_bottom_right_xform2 = m4_translate(box_bottom_right_xform2, v3(get_sprite_size(icon_drag).x * -0.5, get_sprite_size(icon_drag).y * -0.5, 0));
-
-						// center icon sprite
-						xform2 = m4_translate(xform2, v3(get_sprite_size(icon_drag).x * -0.5, get_sprite_size(icon_drag).y * -0.5, 0));
-
-						// draw ghost image on cursor
-						Vector4 color = v4(1, 1, 1, 0.7);
-						draw_image_xform(icon_drag->image, xform2, get_sprite_size(icon_drag), COLOR_WHITE);
-
-
-						printf("DRAGGING NAME = %s\n", dragging_now->name);
-						printf("DRAGGING NOW AMOUNT = %d\n", dragging_now->amount);
-						printf("--------------\n");
-						
-
-						// draw item count
-						if (dragging_now != NULL && dragging_now->arch != ARCH_tool){
-							draw_text_xform(font, sprint(temp_allocator, STR("%d"), dragging_now->amount), 40, box_bottom_right_xform2, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
-						}
-
-						if (is_key_up(MOUSE_BUTTON_LEFT)){
-							// quad for checking if mouse is ontop item
-							Draw_Quad* quad_inventory_box = draw_rect_xform(xform_inventory_box, v2(box_width, box_size_y), v4(0,0,0,0));
-							Range2f range_inventory_box = quad_to_range(*quad_inventory_box);
-
-							// check if released into inventory
-							if (range2f_contains(range_inventory_box, get_mouse_pos_in_ndc())) {
-								printf("RELEASED INTO INVENTORY\n");
-								add_item_to_inventory_quick(dragging_now);
-								printf("Added item '%s' into inventory\n", dragging_now->name);
-								// dragging_now = NULL;
-								dragging = false;
-							}
-							else{
-								printf("RELEASED INTO WORLD\n");
-								// dragging_now = NULL;
-								dragging = false;
-							}
-						}
-
-					}
-
-				}
-
-				// end dragging item
-				if (is_key_up(MOUSE_BUTTON_LEFT)){
-					dragging = false;
-					// dragging_now = NULL;
-				}
-
-
-
-				// prevent clicking entities under the inventory (WIP)
-				// TODO: needs to calculate if cursor is in the inventory box
-				// else{
-				// 	if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
-				// 		consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-				// 	}
-				// }
-
-
-				// item bobbing
-				// {
-				// 	float scale_adjust = 0.1 * sin_breathe(os_get_current_time_in_seconds(), 5.0);
-				// 	xform = m4_scale(xform, v3(1 + scale_adjust, 1 + scale_adjust, 1));
-				// }
-
-
-				// rotation
-				// {
-				// 	float rotation_adjust = 0.25 * PI32 * sin_breathe(os_get_current_time_in_seconds(), 1.0);
-				// 	xform = m4_rotate_z(xform, rotation_adjust);
-				// }
-
-				sprite = get_sprite(get_sprite_from_itemID(i));
-				if (item->arch == ARCH_tool){
-					sprite = get_sprite(item->sprite_id);
-				}
-
-				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
-
-				// draw sprite
-				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-
-				// draw item count (except for tools)
-				// draw_text(font, sprint(temp_allocator, STR("%d"), item->amount), 40, v2(pos_x, pos_y), v2(0.1, 0.1), COLOR_WHITE);
-				if (item->arch != ARCH_tool){
-					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
-				}
-
-				// tooltip
-				if (enable_tooltip)
-				{
-					if (is_selected_alpha){
-						// NOTE: ugly code. fix later :)
-
-						float slot_index_offset = slot_index * icon_width;
-						Matrix4 xform = m4_identity;
-						float pos_x = (padding) + x_start_pos + slot_index_offset + (padding) * slot_index;
-						float pos_y = (y_start_pos) - (icon_width * icon_row_index) - (padding * icon_row_index);
-						xform = m4_translate(xform, v3(pos_x, pos_y, 0));
-						Draw_Quad* quad = draw_rect_xform(xform, v2(8, 8), v4(1,1,1,0));
-						
-						Draw_Quad screen_quad = ndc_quad_to_screen_quad(*quad);
-						Range2f screen_range = quad_to_range(screen_quad);
-						Vector2 icon_center = range2f_get_center(screen_range);
-
-						// icon_center
-						Vector2 tooltip_box_size = v2(40, 20);
-
-						Matrix4 xform_tooltip = m4_identity;
-						xform_tooltip = m4_translate(xform_tooltip, v3(tooltip_box_size.x * -0.5, -tooltip_box_size.y - icon_width * 0.5 - padding * 0.5, 0));
-						xform_tooltip = m4_translate(xform_tooltip, v3(icon_center.x, icon_center.y, 0));
-
-						// tooltip bg box
-						draw_rect_xform(xform_tooltip, tooltip_box_size, tooltip_bg);
-
-						// get the tooltip title (item name)
-						string title = item->name;
-
-						// draw text
-						Gfx_Text_Metrics metrics = measure_text(font, title, font_height, v2(0.1, 0.1));
-						Vector2 draw_pos = icon_center;
-						draw_pos = v2_sub(draw_pos, metrics.visual_pos_min);
-						draw_pos = v2_add(draw_pos, v2_mul(metrics.visual_size, v2(-0.5, -1.0))); // TOP CENTER
-
-						draw_pos = v2_add(draw_pos, v2(0, icon_width * -0.5));
-						draw_pos = v2_add(draw_pos, v2(0, -2.0)); // padding
-
-						draw_text(font, title, font_height, draw_pos, v2(0.1, 0.1), COLOR_WHITE);
-
-					}
-				}
-
-				slot_index += 1;
-			}
-		}
-	}
-
-
-	// :Building MENU UI || :Render Building UI
-	{
-		// open building menu
-		if (is_key_just_pressed('C')) {
-			consume_key_just_pressed('C');
-			world->ux_state = (world->ux_state == UX_building ? UX_nil : UX_building);
-		}
-		world->building_menu_alpha_target = (world->ux_state == UX_building ? 1.0 : 0.0);
-		animate_f32_to_target(&world->building_menu_alpha, world->building_menu_alpha_target, delta_t, 15.0);
-		bool is_building_enabled = world->building_menu_alpha_target == 1.0;
-
-		// draw a row of icons for build menu
-		if (world->building_menu_alpha_target == 1.0) { // when building menu is open
-		
-			int building_count = BUILDING_MAX - 1; // "-1" because of nil
-			float icon_size = 12.0;
-			float padding = 2.0;
-			float total_box_width = building_count * icon_size + (padding * (building_count + 1));
-
-			for (BuildingID id = 1; id < BUILDING_MAX; id++) {
-				BuildingData* building = &buildings[id];
-
-				Matrix4 xform = m4_identity;
-
-				float x0 = (screen_width * 0.5) - (total_box_width * 0.5);
-				x0 += (id-1) * icon_size;
-				x0 += padding * (id);
-				xform = m4_translate(xform, v3(x0, 0 + 15, 0));
-
-				Sprite* icon = get_sprite(building->icon);
-
-				// draw bg
-				draw_rect_xform(xform, v2(icon_size, icon_size), v4(0.1, 0.1, 0.1, 0.5));
-
-				// draw sprite
-				Draw_Quad* quad = draw_image_xform(icon->image, xform, v2(icon_size, icon_size), COLOR_WHITE);
-
-				Range2f box = quad_to_range(*quad);
-
-				if (range2f_contains(box, get_mouse_pos_in_ndc())){
-
-					world_frame.hover_consumed = true;
-
-					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
-						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-						world->placing_building	= id;
-						world->ux_state = UX_place_mode;
-					}
-				}
-
-			}
-		}
-	}
-
-
-	// :Placement mode || :Build mode
-	// TODO: alpha animation for place mode
-	if (world->ux_state == UX_place_mode)
-	{
-		set_world_space();
-
-		{
-			Vector2 mouse_pos_world = get_mouse_pos_in_world_space();
-			BuildingData building = get_building_data(world->placing_building);
-			Sprite* icon = get_sprite(building.icon);
-
-			Vector2 pos = mouse_pos_world;
-			pos = round_v2_to_tile(pos);
-
-			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, v3(pos.x, pos.y, 0));
-
-			xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));			// bring sprite down to bottom of Tile
-			xform = m4_translate(xform, v3(get_sprite_size(icon).x * -0.5, 0.0, 0));
-
-			// draw a ghost image on cursor
-			Vector4 color = v4(1, 1, 1, 0.7);
-			draw_image_xform(icon->image, xform, get_sprite_size(icon), color);
-
-			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
-				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-				Entity* en = entity_create();
-				printf("DEBUG BUILDING CREATED TO WORLD. ENTITY COUNT + 1\n");
-				// entity_setup(en, building.to_build);
-				// setup_building(en, building.to_build);
-				setup_building(en, world->placing_building);
-				en->pos = pos;
-				world->ux_state = 0;
-			}
-
-		}
-		set_screen_space();
-	}
-
-
-	// :Render Hotbar || :Hotbar
-	if (render_hotbar)
-	{
-		float icon_width = 8.0;
-		float slot_size = 8.0;
-		int slot_index = 0;
-		int padding = 4.0;
-		int slot_count = 9;
-
-		Vector2 hotbar_box_size = v2(slot_count * slot_size + (padding * (slot_count + 1)), 10);
-
-		// Colors
-		Vector4 hotbar_border_color = v4(0.8, 0.8, 0.8, 1);
-		Vector4 hotbar_bg_color = v4(0.1, 0.1, 0.1, 1);
-		Vector4 hotbar_selected_slot_color = v4(1, 0, 0, 1);
-
-		InventoryItemData* new_selected_item = NULL;
-
-
-		// TEST 2 scuffed af
-
-		int slotcount = 9;
-		int pos_y = 2;
-
-		for (int i = 0; i < ITEM_MAX; i++) {
-			if (slot_index >= slotcount) {
-				break;
-			}
-
-			InventoryItemData* item = &world->player->inventory[i];
-
-			if (item->amount > 0){
-				
-				// if (item->sprite_id == 20){
-				// 	printf("20--------------------------------------------\n");
-				// 	printf("%s\n", item->name);
-				// 	printf("arch = %d\n", item->arch);
-				// }
-
-				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
-				pos_x += (slot_size * slot_index);
-				pos_x += padding * (slot_index + 1);
-
-				Matrix4 xform = m4_identity;
-				xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
-
-				// save xfrom for later when drawing item counts
-				Matrix4 box_bottom_right_xform = xform;
-
-				Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
-				xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
-
-				// draw hotbar border
-				if (slot_index == selected_slot){
-					// draw selected border
-					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
-
-					// update selected item
-					new_selected_item = item;
-				}
-				else{
-					// draw UNselected border
-					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
-				}
-
-				// draw hotbar slot
-				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
-
-				// get the sprite of the item
-				Sprite* sprite = get_sprite(get_sprite_from_itemID(i));
-
-				// get the sprite of the item (if its a tool) its WIP shutup
-				if (item->arch == ARCH_tool){
-					sprite = get_sprite(item->sprite_id);
-				}
-
-				// center sprite to slot
-				xform = m4_translate(xform, v3(icon_width * 0.5, icon_width * 0.5, 0));
-
-				// center sprite
-				xform = m4_translate(xform, v3(get_sprite_size(sprite).x * -0.5, get_sprite_size(sprite).y * -0.5, 0));
-
-				// draw icon
-				draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-
-				// draw item count (except for tools)
-				// NOTE: for some reason rendering text causes the lag spike
-				// #stutter
-				if (item->arch != ARCH_tool){
-					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), 40, box_bottom_right_xform, v2(0.1, 0.1), COLOR_WHITE);	// randy's solution
-					// draw_text(font, STR("X"), font_height, v2(pos_x, pos_y), v2(0.1, 0.1), COLOR_WHITE);
-				}
-
-				slot_index++;
-			}
-
-			// Update the selected item
-			if (new_selected_item) {
-				selected_item = new_selected_item;
-				selected_item->valid = true;
-			} else if (selected_item) {
-				selected_item->valid = false;
-				selected_item = NULL;
-			}
-		}
-
-		// draw the rest of the boxes
-		if (slot_index < slotcount) {
-			for (int i = slot_index; i < slotcount; i++) {
-				float pos_x = (screen_width * 0.5) - (hotbar_box_size.x * 0.5);
-				pos_x += (slot_size * slot_index);
-				pos_x += padding * (slot_index + 1);
-
-				Matrix4 xform = m4_identity;
-				xform = m4_translate(xform, v3(pos_x, pos_y, 0.0));
-
-				Matrix4 xform_border = m4_scale(xform, v3(1.1, 1.1, 0));
-				xform_border = m4_translate(xform_border, v3(-0.3, -0.3, 0));
-
-				// draw hotbar border
-				if (slot_index == selected_slot){
-					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_selected_slot_color);
-
-				}
-				else{
-					draw_rect_xform(xform_border, v2(slot_size, slot_size), hotbar_border_color);
-				}
-				// draw hotbar slot
-				draw_rect_xform(xform, v2(slot_size, slot_size), hotbar_bg_color);
-
-				slot_index++;
-			}
-		}
-
-
-
-	}
-
-	set_world_space();
-	pop_z_layer();
-}
-*/
-
-
-
-
-void draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col);
-InventoryItemData inventory_selected_item;
-InventoryItemData* item_in_hand = NULL;
-
-
-
-Vector2 get_mouse_pos_in_screen(){
-	Vector2 pos = get_mouse_pos_in_ndc();
-	return v2(pos.x * (0.5 * screen_width) + (0.5 * screen_width), pos.y * (0.5 * screen_height) + (0.5 * screen_height));
-}
-
-
-void render_ui2(){
-	set_screen_space();
-	push_z_layer(layer_ui);
-
 	// ::Render inventory
+	if (world->ux_state == UX_inventory)
 	{
-		// open inventory
-		if (is_key_just_pressed(KEY_TAB)) {
-			consume_key_just_pressed(KEY_TAB);
-			world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
-		}
-
 		world->inventory_alpha_target = (world->ux_state == UX_inventory ? 1.0 : 0.0);
 		animate_f32_to_target(&world->inventory_alpha, world->inventory_alpha_target, delta_t, 15.0);
 		bool is_inventory_enabled = world->inventory_alpha_target == 1.0;
@@ -1222,25 +598,137 @@ void render_ui2(){
 				Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(inventory_selected_item.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
 			}
 		}
-	} // render inventory end
+	}
 
 
-
- 	// i dont like git
-	// alternative title: "Reworked hotbar system and hotbar ui"  
-
-
-
-
+	// Open Building Menu
+	if (is_key_just_pressed('C'))
+	{
+		consume_key_just_pressed('C');
+		world->ux_state = (world->ux_state == UX_nil ? UX_building : UX_nil);
+	}
 	// :Render building menu
+	if (world->ux_state == UX_building)
+	{
+		const int building_count = BUILDING_MAX - 1; // how many different TYPES of buildings there is in the game		// "BUILDING_MAX - 1" because we dont want to include the BUILDING_nil
+		const int building_icon_size = 16;
+		const int padding = 3;
+		const int padding_border = 2;
+		int slot_index = 0;
+		Vector2 building_menu_size = v2((building_icon_size * building_count) + (padding * (building_count - 1)) + (padding_border * 2), building_icon_size + (padding * 2));
+		Vector2 building_menu_pos = v2((screen_width * 0.5) - (building_menu_size.x * 0.5), 0);
+		Draw_Quad* quad_icon = NULL;
 
+		// colors
+		Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+		Vector4 building_menu_bg_col = v4(0.0, 0.0, 0.0, 0.5);
+		Vector4 slot_col = v4(0.3, 0.3, 0.3, 1);
+		Vector4 slot_border_col = v4(0.7, 0.7, 0.7, 0.9);
+		Vector4 selected_slot_border_col = v4(1, 0, 0, 0.6);
+
+
+		// draw bg
+		Matrix4 xform_building_slot_bg = m4_identity;
+		xform_building_slot_bg = m4_translate(xform_building_slot_bg, v3(building_menu_pos.x, building_menu_pos.y, 0));
+		draw_rect_xform(xform_building_slot_bg, building_menu_size, building_menu_bg_col);
+
+		// draw empty slots
+		for (int i = 0; i < building_count; i++) {
+
+			Vector2 pos = v2(building_menu_pos.x + (slot_index * building_icon_size) + (slot_index * padding) + padding_border, building_menu_pos.y + padding);
+
+			Matrix4 xform_slot = m4_identity;
+			xform_slot = m4_translate(xform_slot, v3(pos.x, pos.y, 0));
+
+			// draw_rect_xform(xform_slot, v2(building_icon_size, building_icon_size), COLOR_RED);
+			draw_rect_with_border(xform_slot, v2(building_icon_size, building_icon_size), 2, slot_col, slot_border_col);
+
+			slot_index++;
+		}
+
+		// draw building icons
+		slot_index = 0;
+		for (int i = 0; i < BUILDING_MAX; i++){ 
+
+			BuildingData* building = &buildings[i];
+			if (building->building_id != BUILDING_nil){
+
+				Sprite* sprite = get_sprite(building->sprite_id);
+				if (!sprite){
+					continue;
+				}
+
+				Vector2 pos = v2(building_menu_pos.x + (slot_index * building_icon_size) + (slot_index * padding) + padding_border, building_menu_pos.y + padding);
+
+				Matrix4 xform_icon = m4_identity;
+				xform_icon = m4_translate(xform_icon, v3(pos.x, pos.y, 0));
+				quad_icon = draw_image_xform(sprite->image, xform_icon, v2(building_icon_size, building_icon_size), v4(0,0,0,0));
+
+				slot_index++;
+
+				// Hovering 
+				if (quad_icon && range2f_contains(quad_to_range(*quad_icon), get_mouse_pos_in_ndc())){
+					// printf("HOVER\n");
+
+					float scale_adjust = 2.5;
+					// xform_icon = m4_translate(xform_icon, v3(-scale_adjust, -scale_adjust, 0));
+					// xform_icon = m4_scale(xform_icon, v3(scale_adjust, scale_adjust, 1));
+					xform_icon = m4_translate(xform_icon, v3(0, scale_adjust, 0));
+					
+					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+						selected_building = building;
+						world->ux_state = UX_place_mode;
+					}
+				}
+
+				draw_image_xform(sprite->image, xform_icon, v2(building_icon_size, building_icon_size), COLOR_WHITE);
+			}
+		}
+
+	}
+
+	
 	// :Render building placement mode || :Build mode
+	if (world->ux_state == UX_place_mode){
+		if (selected_building){
 
+			set_world_space();
+			
+			Vector4 ghost_col = v4(0.5, 0.5, 0.5, 0.7);
 
+			Sprite* sprite = get_sprite(selected_building->sprite_id);
+			Vector2 sprite_size = get_sprite_size(sprite);
 
+			if (!sprite){
+				printf("FAILED TO GET SPRITE FROM SELECTED BUILDING\n");
+			}
 
+			Matrix4 xform_ghost = m4_identity;
+
+			Vector2 mouse_pos = get_mouse_pos_in_world_space();
+
+			xform_ghost = m4_translate(xform_ghost, v3(mouse_pos.x, mouse_pos.y, 0));
+			xform_ghost = m4_translate(xform_ghost, v3(sprite_size.x * -0.5, sprite_size.y * -0.5, 0));
+
+			// draw ghost image of building
+			draw_image_xform(sprite->image, xform_ghost, sprite_size, ghost_col);
+
+			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+				// create building
+				Entity* en = entity_create();
+				setup_building(en, selected_building->building_id);
+				en->pos = mouse_pos;
+				en->pos = round_v2_to_tile(en->pos);
+				selected_building = NULL;
+				world->ux_state = UX_nil;
+			}
+		}
+	}
 	// :Render Hotbar
-	if (render_hotbar)
+	if (render_hotbar && world->ux_state != UX_building && world->ux_state != UX_place_mode)
 	{
 		const int slot_size = 8;
 		const Vector2 padding = v2(2, 1);
@@ -1312,27 +800,12 @@ void render_ui2(){
 		}
 
 		// "item in hand" rendering is done in the render_entities func @player
-	} // render hotbar end
+	}
+
 
 	set_world_space();
 	pop_z_layer();
 }
-
-
-
-
-// move this into functions.h
-void draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col){
-	// draws a rect with borders
-	// input xfrom is the base xform with no border
-	// NOTE: if slot_col has alpha value of < 1, the border_color WILL push through underneath. See for yourself
-
-	// draw border
-	draw_rect_xform(m4_translate(xform_slot, v3(border_width * -0.5, border_width * -0.5, 0)), v2(inside_size.x + border_width, inside_size.y + border_width), border_col);
-	// draw slot
-	draw_rect_xform(xform_slot, v2(inside_size.y, inside_size.y), slot_col);
-}
-
 
 
 
@@ -1558,7 +1031,7 @@ void render_building_ui(UXState ux_state)
 
 			// draw icons
 			for (int i = 0; i < ITEM_MAX; i++){
-				ItemData* item = &item_data[i];
+				ItemData* item = &furnace_recipes[i];
 
 				if (item->crafting_recipe_count != 0){
 
@@ -1695,6 +1168,11 @@ void render_building_ui(UXState ux_state)
 							printf("searching for itemID '%d'\n", recipe_item->id);
 							bool result = check_player_inventory_for_items(recipe_item->id, recipe_item->amount);
 							printf("RESULT = %d\n", result);
+
+							if (result == 1){
+								delete_item_from_inventory(recipe_item->id, recipe_item->amount);
+								add_item_to_inventory(selected_recipe->item_id, selected_recipe->name, 1, ARCH_item, selected_recipe->sprite_id, TOOL_nil, true);
+							}
 						}
 					}
 				}
@@ -2301,18 +1779,16 @@ int entry(int argc, char **argv)
 
 	// Building resource setup
 	{
-		buildings[BUILDING_furnace] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_furnace};
-		buildings[BUILDING_workbench] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_workbench};
-		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building,. icon=SPRITE_building_chest};
+		buildings[BUILDING_furnace] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_furnace, .building_id=BUILDING_furnace};
+		buildings[BUILDING_workbench] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_workbench, .building_id=BUILDING_workbench};
+		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_chest, .building_id=BUILDING_chest};
 	}
 
-	// crafting data setup
-	// change this ( VVVVV ) name?
-	item_data_setup();
+	// crafting & smelting recipes setup
+	setup_all_recipes();
 
 
 	// ::INIT
-	dragging_now = (InventoryItemData*)alloc(get_heap_allocator(), sizeof(InventoryItemData));
 
 	// setups
 	setup_audio_player();
@@ -2355,7 +1831,7 @@ int entry(int argc, char **argv)
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
 			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
 			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_tool_shovel, TOOL_shovel, true);
-			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 5, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
+			// add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 5, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 
@@ -2440,8 +1916,7 @@ int entry(int argc, char **argv)
 
 		// Render ui
 		// should prolly move this way down
-		// render_ui();
-		render_ui2();
+		render_ui();
 
 
 

@@ -55,6 +55,12 @@ DimensionData *get_dimensionData(DimensionID);
 		return (Vector2){ world_pos.x, world_pos.y};
 	}
 
+	Vector2 get_mouse_pos_in_screen(){
+		// just returns the mouse position in screen
+		Vector2 pos = get_mouse_pos_in_ndc();
+		return v2(pos.x * (0.5 * screen_width) + (0.5 * screen_width), pos.y * (0.5 * screen_height) + (0.5 * screen_height));
+	}
+
 	int world_pos_to_tile_pos(float world_pos) {
 		return roundf(world_pos / (float)tile_width);
 	}
@@ -117,9 +123,21 @@ DimensionData *get_dimensionData(DimensionID);
 			return world->player->en->pos;
 		}
 	}
+
+	void draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col){
+		// draws a rect with borders
+		// input xfrom is the base xform with no border
+		// NOTE: if slot_col has alpha value of < 1, the border_color WILL push through underneath. See for yourself
+
+		// draw border
+		draw_rect_xform(m4_translate(xform_slot, v3(border_width * -0.5, border_width * -0.5, 0)), v2(inside_size.x + border_width, inside_size.y + border_width), border_col);
+		// draw slot
+		draw_rect_xform(xform_slot, v2(inside_size.y, inside_size.y), slot_col);
+	}
+
+
+
 // 
-
-
 
 
 
@@ -695,10 +713,10 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		return true;
 	}
 
-	ItemData get_item_data(ItemID id) {
-		// this might be an old func that is now useless
-		return item_data[id];
-	}
+	// ItemData get_item_data(ItemID id) {
+	// 	// this might be an old func that is now useless
+	// 	return item_data[id];
+	// }
 
 
 	// :BUILDING ---------------------->
@@ -985,6 +1003,9 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
+			case ITEM_ingot_iron:{en->name = STR("Iron ingot");}break;
+			case ITEM_ingot_gold:{en->name = STR("Iron gold");}break;
+			case ITEM_ingot_copper:{en->name = STR("Iron copper");}break;
 
 			default:{en->name = STR("case missing from 'setup_item()'");}break;
 		}
@@ -1172,9 +1193,6 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 					en->sprite_id = SPRITE_building_furnace;
 					en->destroyable = true;
 					en->health = 3;
-					en->building_data.slot1 = 0;
-					en->building_data.slot2 = 0;
-					en->building_data.slot3 = 0;
 				}
 			} break;
 
@@ -1396,25 +1414,102 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		en->name = sprintf(get_heap_allocator(), "Portal to %s", get_dimensionData(dest)->name);
 		en->sprite_id = sprite_id;
 		en->destroyable = false;
-		en->rendering_prio = -1;
 		en->enable_shadow = false;
 		en->portal_data.dim_destination = dest;
 		en->is_selectable_by_mouse = false;
 		BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
+		en->rendering_prio = -1;
+
+		switch (sprite_id){
+			case SPRITE_portal0:{
+				en->rendering_prio = -1;
+			} break;
+			case SPRITE_portal1:{
+				en->rendering_prio = 0;
+			} break;
+			default:{}break;
+		}
+
 	}
 
-	void item_data_setup(){
-		// item_data[ITEM_rock] = (ItemData) {.name=STR("Rock"), .sprite_id=SPRITE_item_rock, .crafting_recipe_count=2, .crafting_recipe={{ITEM_pine_wood, 2}}};
-		// item_data[ITEM_pine_wood] = (ItemData) {.name=STR("Pine wood"), .sprite_id=SPRITE_item_pine_wood, .crafting_recipe_count=2, .crafting_recipe={{ITEM_rock, 2}}};
-		// item_data[ITEM_TOOL_pickaxe] = (ItemData) {.name=STR("Pickaxe"), .sprite_id=SPRITE_tool_pickaxe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
-		// item_data[ITEM_TOOL_axe] = (ItemData) {.name=STR("Axe"), .sprite_id=SPRITE_tool_axe, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
-		// item_data[ITEM_TOOL_shovel] = (ItemData) {.name=STR("Shovel"), .sprite_id=SPRITE_tool_shovel, .crafting_recipe_count=5, .crafting_recipe={{ITEM_rock, 3},{ITEM_twig, 2}}};
-		item_data[ITEM_ingot_iron] = (ItemData) {.name=STR("Iron ingot"), .sprite_id=SPRITE_INGOT_iron, .item_id=ITEM_ingot_iron, .crafting_recipe_count=1, .crafting_recipe={{ITEM_ORE_iron, 2}}};
-		item_data[ITEM_ingot_gold] = (ItemData) {.name=STR("Gold ingot"), .sprite_id=SPRITE_INGOT_gold, .item_id=ITEM_ingot_copper, .crafting_recipe_count=1, .crafting_recipe={{ITEM_ORE_gold, 3}}};
-		item_data[ITEM_ingot_copper] = (ItemData) {.name=STR("Copper ingot"), .sprite_id=SPRITE_INGOT_copper, .item_id=ITEM_ingot_copper, .crafting_recipe_count=1, .crafting_recipe={{ITEM_ORE_copper, 4}}};
 
+// 
+
+
+// :RECIPES ---------------------------------------------------------------------------------------------->
+
+	void setup_smelting_recipes(){
+		// can this be automated ????
+
+		// Iron ingot
+		furnace_recipes[ITEM_ingot_iron] = (ItemData){
+			.name = STR("Iron ingot"), 
+			.sprite_id = SPRITE_INGOT_iron, 
+			.item_id = ITEM_ingot_iron, 
+			.crafting_recipe = {{ITEM_ORE_iron, 2}},
+			.crafting_recipe_count = 1, 
+			.cooking_time = 2.0f
+		};
+		
+		// Gold ingot
+		furnace_recipes[ITEM_ingot_gold] = (ItemData){
+			.name = STR("Gold ingot"), 
+			.sprite_id = SPRITE_INGOT_gold, 
+			.item_id = ITEM_ingot_copper, 
+			.crafting_recipe = {{ITEM_ORE_gold, 3}},
+			.crafting_recipe_count = 1, 
+			.cooking_time = 5.0f
+		};
+
+		// Copper ingot
+		furnace_recipes[ITEM_ingot_copper] = (ItemData){
+			.name = STR("Copper ingot"), 
+			.sprite_id = SPRITE_INGOT_copper, 
+			.item_id = ITEM_ingot_copper, 
+			.crafting_recipe = {{ITEM_ORE_copper, 4}},
+			.crafting_recipe_count = 1, 
+			.cooking_time = 3.0f
+		};
+
+	}
+
+	void setup_crafting_recipes(){
+		// Pickaxe
+		crafting_recipes[ITEM_TOOL_pickaxe] = (ItemData){
+			.name = STR("PickAxe"),
+			.sprite_id = SPRITE_tool_pickaxe,
+			.item_id = ITEM_TOOL_pickaxe,
+			.crafting_recipe = {{ITEM_rock, 4},{ITEM_twig, 2}},
+			.crafting_recipe_count = 2,
+			.cooking_time = 2.0f
+		};
+
+		// Axe
+		crafting_recipes[ITEM_TOOL_axe] = (ItemData){
+			.name = STR("Axe"),
+			.sprite_id = SPRITE_tool_axe,
+			.item_id = ITEM_TOOL_axe,
+			.crafting_recipe = {{ITEM_rock, 3},{ITEM_twig, 2}},
+			.crafting_recipe_count = 2,
+			.cooking_time = 2.0f
+		};
+		
+		// Shovel
+		crafting_recipes[ITEM_TOOL_shovel] = (ItemData){
+			.name = STR("Shovel"),
+			.sprite_id = SPRITE_tool_shovel,
+			.item_id = ITEM_TOOL_shovel,
+			.crafting_recipe = {{ITEM_rock, 2},{ITEM_twig, 2}},
+			.crafting_recipe_count = 2,
+			.cooking_time = 2.0f
+		};
+	}
+
+	void setup_all_recipes(){
+		setup_smelting_recipes();
+		setup_crafting_recipes();
 	}
 
 
