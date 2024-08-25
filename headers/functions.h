@@ -504,15 +504,18 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :SPRITE ------------------------>
 	Sprite* get_sprite(SpriteID id) {
-		if (id >= 0 && id < SPRITE_MAX) {
-			Sprite* sprite = &sprites[id];
-			if (sprite->image) {
-				return sprite;
-			} else {
-				return &sprites[0];
+		if (id > 0 && id <= SPRITE_MAX){
+			if (id >= 0 && id < SPRITE_MAX) {
+				Sprite* sprite = &sprites[id];
+				if (sprite->image) {
+					return sprite;
+				} else {
+					return &sprites[0];
+				}
 			}
+			return &sprites[0];
 		}
-		return &sprites[0];
+		return SPRITE_nil;
 	}
 
 	Vector2 get_sprite_size(Sprite* sprite) {

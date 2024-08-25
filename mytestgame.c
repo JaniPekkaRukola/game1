@@ -45,7 +45,6 @@ int selected_slot = 0;
 // Vector2 entity_positions[MAX_ENTITY_COUNT]; // not in use
 bool dragging = false;
 
-
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 // maybe should move these into "functions.h"
 
@@ -1023,7 +1022,14 @@ void render_ui()
 }
 */
 
+
+
+
+void draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col);
 InventoryItemData inventory_selected_item;
+InventoryItemData* item_in_hand = NULL;
+
+
 
 Vector2 get_mouse_pos_in_screen(){
 	Vector2 pos = get_mouse_pos_in_ndc();
@@ -1035,7 +1041,7 @@ void render_ui2(){
 	set_screen_space();
 	push_z_layer(layer_ui);
 
-	// :Render inventory
+	// ::Render inventory
 	{
 		// open inventory
 		if (is_key_just_pressed(KEY_TAB)) {
@@ -1216,7 +1222,7 @@ void render_ui2(){
 				Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(inventory_selected_item.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
 			}
 		}
-	}
+	} // render inventory end
 
 
 
@@ -1229,12 +1235,103 @@ void render_ui2(){
 
 	// :Render building placement mode || :Build mode
 
-	// :Render Hotbar
 
+
+
+	// :Render Hotbar
+	if (render_hotbar)
+	{
+		const int slot_size = 8;
+		const Vector2 padding = v2(2, 1);
+		const int slot_count = 9;
+		int slot_index = 0;
+		float border_width = 1.5;
+		Vector2 hotbar_size = v2((slot_size * slot_count) + (padding.x * slot_count) + padding.x, slot_size + (padding.y * 2));
+		Vector2 hotbar_pos = v2((screen_width * 0.5) - (hotbar_size.x * 0.5), padding.y);
+
+		// colors
+		Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+		Vector4 hotbar_bg_col = v4(0.0, 0.0, 0.0, 0.5);
+		Vector4 slot_col = v4(0.3, 0.3, 0.3, 1);
+		Vector4 slot_border_col = v4(0.7, 0.7, 0.7, 0.9);
+		Vector4 selected_slot_border_col = v4(1, 0, 0, 0.6);
+
+		Matrix4 xform_slotbar_bg = m4_identity;
+		xform_slotbar_bg = m4_translate(xform_slotbar_bg, v3(hotbar_pos.x, hotbar_pos.y, 0));
+
+		// draw hotbar bg
+		draw_rect_xform(xform_slotbar_bg, v2(hotbar_size.x, hotbar_size.y), hotbar_bg_col);
+
+		for (int i = 0; i < slot_count; i++){
+
+			Vector2 pos = v2(hotbar_pos.x + (slot_index * slot_size) + (slot_index * padding.x) + padding.x, hotbar_pos.y + padding.y);
+
+			Matrix4 xform_slot = m4_identity;
+			xform_slot = m4_translate(xform_slot, v3(pos.x, pos.y, 0));
+
+			// draw empty slot (with border)
+			if (i == selected_slot_index){
+				draw_rect_with_border(xform_slot, v2(slot_size, slot_size), border_width * 0.5, slot_col, selected_slot_border_col);
+			}
+			else{
+				draw_rect_with_border(xform_slot, v2(slot_size, slot_size), border_width * 0.5, slot_col, slot_border_col);
+			}
+			slot_index++;
+		}
+
+		// draw items and item counts
+		slot_index = 0;
+		for (int i = 0; i < slot_count; i++) {
+			InventoryItemData* item = &world->player->inventory[i];
+			if (item && item->valid){
+
+				Vector2 pos = v2(hotbar_pos.x + (slot_index * slot_size) + (slot_index * padding.x) + padding.x, hotbar_pos.y + padding.y);
+
+				Matrix4 xform_item = m4_identity;
+				xform_item = m4_translate(xform_item, v3(pos.x, pos.y, 0));
+
+				Sprite* sprite = get_sprite(item->sprite_id);
+
+				draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), COLOR_WHITE);
+
+				// draw item count
+				if (item->arch != ARCH_tool){
+					draw_text_xform(font, sprint(temp_allocator, STR("%d"), item->amount), font_height, xform_item, v2(0.1, 0.1), COLOR_WHITE);
+				}
+				slot_index++;
+			}
+		}
+
+		// get selected slot
+		for (int i = 0; i < slot_count; i++){
+			if (i == selected_slot_index){
+				item_in_hand = &world->player->inventory[i];
+				continue;
+			}
+		}
+
+		// "item in hand" rendering is done in the render_entities func @player
+	} // render hotbar end
 
 	set_world_space();
 	pop_z_layer();
 }
+
+
+
+
+// move this into functions.h
+void draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col){
+	// draws a rect with borders
+	// input xfrom is the base xform with no border
+	// NOTE: if slot_col has alpha value of < 1, the border_color WILL push through underneath. See for yourself
+
+	// draw border
+	draw_rect_xform(m4_translate(xform_slot, v3(border_width * -0.5, border_width * -0.5, 0)), v2(inside_size.x + border_width, inside_size.y + border_width), border_col);
+	// draw slot
+	draw_rect_xform(xform_slot, v2(inside_size.y, inside_size.y), slot_col);
+}
+
 
 
 
@@ -1900,9 +1997,9 @@ void render_entities(World* world) {
 						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
 
 						// :Render held item
-						if (selected_item != NULL && selected_item->valid){
+						if (item_in_hand != NULL && item_in_hand->valid){
 
-							Sprite* sprite_held_item = get_sprite(selected_item->sprite_id);
+							Sprite* sprite_held_item = get_sprite(item_in_hand->sprite_id);
 							Matrix4 xform_held_item = m4_scalar(1.0);
 							xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
 							xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
@@ -2093,6 +2190,7 @@ int entry(int argc, char **argv)
 	// Font
 	font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
 	assert(font, "Failed loading arial.ttf, %d", GetLastError());
+	render_atlas_if_not_yet_rendered(font, font_height, 'A'); // fix for the stuttering bug for first time text rendering courtesy of charlie (Q&A #3)
 
 	// :LOAD RESOURCES --------------------------------->
 
@@ -2184,6 +2282,7 @@ int entry(int argc, char **argv)
 			log_verbose("Audio file set up '%s'", audio->name);
 		}
 	}
+
 
 
 	// setup dimensions
@@ -2710,19 +2809,19 @@ int entry(int argc, char **argv)
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 				
 				// Play audio
-				if (selected_item){
+				if (item_in_hand){
 
 					// swing sound if tool is selected
-					switch (selected_item->tool_id){
+					switch (item_in_hand->tool_id){
 						case TOOL_pickaxe:{play_one_audio_clip(audioFiles[AUDIO_swing_fast].path);}break;
 						case TOOL_axe:{play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);}break;
 						case TOOL_shovel:{play_one_audio_clip(audioFiles[AUDIO_swing_slow].path);}break;
-						default:{printf("Failed to play specific audio. toolID = %d\n", selected_item->tool_id);}break;		// hopefully this won't cause a crash. Because of trying to print tool_id if selected_item has no tool_id
+						default:{printf("Failed to play specific audio. toolID = %d\n", item_in_hand->tool_id);}break;		// hopefully this won't cause a crash. Because of trying to print tool_id if selected_item has no tool_id
 					}
 				}
 
 				// if mouse is close to an entity (selected)  AND  selected entity is destroyable  AND  player has selected an item from hotbar
-				if (selected_en && selected_en->destroyable && selected_item) {
+				if (selected_en && selected_en->destroyable && item_in_hand) {
 
 					// printf("SELECTED EN ITEM ID = '%d'\n", selected_en->item_id);
 						
@@ -2733,7 +2832,7 @@ int entry(int argc, char **argv)
 					switch (selected_en->arch) {
 						case ARCH_tree: {	// |------- TREE -------|
 							{
-								if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_axe){
+								if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_axe){
 
 									// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_wood1].path, audio_pos);
 
@@ -2753,7 +2852,7 @@ int entry(int argc, char **argv)
 
 						case ARCH_rock: {	// |------- ROCK -------|
 							{
-								if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
+								if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_pickaxe){
 
 									play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
 
@@ -2782,7 +2881,7 @@ int entry(int argc, char **argv)
 
 						case ARCH_ore: {	// |------- ORES -------|
 							{
-								if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_pickaxe){
+								if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_pickaxe){
 									play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
 									selected_en->health -= 1;
 									if (selected_en->health <= 0){
@@ -2808,12 +2907,12 @@ int entry(int argc, char **argv)
 							}
 						} break;
 					}
-				}	// selected_item != NULL
+				}	// item_in_hand != NULL
 				else{
-					if (selected_item){
+					if (item_in_hand){
 						// |------- SHOVEL -------|
 						// #portal
-						if (selected_item->arch == ARCH_tool && selected_item->tool_id == TOOL_shovel){
+						if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_shovel){
 							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
 						}
 					}
@@ -2827,9 +2926,6 @@ int entry(int argc, char **argv)
 				}
 			}
 		}
-
-
-
 
 		// :Player use 'F'
 		{
@@ -3001,18 +3097,18 @@ int entry(int argc, char **argv)
 					if (e.yscroll > 0){
 						if (IS_DEBUG){view_zoom -= 0.01;}
 						else{
-							selected_slot -= 1;
-							if (selected_slot < 0){
-								selected_slot = 8;
+							selected_slot_index -= 1;
+							if (selected_slot_index < 0){
+								selected_slot_index = 8;
 							}
 						}
 					}
 					else{
 						if (IS_DEBUG){view_zoom += 0.01;}
 						else{
-							selected_slot += 1;
-							if (selected_slot > 8){
-								selected_slot = 0;
+							selected_slot_index += 1;
+							if (selected_slot_index > 8){
+								selected_slot_index = 0;
 							}
 						}
 					}
@@ -3025,15 +3121,15 @@ int entry(int argc, char **argv)
 
 
 		// selecting slots with keys
-		if (is_key_just_pressed('1')) {selected_slot = 1 - 1;}
-		if (is_key_just_pressed('2')) {selected_slot = 2 - 1;}
-		if (is_key_just_pressed('3')) {selected_slot = 3 - 1;}
-		if (is_key_just_pressed('4')) {selected_slot = 4 - 1;}
-		if (is_key_just_pressed('5')) {selected_slot = 5 - 1;}
-		if (is_key_just_pressed('6')) {selected_slot = 6 - 1;}
-		if (is_key_just_pressed('7')) {selected_slot = 7 - 1;}
-		if (is_key_just_pressed('8')) {selected_slot = 8 - 1;}
-		if (is_key_just_pressed('9')) {selected_slot = 9 - 1;}
+		if (is_key_just_pressed('1')) {selected_slot_index = 1 - 1;}
+		if (is_key_just_pressed('2')) {selected_slot_index = 2 - 1;}
+		if (is_key_just_pressed('3')) {selected_slot_index = 3 - 1;}
+		if (is_key_just_pressed('4')) {selected_slot_index = 4 - 1;}
+		if (is_key_just_pressed('5')) {selected_slot_index = 5 - 1;}
+		if (is_key_just_pressed('6')) {selected_slot_index = 6 - 1;}
+		if (is_key_just_pressed('7')) {selected_slot_index = 7 - 1;}
+		if (is_key_just_pressed('8')) {selected_slot_index = 8 - 1;}
+		if (is_key_just_pressed('9')) {selected_slot_index = 9 - 1;}
 
 		// Sprint
 		if (is_key_down(KEY_SHIFT)){ world->player->is_running = true;}

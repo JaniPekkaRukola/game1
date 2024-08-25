@@ -543,22 +543,23 @@
 
 // :GLOBALS ------------------------------------------------------------------------------------------>
 
-    ItemID held_item;
+    // ItemID held_item; // old
     OreID ores[ORE_MAX];
 
     InventoryItemData* dragging_now;
-    InventoryItemData* selected_item;
+    // InventoryItemData* selected_item;
     WorldFrame world_frame;
     DimensionData dimensions[DIM_MAX];
     World* world = 0;
     BiomeData biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];
-    Sprite* icon_drag = NULL;
+    // Sprite* icon_drag = NULL; // old
     ItemData item_data[ITEM_MAX];
     BuildingData buildings[BUILDING_MAX];
     Texture textures[TEXTURE_MAX];
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
     dim_change_animation animation = {};
+    int selected_slot_index = 0;
 
     Vector2 camera_pos = {0, 0};
 	float view_zoom = 0.1875;   // view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
