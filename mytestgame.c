@@ -1226,7 +1226,8 @@ void render_ui2(){
 
 
 
-
+ 	// i dont like git
+	// alternative title: "Reworked hotbar system and hotbar ui"  
 
 
 
