@@ -872,7 +872,8 @@ bool smelt_button(string label, Vector2 pos, Vector2 size, bool enabled) {
 
 
 
-ItemData* selected_recipe = NULL;
+ItemData* selected_recipe_furnace = NULL;
+ItemData* selected_recipe_workbench = NULL;
 Matrix4 selected_recipe_xfrom;
 bool is_recipe_selected = false;
 
@@ -904,12 +905,263 @@ void render_building_ui(UXState ux_state)
 	if (ux_state == UX_workbench){
 		world->player->inventory_ui_open = true;
 
-		// Vector2 workbench_size = v2();
+		// printf("RENDERING WORKBENCH UI\n");
+
+		// workbench ui size variables
+		const int max_icons_row = 6;
+		const int max_icons_col = 4;
+		const int icon_size = 16;
+		const int padding = 2;
+		const int padding_bg_vert = 15;
+		// int slot_index = 0;
+		int row_index = 0;
+		int col_index = 0;
+		Vector2 icon_pos;
+		const int MAX_ICONS_PER_ROW = 3;
+		
+
+		const Vector2 workbench_ui_size = v2((max_icons_row * icon_size) + (max_icons_row * padding) + padding, (max_icons_col * icon_size) + (max_icons_col * padding) + padding + padding_bg_vert);
+		Vector2 workbench_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
+		workbench_ui_pos = v2(workbench_ui_pos.x - (workbench_ui_size.x * 0.5), workbench_ui_pos.y - (workbench_ui_size.y * 0.5));
+
+		const float x_start_pos = workbench_ui_pos.x;
+		const float y_start_pos = workbench_ui_pos.y;
+
+		// Gfx_Text_Metrics recipe_title;
+		// Gfx_Text_Metrics furnace_title;
+
+		// recipe info panel variables
+		const Vector2 recipe_panel_size = v2(40, workbench_ui_size.y - 5);
+		Vector2 recipe_panel_pos = v2(workbench_ui_pos.x + workbench_ui_size.x + padding, workbench_ui_pos.y + (5 * 0.5));
+
+		
 
 
+		// Colors
+		Vector4 workbench_bg = v4(0.15, 0.15, 0.15, 0.8);
+		Vector4 slot_border_color = v4(1, 1, 1, 0.7);
+		// Vector4 slot_color = v4(1, 1, 1, 0.7);
+		Vector4 craft_button_text_col = v4(0.6, 0.6, 0.6, 1);
+
+		world->workbench_alpha_target = (world->ux_state == UX_workbench ? 1.0 : 0.0);
+		animate_f32_to_target(&world->workbench_alpha, world->workbench_alpha_target, delta_t, 15.0);
+		bool is_workbench_enabled = world->workbench_alpha_target == 1.0;
 
 
+		// Workbench PANEL
+		if (world->workbench_alpha_target != 0.0)
+		{
+			Matrix4 xform_bg = m4_identity;
+
+			xform_bg = m4_translate(xform_bg, v3(workbench_ui_pos.x, workbench_ui_pos.y, 0));
+			// draw backgrounds
+			draw_rect_xform(xform_bg, v2(workbench_ui_size.x, workbench_ui_size.y), workbench_bg);
+
+			// center furnace title
+			Gfx_Text_Metrics workbench_title = measure_text(font, STR("Workbench"), font_height, v2(0.1, 0.1));
+			Vector2 justified1 = v2_sub(justified1, v2_divf(workbench_title.functional_size, 2));
+			xform_bg = m4_translate(xform_bg, v3(workbench_ui_size.x * 0.5, workbench_ui_size.y, 0));		// center text box
+			xform_bg = m4_translate(xform_bg, v3(justified1.x, justified1.y, 0));						// center text
+			xform_bg = m4_translate(xform_bg, v3(0, -5, 0));											// bring down a bit
+
+			// draw title
+			draw_text_xform(font, STR("Workbench"), font_height, xform_bg, v2(0.1, 0.1), COLOR_WHITE);
+			// printf("drawing furance title\n");
+
+			// draw icons
+			Matrix4 xform_icon = m4_identity;
+
+			Vector2 icon_start_pos = v2(workbench_ui_pos.x + padding, workbench_ui_pos.y + workbench_ui_size.y - icon_size - padding - workbench_title.visual_size.y);
+
+
+			// xform_icon = m4_translate(xform_icon, v3(workbench_ui_size.x * 0.5, workbench_ui_size.y * 0.5, 0));
+
+			// draw icons
+			for (int i = 0; i < ITEM_MAX; i++){
+				ItemData* item = &crafting_recipes[i];
+
+				if (item->crafting_recipe_count != 0){
+
+					if (row_index >= MAX_ICONS_PER_ROW){
+						row_index = 0;
+						col_index++;
+					}
+
+					// printf("ITEM NAME = %s\n", item->name);
+					xform_icon = m4_identity;
+
+					Sprite* sprite = get_sprite(item->sprite_id);
+					
+					icon_pos = v2(icon_start_pos.x + (row_index * (icon_size + padding)), icon_start_pos.y - (col_index * (icon_size + padding)) - 5);
+					
+					xform_icon = m4_translate(xform_icon, v3(icon_pos.x, icon_pos.y, 0));
+
+					// draw_image_xform(sprite->image, xform_icon, get_sprite_size(sprite), COLOR_WHITE);
+					Draw_Quad* quad = draw_image_xform(sprite->image, xform_icon, v2(icon_size, icon_size), COLOR_WHITE);
+
+					// collision checking for icon
+					Range2f icon_box = quad_to_range(*quad);
+					if (is_workbench_enabled && range2f_contains(icon_box, get_mouse_pos_in_ndc())) {
+
+						// selecting icon
+						if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+							consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+							selected_recipe_workbench = item;
+							selected_recipe_xfrom = xform_icon;
+							is_recipe_selected = true;
+
+							// printf("selected item = %s\n", selected_recipe_workbench->name);
+						}
+					}
+					row_index++;
+				}
+			}
+
+			// :RECIPE PANEL || recipe selected || draw recipe panel
+			if (selected_recipe_workbench){
+
+				// draw indicator on selected recipe
+				draw_rect_xform(m4_translate(selected_recipe_xfrom, v3(0,-1,0)), v2(icon_size, 1), COLOR_WHITE);
+
+				// draw recipe panel
+				Matrix4 xform_recipe_panel = m4_identity;
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(recipe_panel_pos.x, recipe_panel_pos.y, 0));
+				draw_rect_xform(xform_recipe_panel, v2(recipe_panel_size.x, recipe_panel_size.y), workbench_bg);
+
+
+				// center title
+				Gfx_Text_Metrics recipe_title = measure_text(font, STR("Recipe"), font_height, v2(0.1, 0.1));
+				Vector2 justified2 = v2_sub(justified2, v2_divf(recipe_title.functional_size, 2));
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(recipe_panel_size.x * 0.5, recipe_panel_size.y * 0.75 , 0));	// center text box
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(justified2.x, justified2.y, 0));						// center text
+				xform_recipe_panel = m4_translate(xform_recipe_panel, v3(0, -5, 0));											// bring down a bit
+				// draw_rect_xform(xform_recipe_panel, justified2, COLOR_WHITE);
+				draw_text_xform(font, STR("Recipe"), font_height, xform_recipe_panel, v2(0.1, 0.1), COLOR_WHITE);
+
+				// Vector2 panel_icon_start_pos = v2(recipe_panel_pos.x + padding, recipe_panel_pos.y + (recipe_panel_size.y * 0.5) - icon_size - padding - recipe_title.visual_size.y);
+				Vector2 panel_icon_start_pos = v2(recipe_panel_pos.x + padding, recipe_panel_pos.y + (recipe_panel_size.y) - recipe_title.visual_size.y - icon_size - padding);
+
+				// draw recipe icon
+				Matrix4 xform_recipe_icon = m4_identity;
+				Sprite* recipe_icon_sprite = get_sprite(selected_recipe_workbench->sprite_id);
+				Vector2 recipe_icon_sprite_size = get_sprite_size(recipe_icon_sprite);
+				xform_recipe_icon = m4_translate(xform_recipe_icon, v3(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) - (recipe_icon_sprite_size.x * 0.5), recipe_panel_pos.y + recipe_panel_size.y - recipe_icon_sprite_size.y - 5, 0));
+				draw_image_xform(get_sprite(selected_recipe_workbench->sprite_id)->image, xform_recipe_icon, recipe_icon_sprite_size, COLOR_WHITE);
+
+				// draw separator
+				Matrix4 separator = m4_identity;
+				Vector2 separator_pos = v2(recipe_panel_pos.x, recipe_panel_pos.y + recipe_panel_size.y - recipe_title.visual_size.y - icon_size - (padding * 1));
+				separator = m4_translate(separator, v3(separator_pos.x, separator_pos.y, 0));
+				draw_rect_xform(separator, v2(recipe_panel_size.x, 1), COLOR_WHITE);
+
+				const int MAX_ICONS_PER_ROW_panel = 1;
+				int recipe_icon_index = 0;
+				int recipe_row_index = 0;
+				int recipe_col_index = 0;
+				int recipe_icon_size = 8;
+				Vector2 pos;
+
+				// draw recipe materials
+				for (int i = 0; i < MAX_RECIPE_ITEMS; i++){
+					ItemAmount* recipe_item = &selected_recipe_workbench->crafting_recipe[i];
+
+					// draw recipe icon
+					if (recipe_item->amount != 0){
+
+						if (recipe_icon_index >= MAX_ICONS_PER_ROW_panel){
+							recipe_icon_index = 0;
+							recipe_col_index++;
+						}
+
+						Matrix4 xform = m4_identity;
+						Sprite* sprite = get_sprite(get_sprite_from_itemID(recipe_item->id));
+
+						Gfx_Text_Metrics recipe_material_amount = measure_text(font, STR("0/0"), font_height, v2(0.1, 0.1));
+
+						// icon_pos = v2(icon_panel_icon_start_pos.x + (row_index * (icon_size + padding)), icon_panel_icon_start_pos.y - (col_index * (icon_size + padding)));
+						// xform_icon = m4_translate(xform_icon, v3(icon_pos.x, icon_pos.y, 0));
+
+						// pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y - (recipe_col_index * (icon_size + padding)));
+						// pos = v2(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) + (recipe_icon_index * (icon_size + padding)) - (icon_size * 0.5), panel_icon_start_pos.y - (recipe_col_index * (icon_size + padding)));
+						// pos = v2(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) + (recipe_icon_index * (icon_size + padding)) - (icon_size * 0.5), separator_pos.y - padding - (recipe_col_index * recipe_icon_size) - (recipe_col_index * padding) - recipe_icon_size - recipe_title.visual_size.y - padding);
+						pos = v2(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) - (recipe_icon_index * (recipe_icon_size + (padding * 2) + recipe_material_amount.visual_size.x) - recipe_material_amount.visual_size.x), separator_pos.y - padding - (recipe_col_index * recipe_icon_size) - (recipe_col_index * padding) - recipe_icon_size - recipe_title.visual_size.y - padding);
+
+						// pos = v2(panel_icon_start_pos.x + (recipe_icon_index * (icon_size + padding)), panel_icon_start_pos.y);
+
+						xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+						
+						draw_image_xform(sprite->image, xform, v2(recipe_icon_size, recipe_icon_size), COLOR_WHITE);
+
+						draw_text_xform(font, sprint(temp_allocator, STR("%d/%d"), get_player_inventory_item_count(recipe_item->id), recipe_item->amount), font_height, m4_translate(xform, v3(-recipe_icon_size, (recipe_icon_size * 0.5) - (recipe_material_amount.visual_size.y * 0.5), 0)), v2(0.1, 0.1), COLOR_WHITE);
+
+						recipe_icon_index++;
+
+					}
+
+				}
+
+				// update craft button color if enough items for crafting the recipe
+				bool enough_items_for_recipe;
+				for (int i = 0; i < selected_recipe_workbench->crafting_recipe_count; i++){
+					ItemAmount* recipe_item = &selected_recipe_workbench->crafting_recipe[i];
+					if (!check_player_inventory_for_items(recipe_item->id, recipe_item->amount)){
+						enough_items_for_recipe = false;
+					}
+				}
+
+				if (enough_items_for_recipe){
+					craft_button_text_col = COLOR_GREEN;
+				}
+				else{
+					craft_button_text_col = COLOR_RED;
+				}
+
+
+				// Craft button
+				Matrix4 craft_xform = m4_identity;
+				craft_xform = m4_translate(craft_xform, v3(recipe_panel_pos.x, recipe_panel_pos.y, 0));
+				Draw_Quad* quad = draw_rect_xform(craft_xform, v2(recipe_panel_size.x, 10), v4(0.5, 0.5, 0.5, 0.5));
+				Gfx_Text_Metrics craft_text = measure_text(font, STR("Craft"), font_height, v2(0.1, 0.1));
+				Vector2 justified3 = v2_sub(justified3, v2_divf(craft_text.functional_size, 2));
+				craft_xform = m4_translate(craft_xform, v3(recipe_panel_size.x * 0.5, 4, 0));	// center text box
+				craft_xform = m4_translate(craft_xform, v3(justified3.x, justified3.y, 0));						// center text
+				draw_text_xform(font, STR("Craft"), font_height, craft_xform, v2(0.1, 0.1), craft_button_text_col);
+
+				// selecting craft button
+				if (range2f_contains(quad_to_range(*quad), get_mouse_pos_in_ndc())) {
+					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+						int result = 0;
+	
+						// check if player has the required items in inventory
+						for (int i = 0; i < selected_recipe_workbench->crafting_recipe_count; i++){
+
+							ItemAmount* recipe_item = &selected_recipe_workbench->crafting_recipe[i];
+							// printf("searching for itemID '%d'\n", recipe_item->id);
+
+							result += check_player_inventory_for_items(recipe_item->id, recipe_item->amount);
+						}
+
+						if (result >= selected_recipe_workbench->crafting_recipe_count){
+							delete_recipe_items_from_inventory(*selected_recipe_workbench);
+							add_item_to_inventory(selected_recipe_workbench->item_id, selected_recipe_workbench->name, 1, selected_recipe_workbench->arch, selected_recipe_workbench->sprite_id, selected_recipe_workbench->tool_id, true);
+							// trigger_crafting_text(selected_recipe_workbench->item_id);
+						}
+					}
+				}
+			}
+
+			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+				selected_recipe_workbench = NULL;
+				selected_recipe_xfrom = m4_identity;
+				is_recipe_selected = false;
+			}
+		}
 	}
+
 
 	// :RENDER CHEST UI || :Chest ui
 	else if (ux_state == UX_chest){
@@ -1086,11 +1338,11 @@ void render_building_ui(UXState ux_state)
 						if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 							consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 
-							selected_recipe = item;
+							selected_recipe_furnace = item;
 							selected_recipe_xfrom = xform_icon;
 							is_recipe_selected = true;
 
-							// printf("selected item = %s\n", selected_recipe->name);
+							// printf("selected item = %s\n", selected_recipe_furnace->name);
 						}
 					}
 					row_index++;
@@ -1098,7 +1350,7 @@ void render_building_ui(UXState ux_state)
 			}
 
 			// :RECIPE PANEL || recipe selected || draw recipe panel
-			if (selected_recipe){
+			if (selected_recipe_furnace){
 
 				// draw indicator on selected recipe
 				draw_rect_xform(m4_translate(selected_recipe_xfrom, v3(0,-1,0)), v2(icon_size, 1), COLOR_WHITE);
@@ -1122,10 +1374,10 @@ void render_building_ui(UXState ux_state)
 
 				// draw recipe icon
 				Matrix4 xform_recipe_icon = m4_identity;
-				Sprite* recipe_icon_sprite = get_sprite(selected_recipe->sprite_id);
+				Sprite* recipe_icon_sprite = get_sprite(selected_recipe_furnace->sprite_id);
 				Vector2 recipe_icon_sprite_size = get_sprite_size(recipe_icon_sprite);
 				xform_recipe_icon = m4_translate(xform_recipe_icon, v3(recipe_panel_pos.x + (recipe_panel_size.x * 0.5) - (recipe_icon_sprite_size.x * 0.5), recipe_panel_pos.y + recipe_panel_size.y - recipe_icon_sprite_size.y - 5, 0));
-				draw_image_xform(get_sprite(selected_recipe->sprite_id)->image, xform_recipe_icon, recipe_icon_sprite_size, COLOR_WHITE);
+				draw_image_xform(get_sprite(selected_recipe_furnace->sprite_id)->image, xform_recipe_icon, recipe_icon_sprite_size, COLOR_WHITE);
 
 				const int MAX_ICONS_PER_ROW_panel = 5;
 				int recipe_icon_index = 0;
@@ -1135,7 +1387,7 @@ void render_building_ui(UXState ux_state)
 
 				// draw recipe materials
 				for (int i = 0; i < MAX_RECIPE_ITEMS; i++){
-					ItemAmount* recipe_item = &selected_recipe->crafting_recipe[i];
+					ItemAmount* recipe_item = &selected_recipe_furnace->crafting_recipe[i];
 
 					// draw recipe icon
 					if (recipe_item->amount != 0){
@@ -1189,15 +1441,15 @@ void render_building_ui(UXState ux_state)
 					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 						printf("SMELT\n");
-						for (int i = 0; i < selected_recipe->crafting_recipe_count; i++){
-							ItemAmount* recipe_item = &selected_recipe->crafting_recipe[i];
+						for (int i = 0; i < selected_recipe_furnace->crafting_recipe_count; i++){
+							ItemAmount* recipe_item = &selected_recipe_furnace->crafting_recipe[i];
 							printf("searching for itemID '%d'\n", recipe_item->id);
 							bool result = check_player_inventory_for_items(recipe_item->id, recipe_item->amount);
 							printf("RESULT = %d\n", result);
 
 							if (result == 1){
 								delete_item_from_inventory(recipe_item->id, recipe_item->amount);
-								add_item_to_inventory(selected_recipe->item_id, selected_recipe->name, 1, ARCH_item, selected_recipe->sprite_id, TOOL_nil, true);
+								add_item_to_inventory(selected_recipe_furnace->item_id, selected_recipe_furnace->name, 1, ARCH_item, selected_recipe_furnace->sprite_id, TOOL_nil, true);
 							}
 						}
 					}
@@ -1219,7 +1471,7 @@ void render_building_ui(UXState ux_state)
 
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-				selected_recipe = NULL;
+				selected_recipe_furnace = NULL;
 				selected_recipe_xfrom = m4_identity;
 				is_recipe_selected = false;
 			}
@@ -1856,10 +2108,11 @@ int entry(int argc, char **argv)
 		{
 			// test adding items to inventory
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
-			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
-			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_tool_shovel, TOOL_shovel, true);
+			// add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
+			// add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_tool_shovel, TOOL_shovel, true);
 			// add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 5, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
-			// add_item_to_inventory(ITEM_rock, STR("Rock"), 5, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			add_item_to_inventory(ITEM_twig, STR("Twig"), 2, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 
 		}

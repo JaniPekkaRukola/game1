@@ -289,7 +289,7 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
-	bool check_player_inventory_for_items(ItemID item, int count){
+	int check_player_inventory_for_items(ItemID item, int count){
 		// checks if the player has enough (count) of items (item) in their inventory
 		// returns "true" if player has the items
 		// returns "false" if player doesn't have the items
@@ -298,11 +298,11 @@ DimensionData *get_dimensionData(DimensionID);
 			InventoryItemData* inventory_item = &world->player->inventory[i];
 			if (inventory_item->item_id == item){
 				if (inventory_item->amount >= count){
-					return true;
+					return 1;
 				}
 			}
 		}
-		return false;
+		return 0;
 	}
 
 	int get_player_inventory_item_count(ItemID item_id){
@@ -701,6 +701,14 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		}
 	}
 
+	void delete_recipe_items_from_inventory(ItemData recipe){
+		for (int i = 0; i < recipe.crafting_recipe_count; i++){
+			ItemAmount* item = &recipe.crafting_recipe[i];
+			delete_item_from_inventory(item->id, item->amount);
+		}
+	}
+
+
 	bool spawn_item_to_world(InventoryItemData item, Vector2 pos){
 		// spawns items to worldspace and returns the success as bool
 
@@ -929,6 +937,23 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 			draw_text_xform(font, sprint(temp_allocator, STR("+1 %s"), pickup_texts[i].en.name), font_height, xform, v2(0.1, 0.1), color);
 		}
 	}
+
+	// void trigger_crafting_text(ItemID id){
+	// 	for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
+	// 		if (!pickup_texts[i].active) {
+	// 			Vector2 pos = get_mouse_pos_in_screen();
+	// 			pickup_texts[i].start_pos = v2(pos.x, pos.y);
+	// 			pickup_texts[i].end_pos = v2(pos.x, pos.y + 15);
+	// 			pickup_texts[i].elapsed_time = 0.0f;
+	// 			pickup_texts[i].active = true;
+	// 			// pickup_texts[i].en = en;
+	// 			pickup_texts[i].start_alpha = 1.0f;
+	// 			pickup_texts[i].end_alpha = 0.0f;
+	// 			pickup_texts[i].duration = 1.0f;
+	// 			break;  // Exit after finding an available slot
+	// 		}
+	// 	}
+	// }
 
 
 	// Dimension change animation ----->
@@ -1483,6 +1508,8 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		// Pickaxe
 		crafting_recipes[ITEM_TOOL_pickaxe] = (ItemData){
 			.name = STR("PickAxe"),
+			.arch = ARCH_tool,
+			.tool_id = TOOL_pickaxe,
 			.sprite_id = SPRITE_tool_pickaxe,
 			.item_id = ITEM_TOOL_pickaxe,
 			.crafting_recipe = {{ITEM_rock, 4},{ITEM_twig, 2}},
@@ -1493,6 +1520,8 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		// Axe
 		crafting_recipes[ITEM_TOOL_axe] = (ItemData){
 			.name = STR("Axe"),
+			.arch = ARCH_tool,
+			.tool_id = TOOL_axe,
 			.sprite_id = SPRITE_tool_axe,
 			.item_id = ITEM_TOOL_axe,
 			.crafting_recipe = {{ITEM_rock, 3},{ITEM_twig, 2}},
@@ -1503,6 +1532,8 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		// Shovel
 		crafting_recipes[ITEM_TOOL_shovel] = (ItemData){
 			.name = STR("Shovel"),
+			.arch = ARCH_tool,
+			.tool_id = TOOL_shovel,
 			.sprite_id = SPRITE_tool_shovel,
 			.item_id = ITEM_TOOL_shovel,
 			.crafting_recipe = {{ITEM_rock, 2},{ITEM_twig, 2}},

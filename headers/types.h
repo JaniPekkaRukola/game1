@@ -281,11 +281,10 @@
     // :ItemData ------------------------>
     typedef struct ItemData {
         string name;
-        // EntityArchetype for_structure;
+        EntityArchetype arch;
         ItemAmount crafting_recipe[MAX_RECIPE_ITEMS];
         int crafting_recipe_count; // how many types of items in recipe ????? or output????
-        // ItemID output;
-        // ItemID input[8];
+        ToolID tool_id;
         SpriteID sprite_id;
         ItemID item_id;
         float cooking_time;
@@ -409,6 +408,8 @@
         float chest_alpha_target;
         float furnace_alpha;
         float furnace_alpha_target;
+        float workbench_alpha;
+        float workbench_alpha_target;
 
         BuildingID placing_building; // bad name
         Entity* open_crafting_station; // currently opened crafting station
