@@ -20,7 +20,8 @@ bool render_ground_texture = true;
 float render_distance = 175;		// 170 is pretty good
 
 // keybinds
-char player_use_key = 'F';
+char KEY_player_use = 'F';
+char KEY_toggle_inventory = KEY_TAB;
 
 
 // COLORS
@@ -417,15 +418,21 @@ void render_ui(){
 	push_z_layer(layer_ui);
 
 	// Open Inventory
-	if (is_key_just_pressed(KEY_TAB))
+	if (is_key_just_pressed(KEY_toggle_inventory))
 	{
-		consume_key_just_pressed(KEY_TAB);
-		world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
+		consume_key_just_pressed(KEY_toggle_inventory);
+		// world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
+		// world->player->inventory_ui_open = true;
+		world->player->inventory_ui_open = (world->player->inventory_ui_open == false ? true : false);
+		world->ux_state = UX_nil;
 	}
+
 	// ::Render inventory
-	if (world->ux_state == UX_inventory)
+	// if (world->ux_state == UX_inventory)
+	if (world->player->inventory_ui_open)
 	{
-		world->inventory_alpha_target = (world->ux_state == UX_inventory ? 1.0 : 0.0);
+		// world->inventory_alpha_target = (world->ux_state == UX_inventory ? 1.0 : 0.0);
+		world->inventory_alpha_target = (world->player->inventory_ui_open == true ? 1.0 : 0.0);
 		animate_f32_to_target(&world->inventory_alpha, world->inventory_alpha_target, delta_t, 15.0);
 		bool is_inventory_enabled = world->inventory_alpha_target == 1.0;
 
@@ -434,13 +441,14 @@ void render_ui(){
 			// Inventory variables
 			const int slot_size = 8;
 			const float padding = 2.0;
-			const int max_slots_row = 6;
-			const int max_rows = 4;
+			const int max_slots_row = 5;
+			const int max_rows = 6;
 			Draw_Quad* quad_item;	// pointer to item
 			// float box_width = (max_icons_per_row * icon_width) + ((max_icons_per_row * padding) + padding);
 
 			Vector2 inventory_bg_size = v2(max_slots_row * slot_size + (max_slots_row * padding) + padding * 2, max_rows * slot_size + (max_rows * padding) + padding * 2);
-			Vector2 inventory_bg_pos = v2(screen_width * 0.5 - inventory_bg_size.x * 0.5, screen_height * 0.5 - inventory_bg_size.y * 0.5);
+			// Vector2 inventory_bg_pos = v2(screen_width * 0.5 - inventory_bg_size.x * 0.5, screen_height * 0.5 - inventory_bg_size.y * 0.5); // centered in the middle
+			Vector2 inventory_bg_pos = v2(padding, screen_height - inventory_bg_size.y - padding);
 
 			// Colors
 			Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
@@ -522,12 +530,18 @@ void render_ui(){
 					// hovering item
 					if (quad_item && range2f_contains(quad_to_range(*quad_item), get_mouse_pos_in_ndc())){
 
-						// tooltip
+						// :tooltip
 						if (enable_tooltip){
-							const Vector2 tooltip_size = v2(30, 20);
-							Matrix4 xform_tooltip = xform_item;
+							// const Vector2 tooltip_size = v2(30, 20);
+							// Matrix4 xform_tooltip = xform_item;
+							// xform_tooltip = m4_translate(xform_tooltip, v3((tooltip_size.x * -0.5) + slot_size * 0.5, -tooltip_size.y - padding, 0));
 
-							xform_tooltip = m4_translate(xform_tooltip, v3((tooltip_size.x * -0.5) + slot_size * 0.5, -tooltip_size.y - padding, 0));
+							Vector2 tooltip_size = v2(inventory_bg_size.x, 30);
+
+							Matrix4 xform_tooltip = m4_identity;
+
+							xform_tooltip = m4_translate(xform_tooltip, v3(inventory_bg_pos.x, inventory_bg_pos.y - tooltip_size.y - padding, 0));
+
 
 							Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
 
@@ -606,6 +620,7 @@ void render_ui(){
 	{
 		consume_key_just_pressed('C');
 		world->ux_state = (world->ux_state == UX_nil ? UX_building : UX_nil);
+		world->player->inventory_ui_open = false;
 	}
 	// :Render building menu
 	if (world->ux_state == UX_building)
@@ -691,6 +706,7 @@ void render_ui(){
 	
 	// :Render building placement mode || :Build mode
 	if (world->ux_state == UX_place_mode){
+		world->player->inventory_ui_open = false;
 		if (selected_building){
 
 			set_world_space();
@@ -730,6 +746,7 @@ void render_ui(){
 	// :Render Hotbar
 	if (render_hotbar && world->ux_state != UX_building && world->ux_state != UX_place_mode)
 	{
+		// NOTE: could replace this long if statement with just the "render_hotbar" bool
 		const int slot_size = 8;
 		const Vector2 padding = v2(2, 1);
 		const int slot_count = 9;
@@ -862,16 +879,18 @@ bool is_recipe_selected = false;
 
 
 
-
-// :Chest UI || :Render Chest UI
+// :render building ui
 void render_building_ui(UXState ux_state)
 {
 
 	// close building ui
-	if (is_key_just_pressed(KEY_ESCAPE) || is_key_just_pressed(player_use_key)){
+	if (is_key_just_pressed(KEY_ESCAPE) || is_key_just_pressed(KEY_player_use) || is_key_just_pressed(KEY_toggle_inventory)){
 		consume_key_just_pressed(KEY_ESCAPE);
-		consume_key_just_pressed(player_use_key);
+		consume_key_just_pressed(KEY_player_use);
+		consume_key_just_pressed(KEY_toggle_inventory);
 		world->ux_state = UX_nil;
+		world->player->inventory_ui_open = false;
+		return;
 	}
 
 	// if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)){
@@ -881,14 +900,20 @@ void render_building_ui(UXState ux_state)
 	set_screen_space();
 	push_z_layer(layer_ui);
 
-	// :RENDER WORKBENCH UI
+	// :RENDER WORKBENCH UI || :workbench ui
 	if (ux_state == UX_workbench){
-		printf("rendering workbench ui\n");
+		world->player->inventory_ui_open = true;
+
+		// Vector2 workbench_size = v2();
+
+
+
+
 	}
 
-	// :RENDER CHEST UI
+	// :RENDER CHEST UI || :Chest ui
 	else if (ux_state == UX_chest){
-
+		world->player->inventory_ui_open = true;
 		// printf("RENDERING CHEST UI\n");
 
 		// chest size variables
@@ -955,9 +980,9 @@ void render_building_ui(UXState ux_state)
 	}
 
 
-	// :RENDER FURNACE UI
+	// :RENDER FURNACE UI || :furnace ui
 	else if (ux_state == UX_furnace){
-
+		world->player->inventory_ui_open = true;
 		// printf("RENDERING FURNACE UI\n");
 
 		// furnace ui size variables
@@ -1020,6 +1045,7 @@ void render_building_ui(UXState ux_state)
 
 			// draw title
 			draw_text_xform(font, STR("Furnace"), font_height, xform_bg, v2(0.1, 0.1), COLOR_WHITE);
+			// printf("drawing furance title\n");
 
 			// draw icons
 			Matrix4 xform_icon = m4_identity;
@@ -1133,7 +1159,7 @@ void render_building_ui(UXState ux_state)
 						xform = m4_translate(xform, v3(pos.x, pos.y, 0));
 						
 						draw_image_xform(sprite->image, xform, v2(icon_size, icon_size), COLOR_WHITE);
-						draw_text_xform(font, sprint(temp_allocator, STR("%dx"), recipe_item->amount), font_height, m4_translate(xform, v3(-8, + (icon_size * 0.5), 0)), v2(0.1, 0.1), COLOR_WHITE);
+						draw_text_xform(font, sprint(temp_allocator, STR("%d/%d"), get_player_inventory_item_count(recipe_item->id), recipe_item->amount), font_height, m4_translate(xform, v3(-8, + (icon_size * 0.5), 0)), v2(0.1, 0.1), COLOR_WHITE);
 
 						recipe_icon_index++;
 					}
@@ -1671,97 +1697,98 @@ int entry(int argc, char **argv)
 	assert(font, "Failed loading arial.ttf, %d", GetLastError());
 	render_atlas_if_not_yet_rendered(font, font_height, 'A'); // fix for the stuttering bug for first time text rendering courtesy of charlie (Q&A #3)
 
-	// :LOAD RESOURCES --------------------------------->
+	// ::LOAD RESOURCES --------------------------------->
 
-	// :Load entity sprites
-	sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
-	sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
-	sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
-	sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
-	sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
-	sprites[SPRITE_rock1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock1.png"), get_heap_allocator())};
-	sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
-	sprites[SPRITE_rock3] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock3.png"), get_heap_allocator())};
-	sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
-	sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
-	sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
-	sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
-	sprites[SPRITE_portal0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal0.png"), get_heap_allocator())};
-	sprites[SPRITE_portal1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal1.png"), get_heap_allocator())};
+		// ::Load sprites
+			// :Load entity sprites
+			sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
+			sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
+			sprites[SPRITE_rock1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock1.png"), get_heap_allocator())};
+			sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
+			sprites[SPRITE_rock3] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock3.png"), get_heap_allocator())};
+			sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
+			sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
+			sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
+			sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
+			sprites[SPRITE_portal0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal0.png"), get_heap_allocator())};
+			sprites[SPRITE_portal1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal1.png"), get_heap_allocator())};
+			sprites[SPRITE_ORE_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_iron.png"), get_heap_allocator())};
+			sprites[SPRITE_ORE_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_gold.png"), get_heap_allocator())};
+			sprites[SPRITE_ORE_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_copper.png"), get_heap_allocator())};
 
-	// :Load item/entity sprites (these sprites are the same for their entities and items (for now))
-	sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
-	sprites[SPRITE_ORE_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_iron.png"), get_heap_allocator())};
-	sprites[SPRITE_ORE_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_gold.png"), get_heap_allocator())};
-	sprites[SPRITE_ORE_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_copper.png"), get_heap_allocator())};
+			// :Load item/entity sprites (these sprites are the same for their entities and items (for now))
+			sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
 
-	// :Load item sprites
-	sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
-	sprites[SPRITE_item_pine_wood] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_pine_wood.png"), get_heap_allocator())};
-	sprites[SPRITE_item_sprout] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_sprout.png"), get_heap_allocator())};
-	sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
-	sprites[SPRITE_item_twig] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_twig.png"), get_heap_allocator())};
-	sprites[SPRITE_item_fossil0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil0.png"), get_heap_allocator())};
-	sprites[SPRITE_item_fossil1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil1.png"), get_heap_allocator())};
-	sprites[SPRITE_item_fossil2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil2.png"), get_heap_allocator())};
-	sprites[SPRITE_INGOT_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_iron.png"), get_heap_allocator())};
-	sprites[SPRITE_INGOT_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_gold.png"), get_heap_allocator())};
-	sprites[SPRITE_INGOT_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_copper.png"), get_heap_allocator())};
+			// :Load item sprites
+			sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
+			sprites[SPRITE_item_pine_wood] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_pine_wood.png"), get_heap_allocator())};
+			sprites[SPRITE_item_sprout] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_sprout.png"), get_heap_allocator())};
+			sprites[SPRITE_item_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_berry.png"), get_heap_allocator())};
+			sprites[SPRITE_item_twig] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_twig.png"), get_heap_allocator())};
+			sprites[SPRITE_item_fossil0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil0.png"), get_heap_allocator())};
+			sprites[SPRITE_item_fossil1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil1.png"), get_heap_allocator())};
+			sprites[SPRITE_item_fossil2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_fossil2.png"), get_heap_allocator())};
+			sprites[SPRITE_INGOT_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_iron.png"), get_heap_allocator())};
+			sprites[SPRITE_INGOT_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_gold.png"), get_heap_allocator())};
+			sprites[SPRITE_INGOT_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ingot_copper.png"), get_heap_allocator())};
+			sprites[SPRITE_ITEM_ore_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_ore_iron.png"), get_heap_allocator())};
+			sprites[SPRITE_ITEM_ore_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_ore_gold.png"), get_heap_allocator())};
+			sprites[SPRITE_ITEM_ore_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_ore_copper.png"), get_heap_allocator())};
 
-	// :Load tool sprites
-	sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
-	sprites[SPRITE_tool_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
-	sprites[SPRITE_tool_shovel] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_shovel.png"), get_heap_allocator())};
+			// :Load tool sprites
+			sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
+			sprites[SPRITE_tool_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
+			sprites[SPRITE_tool_shovel] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_shovel.png"), get_heap_allocator())};
 
-	// :Load building sprites
-	sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
-	sprites[SPRITE_building_workbench] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_workbench.png"), get_heap_allocator())};
-	sprites[SPRITE_building_chest] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_chest.png"), get_heap_allocator())};
+			// :Load building sprites
+			sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
+			sprites[SPRITE_building_workbench] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_workbench.png"), get_heap_allocator())};
+			sprites[SPRITE_building_chest] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_chest.png"), get_heap_allocator())};
+		// 
 
+		// :Load textures
+			textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
+			textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
+		// 
 
+		// :Load audio
+			Audio_Source hit_metal1, hit_metal2, rock_breaking1, swing_slow, swing_fast;
+			audioFiles[AUDIO_hit_metal1] = (Audio){.name=STR("Hit metal 1"),.ok=audio_open_source_load(&hit_metal1, STR("res/sounds/hit_metal1.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal1.wav"),.source=hit_metal1};
+			audioFiles[AUDIO_hit_metal2] = (Audio){.name=STR("Hit metal 2"),.ok=audio_open_source_load(&hit_metal2, STR("res/sounds/hit_metal2.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal2.wav"),.source=hit_metal2};
+			audioFiles[AUDIO_rock_breaking1] = (Audio){.name=STR("Rock Breaking 1"),.ok=audio_open_source_load(&rock_breaking1, STR("res/sounds/rock_breaking1.wav"), get_heap_allocator()),.path=STR("res/sounds/rock_breaking1.wav"),.source=rock_breaking1};
+			audioFiles[AUDIO_swing_slow] = (Audio){.name=STR("Swing slow"),.ok=audio_open_source_load(&swing_slow, STR("res/sounds/swing_slow.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_slow.wav"),.source=swing_slow};
+			audioFiles[AUDIO_swing_fast] = (Audio){.name=STR("Swing fast"),.ok=audio_open_source_load(&swing_fast, STR("res/sounds/swing_fast.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_fast.wav"),.source=swing_fast};
+		// 
 
-	// :Load textures
-	textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
-	textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
-
-
-
-	// :Load audio
-	Audio_Source hit_metal1, hit_metal2, rock_breaking1, swing_slow, swing_fast;
-	audioFiles[AUDIO_hit_metal1] = (Audio){.name=STR("Hit metal 1"),.ok=audio_open_source_load(&hit_metal1, STR("res/sounds/hit_metal1.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal1.wav"),.source=hit_metal1};
-	audioFiles[AUDIO_hit_metal2] = (Audio){.name=STR("Hit metal 2"),.ok=audio_open_source_load(&hit_metal2, STR("res/sounds/hit_metal2.wav"), get_heap_allocator()),.path=STR("res/sounds/hit_metal2.wav"),.source=hit_metal2};
-	audioFiles[AUDIO_rock_breaking1] = (Audio){.name=STR("Rock Breaking 1"),.ok=audio_open_source_load(&rock_breaking1, STR("res/sounds/rock_breaking1.wav"), get_heap_allocator()),.path=STR("res/sounds/rock_breaking1.wav"),.source=rock_breaking1};
-	audioFiles[AUDIO_swing_slow] = (Audio){.name=STR("Swing slow"),.ok=audio_open_source_load(&swing_slow, STR("res/sounds/swing_slow.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_slow.wav"),.source=swing_slow};
-	audioFiles[AUDIO_swing_fast] = (Audio){.name=STR("Swing fast"),.ok=audio_open_source_load(&swing_fast, STR("res/sounds/swing_fast.wav"), get_heap_allocator()),.path=STR("res/sounds/swing_fast.wav"),.source=swing_fast};
-
-
-
-	// assert all sprites			@ship debug this off (by: randy)
-	{
-		// crash when image fails to be setup properly (by: randy)
-		for (SpriteID i = 0; i < SPRITE_MAX; i++) {
-			Sprite* sprite = &sprites[i];
-			assert(sprite->image, "Sprite was not setup correctly");
+		// assert all sprites			@ship debug this off (by: randy)
+		{
+			// crash when image fails to be setup properly (by: randy)
+			for (SpriteID i = 0; i < SPRITE_MAX; i++) {
+				Sprite* sprite = &sprites[i];
+				assert(sprite->image, "Sprite was not setup correctly");
+			}
 		}
-	}
-	
-	// assert all texture files		@ship debug this off (by: jani)
-	{
-		for (TextureID i = 1; i < TEXTURE_MAX; i++) {
-			Texture* texture = &textures[i];
-			assert(texture->image, "Texture was not setup correctly");
+		
+		// assert all texture files		@ship debug this off (by: jani)
+		{
+			for (TextureID i = 1; i < TEXTURE_MAX; i++) {
+				Texture* texture = &textures[i];
+				assert(texture->image, "Texture was not setup correctly");
+			}
 		}
-	}
-	
-	// assert all audio files		@ship debug this off (by: jani)
-	{
-		for (AudioID i = 1; i < AUDIO_MAX; i++) {
-			Audio* audio = &audioFiles[i];
-			assert(audio->ok, "Audio was not setup correctly: '%s'", audio->name);
-			log_verbose("Audio file set up '%s'", audio->name);
+		
+		// assert all audio files		@ship debug this off (by: jani)
+		{
+			for (AudioID i = 1; i < AUDIO_MAX; i++) {
+				Audio* audio = &audioFiles[i];
+				assert(audio->ok, "Audio was not setup correctly: '%s'", audio->name);
+				log_verbose("Audio file set up '%s'", audio->name);
+			}
 		}
-	}
-
+	// 
 
 
 	// setup dimensions
@@ -2243,12 +2270,12 @@ int entry(int argc, char **argv)
 		{
 			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
 					// open chest
-				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(player_use_key)) {
+				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(KEY_player_use)) {
 					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
 
 					// this might do none
 					if (world->ux_state == UX_nil){
-						consume_key_just_pressed(player_use_key);
+						consume_key_just_pressed(KEY_player_use);
 					}
 
 					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
@@ -2444,7 +2471,7 @@ int entry(int argc, char **argv)
 
 		// render keybinding
 		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
-			render_keybinding(world_frame.selected_entity, player_use_key);
+			render_keybinding(world_frame.selected_entity, KEY_player_use);
 		}
 
 
@@ -2452,7 +2479,9 @@ int entry(int argc, char **argv)
 
 		// ENTER DEBUG MODE FROM GAME
 		if (is_key_just_pressed(KEY_CTRL)){
-			if (!runtime_debug){runtime_debug = true;}
+			if (!runtime_debug){
+				runtime_debug = true;
+			}
 			else{runtime_debug = false;}
 			// update_biome();
 			// player->en->pos.x -= 10; 

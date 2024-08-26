@@ -305,6 +305,16 @@ DimensionData *get_dimensionData(DimensionID);
 		return false;
 	}
 
+	int get_player_inventory_item_count(ItemID item_id){
+		for (int i = 0; i < world->player->inventory_items_count; i++){
+			InventoryItemData* item = &world->player->inventory[i];
+			if (item->item_id == item_id){
+				return item->amount;
+			}
+		}
+		return 0;
+	}
+
 
 	// :BIOME ------------------------->
 	BiomeData get_biome_data_from_id(BiomeID id){
@@ -560,9 +570,9 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_fossil0: return SPRITE_item_fossil0; break;
 			case ITEM_fossil1: return SPRITE_item_fossil1; break;
 			case ITEM_fossil2: return SPRITE_item_fossil2; break;
-			case ITEM_ORE_iron: return SPRITE_ORE_iron; break;
-			case ITEM_ORE_gold: return SPRITE_ORE_gold; break;
-			case ITEM_ORE_copper: return SPRITE_ORE_copper; break;
+			case ITEM_ORE_iron: return SPRITE_ITEM_ore_iron; break;
+			case ITEM_ORE_gold: return SPRITE_ITEM_ore_gold; break;
+			case ITEM_ORE_copper: return SPRITE_ITEM_ore_copper; break;
 			default: return 0; break;
 		}
 	}
@@ -615,10 +625,9 @@ DimensionData *get_dimensionData(DimensionID);
 	// :INVENTORY || :ITEM ------------>
 void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid) {
     Player *player = world->player;
-    int i;
 
     // Check if the item already exists in the inventory
-    for (i = 0; i < ITEM_MAX; i++) {
+    for (int i = 0; i < ITEM_MAX; i++) {
         if (player->inventory[i].valid && player->inventory[i].item_id == item) {
             // If the item already exists, increase the amount
             player->inventory[i].amount += amount;
@@ -627,7 +636,7 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
     }
 
     // If the item does not exist, find the first empty slot
-    for (i = 0; i < ITEM_MAX; i++) {
+    for (int i = 0; i < ITEM_MAX; i++) {
         if (!player->inventory[i].valid) {
             player->inventory[i].name = name;
             player->inventory[i].amount = amount;
@@ -712,11 +721,6 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 
 		return true;
 	}
-
-	// ItemData get_item_data(ItemID id) {
-	// 	// this might be an old func that is now useless
-	// 	return item_data[id];
-	// }
 
 
 	// :BUILDING ---------------------->

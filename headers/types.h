@@ -106,6 +106,11 @@
         SPRITE_ORE_gold,
         SPRITE_ORE_copper,
 
+        // ores as items
+        SPRITE_ITEM_ore_iron,
+        SPRITE_ITEM_ore_gold,
+        SPRITE_ITEM_ore_copper,
+
         // Ingots
         SPRITE_INGOT_iron,
         SPRITE_INGOT_gold,
@@ -220,7 +225,7 @@
 
     typedef enum UXState {
         UX_nil,
-        UX_inventory,
+        // UX_inventory,
         UX_building,
         UX_place_mode,
 
@@ -378,6 +383,7 @@
         Entity *selected_entity;
         // UXState ux_state;
 
+        bool inventory_ui_open;
         InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
         int inventory_items_count; // might be useless
 
