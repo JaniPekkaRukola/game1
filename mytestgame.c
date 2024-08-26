@@ -4,13 +4,14 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-bool print_fps = true;
-// bool print_fps = false;
+// bool print_fps = true;
+bool print_fps = false;
 // bool ENABLE_FRUSTRUM_CULLING = false;
 bool runtime_debug = false;
 
 
 bool enable_tooltip = true;
+bool enable_chest_tooltip = false;
 bool render_hotbar = true;
 bool render_player = true;
 bool render_other_entities = true;
@@ -30,6 +31,7 @@ const Vector4 entity_shadow_color = {0, 0, 0, 0.15};
 
 // rendering layers
 const s32 layer_ui = 20;
+const s32 layer_building_ui = 15;
 const s32 layer_world = 10;
 
 // Global app stuff
@@ -418,7 +420,7 @@ void render_ui(){
 	push_z_layer(layer_ui);
 
 	// Open Inventory
-	if (is_key_just_pressed(KEY_toggle_inventory))
+	if (is_key_just_pressed(KEY_toggle_inventory) && world->ux_state == UX_nil)
 	{
 		consume_key_just_pressed(KEY_toggle_inventory);
 		// world->ux_state = (world->ux_state == UX_nil ? UX_inventory : UX_nil);
@@ -438,17 +440,27 @@ void render_ui(){
 
 		if (world->inventory_alpha_target != 0.0){ // temp line for instant opening of the inventory, since global draw frame alpha is not a thing (yet)
 
+			// printf("RENDERING INVENTORY\n");
+
 			// Inventory variables
 			const int slot_size = 8;
 			const float padding = 2.0;
 			const int max_slots_row = 5;
 			const int max_rows = 6;
 			Draw_Quad* quad_item;	// pointer to item
+			Vector2 inventory_bg_pos;
 			// float box_width = (max_icons_per_row * icon_width) + ((max_icons_per_row * padding) + padding);
 
 			Vector2 inventory_bg_size = v2(max_slots_row * slot_size + (max_slots_row * padding) + padding * 2, max_rows * slot_size + (max_rows * padding) + padding * 2);
 			// Vector2 inventory_bg_pos = v2(screen_width * 0.5 - inventory_bg_size.x * 0.5, screen_height * 0.5 - inventory_bg_size.y * 0.5); // centered in the middle
-			Vector2 inventory_bg_pos = v2(padding, screen_height - inventory_bg_size.y - padding);
+
+			if (world->ux_state == UX_chest){
+				inventory_bg_pos = v2((screen_width * 0.5) - (inventory_bg_size.x) - 10, (screen_height * 0.5) - (inventory_bg_size.y * 0.5));
+			}
+			else{
+				inventory_bg_pos = v2(padding, screen_height - inventory_bg_size.y - padding);
+
+			}
 
 			// Colors
 			Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
@@ -559,12 +571,14 @@ void render_ui(){
 						xform_item = m4_scale(xform_item, v3(scale_adjust, scale_adjust, 1));
 
 						// selecting item
-						if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
-							consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+						// if (world->ux_state != UX_chest){
+							if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+								consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 
-							inventory_selected_item = *inventory_item;
-							delete_item_from_inventory(inventory_item->item_id, inventory_item->amount);
-						}
+								inventory_selected_item = *inventory_item;
+								delete_item_from_inventory(inventory_item->item_id, inventory_item->amount);
+							}
+						// }
 					} // quad
 
 					// draw item
@@ -583,15 +597,24 @@ void render_ui(){
 
 				// check if item is released inside of the inventory our outside
 				if (range2f_contains(quad_to_range(*quad_bg), get_mouse_pos_in_ndc())){
-					// printf("Released inside inv\n");
+					printf("Released inside inv\n");
 					add_item_to_inventory_quick(&inventory_selected_item);
 				}
 				else{
-					Vector2 pos = get_player_pos();
-					// printf("Released outside inv %.0f, %.0f\n", pos.x, pos.y);
-					if (!spawn_item_to_world(inventory_selected_item, v2(pos.x - 15, pos.y))){
-						log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
-						add_item_to_inventory_quick(&inventory_selected_item);
+					// check if item is released into chest
+					printf("%.5f, %.5f\n", chest_quad->bottom_left.x, chest_quad->bottom_left.y);
+					printf("asd %d\n", range2f_contains(quad_to_range(*chest_quad), get_mouse_pos_in_ndc()));
+					if (world->ux_state == UX_chest && chest_quad && range2f_contains(quad_to_range(*chest_quad), get_mouse_pos_in_ndc())){
+						printf("ADDED ITEM TO CHEST\n");
+						add_item_to_chest(inventory_selected_item);
+					}
+					else{
+						Vector2 pos = get_player_pos();
+						printf("Released outside inv %.0f, %.0f\n", pos.x, pos.y);
+						if (!spawn_item_to_world(inventory_selected_item, v2(pos.x - 15, pos.y))){
+							log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
+							add_item_to_inventory_quick(&inventory_selected_item);
+						}
 					}
 				}
 
@@ -609,7 +632,13 @@ void render_ui(){
 				xform_item_drag = m4_translate(xform_item_drag, v3(mouse_pos_screen.x, mouse_pos_screen.y, 0));
 				xform_item_drag = m4_translate(xform_item_drag, v3(slot_size * -0.5, slot_size * -0.5, 0));
 
+				// draw item
 				Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(inventory_selected_item.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
+				// draw item count
+				if (inventory_selected_item_in_chest_ui.arch != ARCH_tool){
+					draw_text_xform(font, sprint(temp_allocator, STR("%d"), inventory_selected_item.amount), font_height, xform_item_drag, v2(0.1, 0.1), COLOR_WHITE);
+				}
+
 			}
 		}
 	}
@@ -692,7 +721,7 @@ void render_ui(){
 					
 					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-						selected_building = building;
+						selected_building_buildmode = building;
 						world->ux_state = UX_place_mode;
 					}
 				}
@@ -707,13 +736,13 @@ void render_ui(){
 	// :Render building placement mode || :Build mode
 	if (world->ux_state == UX_place_mode){
 		world->player->inventory_ui_open = false;
-		if (selected_building){
+		if (selected_building_buildmode){
 
 			set_world_space();
 			
 			Vector4 ghost_col = v4(0.5, 0.5, 0.5, 0.7);
 
-			Sprite* sprite = get_sprite(selected_building->sprite_id);
+			Sprite* sprite = get_sprite(selected_building_buildmode->sprite_id);
 			Vector2 sprite_size = get_sprite_size(sprite);
 
 			if (!sprite){
@@ -735,10 +764,10 @@ void render_ui(){
 
 				// create building
 				Entity* en = entity_create();
-				setup_building(en, selected_building->building_id);
+				setup_building(en, selected_building_buildmode->building_id);
 				en->pos = mouse_pos;
 				en->pos = round_v2_to_tile(en->pos);
-				selected_building = NULL;
+				selected_building_buildmode = NULL;
 				world->ux_state = UX_nil;
 			}
 		}
@@ -889,8 +918,8 @@ void render_building_ui(UXState ux_state)
 		consume_key_just_pressed(KEY_ESCAPE);
 		consume_key_just_pressed(KEY_player_use);
 		consume_key_just_pressed(KEY_toggle_inventory);
-		world->ux_state = UX_nil;
 		world->player->inventory_ui_open = false;
+		world->ux_state = UX_nil;
 		return;
 	}
 
@@ -899,7 +928,7 @@ void render_building_ui(UXState ux_state)
 	// }
 
 	set_screen_space();
-	push_z_layer(layer_ui);
+	push_z_layer(layer_building_ui);
 
 	// :RENDER WORKBENCH UI || :workbench ui
 	if (ux_state == UX_workbench){
@@ -924,8 +953,8 @@ void render_building_ui(UXState ux_state)
 		Vector2 workbench_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
 		workbench_ui_pos = v2(workbench_ui_pos.x - (workbench_ui_size.x * 0.5), workbench_ui_pos.y - (workbench_ui_size.y * 0.5));
 
-		const float x_start_pos = workbench_ui_pos.x;
-		const float y_start_pos = workbench_ui_pos.y;
+		// const float x_start_pos = workbench_ui_pos.x;
+		// const float y_start_pos = workbench_ui_pos.y;
 
 		// Gfx_Text_Metrics recipe_title;
 		// Gfx_Text_Metrics furnace_title;
@@ -1165,69 +1194,384 @@ void render_building_ui(UXState ux_state)
 
 	// :RENDER CHEST UI || :Chest ui
 	else if (ux_state == UX_chest){
-		world->player->inventory_ui_open = true;
-		// printf("RENDERING CHEST UI\n");
+		world->player->inventory_ui_open = false;
 
-		// chest size variables
-		const int max_slots_row = 9;
-		const int max_slots_col = 4;
+		// shared variables
+		const int middle_padding = 10;
 		const int slot_size = 8;
-		const int padding = 2;
-		int slot_index = 0;
-		int row_index = 0;
-
-		// const Vector2 chest_ui_size = v2(200, 100);
-		const Vector2 chest_ui_size = v2((max_slots_row * slot_size) + (max_slots_row * padding) + padding, (max_slots_col * slot_size) + (max_slots_col * padding) + padding);
-		Vector2 chest_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
-		chest_ui_pos = v2(chest_ui_pos.x - (chest_ui_size.x * 0.5), chest_ui_pos.y - (chest_ui_size.y * 0.5));
+		const float padding = 2.0;
 		float slot_border_width = 1;
+		Vector4 tooltip_bg;
 
-		const float x_start_pos = chest_ui_pos.x;
-		const float y_start_pos = chest_ui_pos.y;
+		// INVENTORY VARIABLES
+		const int max_slots_row_inventory = 5;
+		const int max_rows_inventory = 6;
+		Draw_Quad* quad_item_inventory;	// pointer to item
+		Vector2 inventory_bg_pos;
+
+		Vector2 inventory_bg_size = v2(max_slots_row_inventory * slot_size + (max_slots_row_inventory * padding) + padding * 2, max_rows_inventory * slot_size + (max_rows_inventory * padding) + padding * 2);
+		inventory_bg_pos = v2((screen_width * 0.5) - (inventory_bg_size.x) - middle_padding, (screen_height * 0.5) - (inventory_bg_size.y * 0.5));
 
 		// Colors
-		Vector4 chest_bg = v4(0.25, 0.25, 0.25, 0.7);
+		Vector4 inventory_icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+		Vector4 inventory_bg = v4(0.0, 0.0, 0.0, 0.5);
+		Vector4 slot_color = v4(0.5, 0.5, 0.5, 0.6);
+		tooltip_bg = inventory_bg;
+
+		// init xform
+		Matrix4 xform_inventory_bg = m4_identity;
+
+		// xform translate inventory background
+		xform_inventory_bg = m4_translate(xform_inventory_bg, v3(inventory_bg_pos.x, inventory_bg_pos.y, 0));
+
+		// draw inventory background and take quad for collisions
+		Draw_Quad* inventory_quad = draw_rect_xform(xform_inventory_bg, v2(inventory_bg_size.x, inventory_bg_size.y), inventory_bg);
+
+		// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+		// CHEST VARIABLES
+		const int max_slots_row_chest = 5;
+		const int max_rows_chest = 6;
+
+		const Vector2 chest_ui_size = v2((max_slots_row_chest * slot_size) + (max_slots_row_chest * padding) + padding * 2, (max_rows_chest * slot_size) + (max_rows_chest * padding) + padding * 2);
+		Vector2 chest_ui_pos = v2((screen_width * 0.5) + middle_padding, (screen_height * 0.5) - (chest_ui_size.y * 0.5));
+
+		Draw_Quad* quad_item_chest;	// pointer to item
+
+		// Colors
+		Vector4 chest_icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
+		Vector4 chest_bg = v4(0.0, 0.0, 0.0, 0.5);
 		Vector4 slot_border_color = v4(1, 1, 1, 0.7);
-		// Vector4 slot_color = v4(1, 1, 1, 0.7);
+
+		Matrix4 xform_chest_bg = m4_identity;
+		xform_chest_bg = m4_translate(xform_chest_bg, v3(chest_ui_pos.x, chest_ui_pos.y, 0));
+
+		// draw chest background and take quad for collisions
+		chest_quad = draw_rect_xform(xform_chest_bg, v2(chest_ui_size.x, chest_ui_size.y), chest_bg);
+
+		// @pin4 could this be the issue why pointer points to player inventory instead of chest inventory?
+		//                            VV     '&' missing
+	    BuildingData* selected_chest = world->player->selected_building;
 
 		world->chest_alpha_target = (world->ux_state == UX_chest ? 1.0 : 0.0);
 		animate_f32_to_target(&world->chest_alpha, world->chest_alpha_target, delta_t, 15.0);
 		bool is_chest_enabled = world->chest_alpha_target == 1.0;
-
+		
 		if (world->chest_alpha_target != 0.0)
 		{
-			Matrix4 xform = m4_identity;
-			xform = m4_translate(xform, v3(chest_ui_pos.x, chest_ui_pos.y, 0));
-			// xform = m4_scale(xform, v3(chest_ui_size.x, chest_ui_size.y, 0));
+			// INVENTORY UI ------------------------------------------------------>
+			{
+				// position where drawing items starts (top left)
+				Vector2 item_start_pos = v2(inventory_bg_pos.x + padding, inventory_bg_pos.y + inventory_bg_size.y - slot_size - padding);
 
-			// draw background
-			draw_rect_xform(xform, v2(chest_ui_size.x, chest_ui_size.y), chest_bg);
+				// item variables
+				int slot_index = 0; // basically column index but with sexier name
+				int row_index = 0;
 
-			// draw slots
-			for (int i = 0; i < max_slots_row* max_slots_col; i++){
+				// draw empty slots
+				for (int i = 0; i < max_slots_row_inventory * max_rows_inventory; i++){
+					
+					if (slot_index >= max_slots_row_inventory){
+						slot_index = 0;
+						row_index++;
+					}
 
-				Matrix4 xform_slot = m4_identity;
-				float x_pos = x_start_pos + (slot_index * slot_size) + (slot_index * padding) + padding;
-				float y_pos = y_start_pos + (row_index * slot_size) + (row_index * padding) + padding;
+					Matrix4 xform_item = m4_identity;
+					xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding * 0.5), item_start_pos.y - (row_index * slot_size) - (row_index * padding) - padding * 0.5, 0));
 
-				// translate xform
-				xform_slot = m4_translate(xform_slot, v3(x_pos, y_pos, 0));
+					// draw empty slot
+					draw_rect_xform(xform_item, v2(slot_size, slot_size), slot_color);
+					// TODO: make it a rect with border 'draw_rect_with_border'
 
-				// draw slot border
-				draw_rect_xform(xform_slot, v2(slot_size, slot_size), slot_border_color);
-
-				// draw slot
-				xform_slot = m4_translate(xform_slot, v3((0.5 * slot_border_width), (0.5 * slot_border_width), 0));
-				draw_rect_xform(xform_slot, v2(slot_size - slot_border_width, slot_size - slot_border_width), chest_bg);
-
-				slot_index++;
-				if (slot_index >= max_slots_row){
-					row_index++;
-					slot_index = 0;
+					slot_index++;
 				}
 
-			}
+				// reset these variables
+				slot_index = 0;
+				row_index = 0;
 
+				// draw items
+				for(int i = 0; i < ITEM_MAX; i++){
+					InventoryItemData* inventory_item = &world->player->inventory[i];
+					if (inventory_item != NULL && inventory_item->amount > 0){
+
+						// change to next row if row is full
+						if (slot_index >= max_slots_row_inventory){
+							slot_index = 0;
+							row_index++;
+						}
+
+						// get sprite
+						Sprite* sprite = get_sprite(inventory_item->sprite_id);
+
+						// skip to next item if sprite is null. NOTE: prolly useless since the "inventory_item != NULL" if statement.
+						if (!sprite || !sprite->image){
+							continue;
+						}
+
+						Matrix4 xform_item = m4_identity;
+						xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding * 0.5), item_start_pos.y - (row_index * slot_size) - (row_index * padding) - padding * 0.5, 0));
+
+						// save xform_item for later when drawing item counts
+						Matrix4 xform_item_count = xform_item;
+
+						// get quad
+						quad_item_inventory = draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), v4(0,0,0,0));
+
+						slot_index++;
+
+						// hovering item
+						if (quad_item_inventory && range2f_contains(quad_to_range(*quad_item_inventory), get_mouse_pos_in_ndc())){
+
+							// tooltip
+							if (enable_tooltip){
+
+								Vector2 tooltip_size = v2(inventory_bg_size.x, 30);
+
+								Matrix4 xform_tooltip = m4_identity;
+								xform_tooltip = m4_translate(xform_tooltip, v3(inventory_bg_pos.x, inventory_bg_pos.y - tooltip_size.y - padding, 0));
+
+								Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
+
+								string item_name = inventory_item->name;
+
+								Gfx_Text_Metrics tooltip_metrics = measure_text(font, item_name, font_height, v2(0.1, 0.1));
+								Vector2 justified = v2_sub(justified, v2_divf(tooltip_metrics.functional_size, 2));
+								xform_tooltip = m4_translate(xform_tooltip, v3(tooltip_size.x * 0.5, tooltip_size.y - 5, 0));
+								xform_tooltip = m4_translate(xform_tooltip, v3(justified.x, justified.y, 0));
+								draw_text_xform(font, item_name, font_height, xform_tooltip, v2(0.1, 0.1), COLOR_WHITE);
+							}
+
+							// scale item
+							float scale_adjust = 1.3;
+							xform_item = m4_scale(xform_item, v3(scale_adjust, scale_adjust, 1));
+
+							// selecting item
+							if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+								consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+								inventory_selected_item_in_chest_ui = *inventory_item;
+								delete_item_from_inventory(inventory_item->item_id, inventory_item->amount);
+							}
+						} // quad
+
+						// draw item
+						draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), COLOR_WHITE);
+
+						// draw item count (not tools)
+						if (inventory_item->arch != ARCH_tool){
+							draw_text_xform(font, sprint(temp_allocator, STR("%d"), inventory_item->amount), font_height, xform_item_count, v2(0.1, 0.1), COLOR_WHITE);
+						}
+					} // inventory_item != NULL && inventory_item->amount > 0
+				} // for loop
+
+
+				// dragging release
+				if (is_key_up(MOUSE_BUTTON_LEFT) && inventory_selected_item_in_chest_ui.valid){
+
+					// check if item is released inside of the inventory our outside
+					if (range2f_contains(quad_to_range(*inventory_quad), get_mouse_pos_in_ndc())){
+						add_item_to_inventory_quick(&inventory_selected_item_in_chest_ui);
+					}
+					else{
+						// check if item is released into chest
+						if (chest_quad && range2f_contains(quad_to_range(*chest_quad), get_mouse_pos_in_ndc())){
+							add_item_to_chest(inventory_selected_item_in_chest_ui);
+						}
+						else{
+							// TODO: make the item spawn towards the mouse cursor from player
+							Vector2 pos = get_player_pos();
+							if (!spawn_item_to_world(inventory_selected_item_in_chest_ui, v2(pos.x - 15, pos.y))){
+								log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
+								add_item_to_inventory_quick(&inventory_selected_item_in_chest_ui);
+							}
+						}
+					}
+
+					// reset selected item. Setting the valid to false functions here like a nullptr
+					inventory_selected_item_in_chest_ui.valid = false;
+				}
+				
+				// dragging from inventory
+				if (inventory_selected_item_in_chest_ui.valid){
+
+					// get mouse pos
+					Vector2 mouse_pos_screen = get_mouse_pos_in_screen();
+
+					Matrix4 xform_item_drag = m4_identity;
+					xform_item_drag = m4_translate(xform_item_drag, v3(mouse_pos_screen.x, mouse_pos_screen.y, 0));
+					xform_item_drag = m4_translate(xform_item_drag, v3(slot_size * -0.5, slot_size * -0.5, 0));
+
+					// draw item
+					Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(inventory_selected_item_in_chest_ui.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
+					// draw item amount
+					if (inventory_selected_item_in_chest_ui.arch != ARCH_tool){
+						draw_text_xform(font, sprint(temp_allocator, STR("%d"), inventory_selected_item_in_chest_ui.amount), font_height, xform_item_drag, v2(0.1, 0.1), COLOR_WHITE);
+					}
+
+				}
+			}
+			// inventory ui end
+
+
+			// CHEST UI ---------------------------------------------------------->
+			{
+				// position where drawing items starts (top left)
+				Vector2 item_start_pos = v2(chest_ui_pos.x + padding, chest_ui_pos.y + chest_ui_size.y - slot_size - padding);
+
+				// item variables
+				int slot_index = 0; // basically column index but with sexier name
+				int row_index = 0;
+
+				// draw empty slots
+				for (int i = 0; i < max_slots_row_chest * max_rows_chest; i++){
+					
+					if (slot_index >= max_slots_row_chest){
+						slot_index = 0;
+						row_index++;
+					}
+
+					Matrix4 xform_item = m4_identity;
+					xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding * 0.5), item_start_pos.y - (row_index * slot_size) - (row_index * padding) - padding * 0.5, 0));
+
+					// draw empty slot
+					draw_rect_xform(xform_item, v2(slot_size, slot_size), slot_color);
+					// TODO: make it a rect with border 'draw_rect_with_border'
+
+					slot_index++;
+				}
+
+				// reset these variables
+				slot_index = 0;
+				row_index = 0;
+
+				// NOTE: this is how to add items straight to the chest inventory
+				// world->dimension->entities[937].building_data.inventory[0] = (InventoryItemData){.item_id=ITEM_berry, .amount=1,.arch=ARCH_item,.name=STR("BERRY"),.valid=true,.sprite_id=SPRITE_item_berry};
+
+				// draw items
+				for(int i = 0; i < ITEM_MAX; i++){
+					InventoryItemData* chest_item = &selected_chest->inventory[i];
+					if (chest_item != NULL && chest_item->amount > 0){
+
+						// change to next row if row is full
+						if (slot_index >= max_slots_row_chest){
+							slot_index = 0;
+							row_index++;
+						}
+
+						// get sprite
+						Sprite* sprite = get_sprite(chest_item->sprite_id);
+
+						// skip to next item if sprite is null. NOTE: prolly useless since the "chest_item != NULL" if statement.
+						if (!sprite || !sprite->image){
+							continue;
+						}
+
+						Matrix4 xform_item = m4_identity;
+						xform_item = m4_translate(xform_item, v3(item_start_pos.x + ((slot_index * slot_size) + (slot_index * padding) + padding * 0.5), item_start_pos.y - (row_index * slot_size) - (row_index * padding) - padding * 0.5, 0));
+
+						// save xform_item for later when drawing item counts
+						Matrix4 xform_item_count = xform_item;
+
+						// get quad
+						quad_item_chest = draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), v4(0,0,0,0));
+
+						slot_index++;
+
+						// hovering item
+						if (quad_item_chest && range2f_contains(quad_to_range(*quad_item_chest), get_mouse_pos_in_ndc())){
+
+							// :tooltip
+							if (enable_chest_tooltip){
+
+								Vector2 tooltip_size = v2(chest_ui_size.x, 30);
+
+								Matrix4 xform_tooltip = m4_identity;
+								xform_tooltip = m4_translate(xform_tooltip, v3(chest_ui_pos.x, chest_ui_pos.y - tooltip_size.y - padding, 0));
+
+								Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
+
+								string item_name = chest_item->name;
+
+								Gfx_Text_Metrics tooltip_metrics = measure_text(font, item_name, font_height, v2(0.1, 0.1));
+								Vector2 justified = v2_sub(justified, v2_divf(tooltip_metrics.functional_size, 2));
+								xform_tooltip = m4_translate(xform_tooltip, v3(tooltip_size.x * 0.5, tooltip_size.y - 5, 0));
+								xform_tooltip = m4_translate(xform_tooltip, v3(justified.x, justified.y, 0));
+								draw_text_xform(font, item_name, font_height, xform_tooltip, v2(0.1, 0.1), COLOR_WHITE);
+							}
+
+							// scale item
+							float scale_adjust = 1.3;
+							xform_item = m4_scale(xform_item, v3(scale_adjust, scale_adjust, 1));
+
+							// selecting item
+							if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+								consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+
+								chest_selected_item = *chest_item;
+								delete_item_from_chest(chest_item->item_id, chest_item->amount);
+							}
+						} // quad
+
+						// draw item
+						draw_image_xform(sprite->image, xform_item, v2(slot_size, slot_size), COLOR_WHITE);
+
+						// draw item count (not for tools)
+						if (chest_item->arch != ARCH_tool){
+							draw_text_xform(font, sprint(temp_allocator, STR("%d"), chest_item->amount), font_height, xform_item_count, v2(0.1, 0.1), COLOR_WHITE);
+						}
+					} // chest_item != NULL && chest_item->amount > 0
+				} // for loop
+
+				// dragging release
+				if (is_key_up(MOUSE_BUTTON_LEFT) && chest_selected_item.valid){
+
+					// check if item is released inside of the inventory our outside
+					if (range2f_contains(quad_to_range(*chest_quad), get_mouse_pos_in_ndc())){
+						add_item_to_chest(chest_selected_item);
+					}
+					else{
+						// check if item is released into inventory
+						if (inventory_quad && range2f_contains(quad_to_range(*inventory_quad), get_mouse_pos_in_ndc())){
+							add_item_to_inventory_quick(&chest_selected_item);
+						}
+						else{
+							// TODO: make the item spawn towards the mouse cursor from player
+							Vector2 pos = get_player_pos();
+							if (!spawn_item_to_world(chest_selected_item, v2(pos.x - 15, pos.y))){
+								log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
+								add_item_to_inventory_quick(&chest_selected_item);
+							}
+						}
+					}
+
+					// reset selected item. Setting the valid to false functions here like nullptr
+					chest_selected_item.valid = false;
+				}
+				
+				// dragging from chest
+				if (chest_selected_item.valid){
+
+					// get mouse pos
+					Vector2 mouse_pos_screen = get_mouse_pos_in_screen();
+
+					Matrix4 xform_item_drag = m4_identity;
+					xform_item_drag = m4_translate(xform_item_drag, v3(mouse_pos_screen.x, mouse_pos_screen.y, 0));
+					xform_item_drag = m4_translate(xform_item_drag, v3(slot_size * -0.5, slot_size * -0.5, 0));
+
+					// draw item
+					Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(chest_selected_item.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
+					// draw item amount
+					if (chest_selected_item.arch != ARCH_tool){
+						draw_text_xform(font, sprint(temp_allocator, STR("%d"), chest_selected_item.amount), font_height, xform_item_drag, v2(0.1, 0.1), COLOR_WHITE);
+					}
+				}
+			} // chest ui end
+		}
+
+		// prevent player attacking when chest ui is open
+		if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+			consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 		}
 	}
 
@@ -1256,8 +1600,8 @@ void render_building_ui(UXState ux_state)
 		Vector2 furnace_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
 		furnace_ui_pos = v2(furnace_ui_pos.x - (furnace_ui_size.x * 0.5), furnace_ui_pos.y - (furnace_ui_size.y * 0.5));
 
-		const float x_start_pos = furnace_ui_pos.x;
-		const float y_start_pos = furnace_ui_pos.y;
+		// const float x_start_pos = furnace_ui_pos.x;
+		// const float y_start_pos = furnace_ui_pos.y;
 
 		// Gfx_Text_Metrics recipe_title;
 		// Gfx_Text_Metrics furnace_title;
@@ -2243,6 +2587,10 @@ int entry(int argc, char **argv)
 							if (!world_frame.selected_entity || (dist < smallest_dist)) {
 								// this is selected entity by mouse. RENAME
 								world_frame.selected_entity = en;
+								if (en->arch == ARCH_building){
+									// printf("UPDATED 'world->player->selected_building' to %d\n", en->arch);
+									world->player->selected_building = &en->building_data;
+								}
 								// smallest_dist = dist; // imo entity selection works better with this line commented
 							}
 						}

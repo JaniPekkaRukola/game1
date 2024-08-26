@@ -261,11 +261,24 @@
         Vector2 pos2;
     } PortalPair;
 
+    // :InventoryItemData --------------->
+    typedef struct InventoryItemData {
+        int amount;
+        string name;
+        bool valid;
+        SpriteID sprite_id;
+        EntityArchetype arch;
+        ToolID tool_id;
+        ItemID item_id;
+    } InventoryItemData;
+
     // :BuildingData -------------------->
     typedef struct BuildingData { 
         EntityArchetype to_build;
         SpriteID sprite_id;
         BuildingID building_id;
+        bool has_inventory;
+        InventoryItemData inventory[ITEM_MAX];
         // display name
         // cost
         // health
@@ -328,16 +341,7 @@
 
     } Entity;
 
-    // :InventoryItemData --------------->
-    typedef struct InventoryItemData {
-        int amount;
-        string name;
-        bool valid;
-        SpriteID sprite_id;
-        EntityArchetype arch;
-        ToolID tool_id;
-        ItemID item_id;
-    } InventoryItemData;
+
 
     // :WorldFrame ---------------------->
     typedef struct WorldFrame {
@@ -380,11 +384,13 @@
         float entity_selection_radius;
         // ItemData *selected_item;
         Entity *selected_entity;
+        BuildingData* selected_building; // selected building || currently open building
+
         // UXState ux_state;
 
         bool inventory_ui_open;
         InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
-        int inventory_items_count; // might be useless
+        int inventory_items_count; // might be useless, used in checking for items in player inventory. Could be replaced by a for loop at the check items func! 
 
     } Player;
 
@@ -574,9 +580,13 @@
 
     // ui rendering
     InventoryItemData inventory_selected_item;	// hardcopy of item from inventory, when starting to drag item
+    InventoryItemData inventory_selected_item_in_chest_ui;	// hardcopy of item from inventory, when starting to drag item
+    InventoryItemData chest_selected_item;	// hardcopy of item from chest, when starting to drag item
     InventoryItemData* item_in_hand = NULL;	// selected item in hotbar. Renders in hand
-    BuildingData* selected_building = NULL; // selected building in build mode
+    BuildingData* selected_building_buildmode = NULL; // selected building in build mode
+    // BuildingData* selected_building = NULL; // selected building || currently open building
     int selected_slot_index = 0;
+    Draw_Quad* chest_quad = NULL;
 
 // 
 

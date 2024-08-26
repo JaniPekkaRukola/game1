@@ -623,35 +623,37 @@ DimensionData *get_dimensionData(DimensionID);
 
 
 	// :INVENTORY || :ITEM ------------>
-void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid) {
-    Player *player = world->player;
+	void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid) {
+		Player *player = world->player;
 
-    // Check if the item already exists in the inventory
-    for (int i = 0; i < ITEM_MAX; i++) {
-        if (player->inventory[i].valid && player->inventory[i].item_id == item) {
-            // If the item already exists, increase the amount
-            player->inventory[i].amount += amount;
-            return;
-        }
-    }
+		// printf("ADDED ITEM %d TO INVENTORY\n", item);
 
-    // If the item does not exist, find the first empty slot
-    for (int i = 0; i < ITEM_MAX; i++) {
-        if (!player->inventory[i].valid) {
-            player->inventory[i].name = name;
-            player->inventory[i].amount = amount;
-            player->inventory[i].arch = arch;
-            player->inventory[i].sprite_id = sprite_id;
-            player->inventory[i].tool_id = tool_id;
-            player->inventory[i].valid = valid;
-            player->inventory[i].item_id = item;
-            player->inventory_items_count++;
-            return;
-        }
-    }
+		// Check if the item already exists in the inventory
+		for (int i = 0; i < ITEM_MAX; i++) {
+			if (player->inventory[i].valid && player->inventory[i].item_id == item) {
+				// If the item already exists, increase the amount
+				player->inventory[i].amount += amount;
+				return;
+			}
+		}
 
-    printf("Inventory FULL!\n");
-}
+		// If the item does not exist, find the first empty slot
+		for (int i = 0; i < ITEM_MAX; i++) {
+			if (!player->inventory[i].valid) {
+				player->inventory[i].name = name;
+				player->inventory[i].amount = amount;
+				player->inventory[i].arch = arch;
+				player->inventory[i].sprite_id = sprite_id;
+				player->inventory[i].tool_id = tool_id;
+				player->inventory[i].valid = valid;
+				player->inventory[i].item_id = item;
+				player->inventory_items_count++;
+				return;
+			}
+		}
+
+		printf("Inventory FULL!\n");
+	}
 
 	void add_item_to_inventory_quick(InventoryItemData* item){
 		// quicker way of adding item to inventory using InventoryItemData
@@ -664,6 +666,8 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 	}
 
 	void delete_item_from_inventory(ItemID item_id, int amount){
+		// printf("DELETED ITEM %d FROM INVENTORY\n", item_id);
+
 		for (int i = 0; i < ITEM_MAX; i++){
 			InventoryItemData* inventory_item = &world->player->inventory[i];
 			if (inventory_item->item_id == item_id){
@@ -708,7 +712,6 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		}
 	}
 
-
 	bool spawn_item_to_world(InventoryItemData item, Vector2 pos){
 		// spawns items to worldspace and returns the success as bool
 
@@ -742,6 +745,86 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 			case BUILDING_workbench: return STR("Workbench"); break;
 			case BUILDING_chest: return STR("Chest"); break;
 			default: return STR("Error: Missing get_building_name case."); break;
+		}
+	}
+
+	void add_item_to_chest(InventoryItemData item){
+		BuildingData *chest = world->player->selected_building;
+
+		// printf("ADDED ITEM %d TO CHEST\n", item.item_id);
+
+		// Check if the item already exists in the inventory
+		for (int i = 0; i < ITEM_MAX; i++) {
+			if (chest->inventory[i].valid && chest->inventory[i].item_id == item.item_id) {
+				// If the item already exists, increase the amount
+				chest->inventory[i].amount += item.amount;
+				return;
+			}
+		}
+
+		// If the item does not exist, find the first empty slot
+		for (int i = 0; i < ITEM_MAX; i++) {
+			if (!chest->inventory[i].valid) {
+				chest->inventory[i].name = item.name;
+				chest->inventory[i].amount = item.amount;
+				chest->inventory[i].arch = item.arch;
+				chest->inventory[i].sprite_id = item.sprite_id;
+				chest->inventory[i].tool_id = item.tool_id;
+				chest->inventory[i].valid = item.valid;
+				chest->inventory[i].item_id = item.item_id;
+				// chest->inventory_items_count++;
+				return;
+			}
+		}
+
+		printf("Inventory FULL!\n");
+	}
+
+	void delete_item_from_chest(ItemID item_id, int amount){
+
+		// NOTE: #FIX #BUG @release @pin4
+		// this pointer points to player inventory for some fucking reason
+		// fix this mf
+		// BuildingData* selected_chest = &world->player->selected_building;
+		
+		
+		// printf("DELETED ITEM %d FROM CHEST\n", item_id);
+		InventoryItemData* inventory = &world->player->selected_building->inventory;
+
+		for (int i = 0; i < ITEM_MAX; i++){
+			InventoryItemData* chest_item = &inventory[i];
+			if (chest_item->item_id == item_id){
+				if (chest_item->amount > 0){
+					chest_item->amount -= amount;
+				}
+				if (chest_item->amount <= 0){
+
+					inventory[i].name.count = 0;
+					inventory[i].name.data = NULL;
+					inventory[i].arch = 0;
+					inventory[i].sprite_id = 0;
+					inventory[i].tool_id = 0;
+					inventory[i].item_id = 0;
+					inventory[i].valid = 0;
+
+					// Shift items down to fill the empty slot
+					for (int j = i; j < ITEM_MAX - 1; j++) {
+						inventory[j] = inventory[j + 1];
+					}
+
+					// Clear the last slot after shifting
+					inventory[ITEM_MAX - 1].name.count = 0;
+					inventory[ITEM_MAX - 1].name.data = NULL;
+					inventory[ITEM_MAX - 1].arch = 0;
+					inventory[ITEM_MAX - 1].sprite_id = 0;
+					inventory[ITEM_MAX - 1].tool_id = 0;
+					inventory[ITEM_MAX - 1].item_id = 0;
+					inventory[ITEM_MAX - 1].valid = 0;
+
+					break;
+				}
+				break;
+			}
 		}
 	}
 
@@ -1065,6 +1148,7 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 		player->is_running = false;
 		player->entity_selection_radius = 5.0f;
 		player->item_pickup_radius = 15.0f;
+		player->selected_building = NULL;
 
 		// add player to world struct
 		world->player = player;
@@ -1237,6 +1321,7 @@ void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype
 					en->sprite_id = SPRITE_building_chest;
 					en->destroyable = true;
 					en->health = 3;
+					en->building_data.has_inventory = true;
 				}
 			} break;
 
