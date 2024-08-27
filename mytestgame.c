@@ -204,7 +204,7 @@ void setup_audio_player(){
 	// 		case ITEM_fossil0: return SPRITE_item_fossil0; break;
 	// 		case ITEM_fossil1: return SPRITE_item_fossil1; break;
 	// 		case ITEM_fossil2: return SPRITE_item_fossil2; break;
-	// 		case ARCH_tool: return SPRITE_tool_pickaxe; break;
+	// 		case ARCH_tool: return SPRITE_TOOL_pickaxe; break;
 
 	// 		// buildings as items
 	// 		case ARCH_building: return SPRITE_nil; break;
@@ -331,6 +331,31 @@ void create_spruce_trees(int amount, int range) {
 	for (int i = 0; i < amount; i++){
 		Entity* en = entity_create();
 		setup_spruce_tree(en);
+		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
+		en->pos = round_v2_to_tile(en->pos);
+		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+	}
+
+
+	// free the list of positions
+	memset(tree_positions, 0, sizeof(tree_positions));
+}
+
+void create_magical_trees(int amount, int range) {
+	// Creates trees
+	// Wont allow multiple trees to spawn in the same tile
+
+	Vector2 tree_positions[amount];
+
+	for (int i = 0; i < amount; i++){
+		float x = get_random_float32_in_range(-range, range);
+		float y = get_random_float32_in_range(-range, range);
+		tree_positions[i] = v2(x,y);
+	}
+
+	for (int i = 0; i < amount; i++){
+		Entity* en = entity_create();
+		setup_magical_tree(en);
 		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
 		en->pos = round_v2_to_tile(en->pos);
 		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
@@ -555,15 +580,24 @@ void render_ui(){
 							xform_tooltip = m4_translate(xform_tooltip, v3(inventory_bg_pos.x, inventory_bg_pos.y - tooltip_size.y - padding, 0));
 
 
-							Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
+
+							draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
 
 							string item_name = inventory_item->name;
 
+							// TODO fix the damn text rendering position thing pls
 							Gfx_Text_Metrics tooltip_metrics = measure_text(font, item_name, font_height, v2(0.1, 0.1));
+							// Vector2 tooltip_text_pos = v2(inventory_bg_pos.x + (tooltip_size.x * 0.5) - tooltip_metrics.visual_size.x, inventory_bg_pos.y - tooltip_size.y - padding + tooltip_size.y - 5);
 							Vector2 justified = v2_sub(justified, v2_divf(tooltip_metrics.functional_size, 2));
+							// Vector2 justified = v2_sub(tooltip_text_pos, tooltip_metrics.visual_pos_min);
 							xform_tooltip = m4_translate(xform_tooltip, v3(tooltip_size.x * 0.5, tooltip_size.y - 5, 0));
 							xform_tooltip = m4_translate(xform_tooltip, v3(justified.x, justified.y, 0));
 							draw_text_xform(font, item_name, font_height, xform_tooltip, v2(0.1, 0.1), COLOR_WHITE);
+							// draw_text(font, item_name, font_height, justified, v2(0.1, 0.1), COLOR_RED);
+
+							if (inventory_bg_pos.x + (tooltip_size.x * 0.5) + (justified.x) < 0){
+								log_error("Failing to draw tooltip. its being drawn at %.1f, %.1f\n", inventory_bg_pos.x + (tooltip_size.x * 0.5) + (justified.x), inventory_bg_pos.y - tooltip_size.y - padding + (tooltip_size.y - 5) + (justified.y));
+							}
 						}
 
 						// scale item
@@ -601,20 +635,10 @@ void render_ui(){
 					add_item_to_inventory_quick(&inventory_selected_item);
 				}
 				else{
-					// check if item is released into chest
-					printf("%.5f, %.5f\n", chest_quad->bottom_left.x, chest_quad->bottom_left.y);
-					printf("asd %d\n", range2f_contains(quad_to_range(*chest_quad), get_mouse_pos_in_ndc()));
-					if (world->ux_state == UX_chest && chest_quad && range2f_contains(quad_to_range(*chest_quad), get_mouse_pos_in_ndc())){
-						printf("ADDED ITEM TO CHEST\n");
-						add_item_to_chest(inventory_selected_item);
-					}
-					else{
-						Vector2 pos = get_player_pos();
-						printf("Released outside inv %.0f, %.0f\n", pos.x, pos.y);
-						if (!spawn_item_to_world(inventory_selected_item, v2(pos.x - 15, pos.y))){
-							log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
-							add_item_to_inventory_quick(&inventory_selected_item);
-						}
+					Vector2 pos = get_player_pos();
+					if (!spawn_item_to_world(inventory_selected_item, v2(pos.x - 15, pos.y))){
+						log_error("FAILED TO SPAWN ITEM TO WORLDSPACE, returning item to inventory\n");
+						add_item_to_inventory_quick(&inventory_selected_item);
 					}
 				}
 
@@ -937,7 +961,8 @@ void render_building_ui(UXState ux_state)
 		// printf("RENDERING WORKBENCH UI\n");
 
 		// workbench ui size variables
-		const int max_icons_row = 6;
+		const int max_icons_row = 6;		// this controls the size of the ui.  dunno why i got 2 variables for the same thing
+		const int MAX_ICONS_PER_ROW = 6;	// this controls actually what is says
 		const int max_icons_col = 4;
 		const int icon_size = 16;
 		const int padding = 2;
@@ -946,8 +971,6 @@ void render_building_ui(UXState ux_state)
 		int row_index = 0;
 		int col_index = 0;
 		Vector2 icon_pos;
-		const int MAX_ICONS_PER_ROW = 3;
-		
 
 		const Vector2 workbench_ui_size = v2((max_icons_row * icon_size) + (max_icons_row * padding) + padding, (max_icons_col * icon_size) + (max_icons_col * padding) + padding + padding_bg_vert);
 		Vector2 workbench_ui_pos = v2(screen_width * 0.5, screen_height * 0.5);
@@ -1331,7 +1354,7 @@ void render_building_ui(UXState ux_state)
 								Matrix4 xform_tooltip = m4_identity;
 								xform_tooltip = m4_translate(xform_tooltip, v3(inventory_bg_pos.x, inventory_bg_pos.y - tooltip_size.y - padding, 0));
 
-								Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
+								draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
 
 								string item_name = inventory_item->name;
 
@@ -1489,7 +1512,7 @@ void render_building_ui(UXState ux_state)
 								Matrix4 xform_tooltip = m4_identity;
 								xform_tooltip = m4_translate(xform_tooltip, v3(chest_ui_pos.x, chest_ui_pos.y - tooltip_size.y - padding, 0));
 
-								Draw_Quad* tooltip_quad = draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
+								draw_rect_xform(xform_tooltip, v2(tooltip_size.x, tooltip_size.y), tooltip_bg);
 
 								string item_name = chest_item->name;
 
@@ -1835,6 +1858,7 @@ void render_building_ui(UXState ux_state)
 void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->spawn_pine_tree_weight, biome->size.x); }
 	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spawn_spruce_tree_weight, biome->size.x); }
+	if (biome->spawn_magical_trees) {create_magical_trees((int)biome->spawn_magical_tree_weight, biome->size.x); }
 	if (biome->spawn_rocks) {create_rocks((int)biome->spawn_rocks_weight, biome->size.x); }
 	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
 	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
@@ -2301,6 +2325,7 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_magical] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical.png"), get_heap_allocator())};
 			sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
 			sprites[SPRITE_rock1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock1.png"), get_heap_allocator())};
 			sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
@@ -2333,11 +2358,13 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_ITEM_ore_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_ore_iron.png"), get_heap_allocator())};
 			sprites[SPRITE_ITEM_ore_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_ore_gold.png"), get_heap_allocator())};
 			sprites[SPRITE_ITEM_ore_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_ore_copper.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_sap] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_sap.png"), get_heap_allocator())};
 
 			// :Load tool sprites
-			sprites[SPRITE_tool_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
-			sprites[SPRITE_tool_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
-			sprites[SPRITE_tool_shovel] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_shovel.png"), get_heap_allocator())};
+			sprites[SPRITE_TOOL_pickaxe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_pickaxe.png"), get_heap_allocator())};
+			sprites[SPRITE_TOOL_axe] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_axe.png"), get_heap_allocator())};
+			sprites[SPRITE_TOOL_shovel] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_shovel.png"), get_heap_allocator())};
+			sprites[SPRITE_TOOL_torch] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/torch.png"), get_heap_allocator())};
 
 			// :Load building sprites
 			sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
@@ -2427,15 +2454,8 @@ int entry(int argc, char **argv)
 	spawn_biome(&temp_data);
 	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
-	// test adding stuff to loot table (can't be in a scope) 
-	// FIX: @pin2 im defining item names in multiple different places eg.A: here
-	LootTable *lootTable_rock = createLootTable();
-	addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
-	addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->current_biome_id).fossil0_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->current_biome_id).fossil1_drop_chance);
-	addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->current_biome_id).fossil2_drop_chance);
-	// addItemToLootTable(lootTable_rock, &STR("asd"), ARCH_nil, 10.0); // this line makes it so fossils dont spawn. bug?
-
+	// setup loot-tables
+	setup_all_loot_tables();
 
 	// Timing
 	float64 seconds_counter = 0.0;
@@ -2446,18 +2466,22 @@ int entry(int argc, char **argv)
 
 
 
-		// :TESTS
+
+
+	// ::CHEATS
 	{	
 		// add item to inventory
 		{
 			// test adding items to inventory
-			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_tool_pickaxe, TOOL_pickaxe, true);
-			// add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_tool_axe, TOOL_axe, true);
-			// add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_tool_shovel, TOOL_shovel, true);
+			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
+			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
+			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
+			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_tool, SPRITE_TOOL_torch, TOOL_torch, true);
 			// add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 5, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
-			add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-			add_item_to_inventory(ITEM_twig, STR("Twig"), 2, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
+			// add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			// add_item_to_inventory(ITEM_twig, STR("Twig"), 2, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
+			add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
 
 		}
 		
@@ -2465,19 +2489,19 @@ int entry(int argc, char **argv)
 		{
 			// FURNACE:
 			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_furnace);
-				en->pos = v2(-15, 0);
-				en->pos = round_v2_to_tile(en->pos);
+				// Entity* en = entity_create();
+				// setup_building(en, BUILDING_furnace);
+				// en->pos = v2(-15, 0);
+				// en->pos = round_v2_to_tile(en->pos);
 			}
 
 
 			// CHEST:
 			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_chest);
-				en->pos = v2(-25, -10);
-				en->pos = round_v2_to_tile(en->pos);
+				// Entity* en = entity_create();
+				// setup_building(en, BUILDING_chest);
+				// en->pos = v2(-25, -10);
+				// en->pos = round_v2_to_tile(en->pos);
 			}
 
 			// workbench
@@ -2490,6 +2514,10 @@ int entry(int argc, char **argv)
 		}
 	}
 
+	// ::TESTS
+	// {
+		Animation* torch_animation = setup_torch_animation();
+	// }
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
 	while (!window.should_close) {
@@ -2538,11 +2566,13 @@ int entry(int argc, char **argv)
 		int mouse_tile_y = world_pos_to_tile_pos(mouse_pos_world.y);
 
 
+
+
+
+
 		// Render ui
 		// should prolly move this way down
 		render_ui();
-
-
 
 		// :Entity selection by MOUSE
 		if (!world_frame.hover_consumed)
@@ -2942,10 +2972,10 @@ int entry(int argc, char **argv)
 
 									selected_en->health -= 1;
 									if (selected_en->health <= 0) {
-										Entity* en = entity_create();
-										// setup_item_pine_wood(en);
-										setup_item(en, ITEM_pine_wood);
-										en->pos = selected_en->pos;
+										generateLoot(lootTable_pine_tree, 0, selected_en->pos);
+										// Entity* en = entity_create();
+										// setup_item(en, ITEM_pine_wood);
+										// en->pos = selected_en->pos;
 										allow_destroy = true;
 										// play_one_audio_clip_at_position(audioFiles[AUDIO_wood_breaking1].path, audio_pos);
 									}
@@ -3075,6 +3105,8 @@ int entry(int argc, char **argv)
 			render_keybinding(world_frame.selected_entity, KEY_player_use);
 		}
 
+		// #animation test
+		draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));
 
 		// ::DEBUG STUFF ------------------------------------------------------------------------------->
 

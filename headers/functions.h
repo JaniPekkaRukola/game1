@@ -543,7 +543,8 @@ DimensionData *get_dimensionData(DimensionID);
 			}
 			return &sprites[0];
 		}
-		return SPRITE_nil;
+		log_error("Failed to get sprite\n");
+		return &sprites[0];
 	}
 
 	Vector2 get_sprite_size(Sprite* sprite) {
@@ -573,16 +574,21 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_ORE_iron: return SPRITE_ITEM_ore_iron; break;
 			case ITEM_ORE_gold: return SPRITE_ITEM_ore_gold; break;
 			case ITEM_ORE_copper: return SPRITE_ITEM_ore_copper; break;
-			default: return 0; break;
+			case ITEM_ingot_iron: return SPRITE_INGOT_iron; break;
+			case ITEM_ingot_gold: return SPRITE_INGOT_gold; break;
+			case ITEM_ingot_copper: return SPRITE_INGOT_copper; break;
+			case ITEM_tree_sap: return SPRITE_tree_sap; break;
+
+			default: {log_error("Error @ 'get_sprite_size_from_itemID' missing case\n"); return 0;} break;
 		}
 	}
 
 	SpriteID get_sprite_id_from_tool(ToolID tool_id) {
 		// :TOOL -------------------------->
 		switch (tool_id) {
-			case TOOL_pickaxe: return SPRITE_tool_pickaxe; break;
-			case TOOL_axe: return SPRITE_tool_axe; break;
-			case TOOL_shovel: return SPRITE_tool_shovel; break;
+			case TOOL_pickaxe: return SPRITE_TOOL_pickaxe; break;
+			case TOOL_axe: return SPRITE_TOOL_axe; break;
+			case TOOL_shovel: return SPRITE_TOOL_shovel; break;
 			default: return 0; break;
 		}
 	}
@@ -874,62 +880,67 @@ DimensionData *get_dimensionData(DimensionID);
 		table->head = newItem;
 		table->itemCount++;
 
-		printf("[LOOTTABLE]: ADDED '%s' TO LOOT TABLE, Table size = %d\n", name, table->itemCount);
+		printf("[LOOTTABLE]: ADDED '%s' TO '%s', Table size = %d\n", name, table->table_name, table->itemCount);
 	}
 
 	void generateLoot(LootTable* table, float luckModifier, Vector2 pos) {
 		// @PIN1: maybe take arch as input and decide what loot table to use based on it. so instead of taking "LootTable*" in, take "arch"
-		LootItem* current = table->head;
+		LootItem* item = table->head;
 		int x_shift = 0;		// if multiple drops. this variable shifts the items abit on the x-axis.
-		while(current != NULL) {
-			float adjustedChance = current->baseDropChance * (1 + luckModifier);
+		while(item != NULL) {
+			float adjustedChance = item->baseDropChance * (1 + luckModifier);
 			if (get_random_float32() < (adjustedChance / 100.0)) {
-				// printf("Dropped: %s\n", current->name);
 
-				switch (current->id) {
-					case ITEM_rock: {
-						{
-							Entity* en = entity_create();
-							// setup_item_rock(en);
-							setup_item(en, ITEM_rock);
-							pos.x += x_shift;
-							en->pos = pos;
-						}
-					} break;
-					case ITEM_fossil0: {
-						{
-							Entity* en = entity_create();
-							// setup_item_fossil0(en);
-							setup_item(en, ITEM_fossil0);
-							pos.x += x_shift;
-							en->pos = pos;
-						}
-					} break;
-					case ITEM_fossil1: {
-						{
-							Entity* en = entity_create();
-							// setup_item_fossil1(en);
-							setup_item(en, ITEM_fossil1);
-							pos.x += x_shift;
-							en->pos = pos;
-						}
-					} break;
-					case ITEM_fossil2: {
-						{
-							Entity* en = entity_create();
-							// setup_item_fossil2(en);
-							setup_item(en, ITEM_fossil2);
-							pos.x += x_shift;
-							en->pos = pos;
-						}
-					} break;
 
-					default: {log_error("Can't spawn an item. switch defaulted");} break;
-				}
+				Entity* en = entity_create();
+				setup_item(en, item->id);
+				pos.x += x_shift;
+				en->pos = pos;
+
+				// switch (current->id) {
+				// 	case ITEM_rock: {
+				// 		{
+				// 			Entity* en = entity_create();
+				// 			// setup_item_rock(en);
+				// 			setup_item(en, ITEM_rock);
+				// 			pos.x += x_shift;
+				// 			en->pos = pos;
+				// 		}
+				// 	} break;
+				// 	case ITEM_fossil0: {
+				// 		{
+				// 			Entity* en = entity_create();
+				// 			// setup_item_fossil0(en);
+				// 			setup_item(en, ITEM_fossil0);
+				// 			pos.x += x_shift;
+				// 			en->pos = pos;
+				// 		}
+				// 	} break;
+				// 	case ITEM_fossil1: {
+				// 		{
+				// 			Entity* en = entity_create();
+				// 			// setup_item_fossil1(en);
+				// 			setup_item(en, ITEM_fossil1);
+				// 			pos.x += x_shift;
+				// 			en->pos = pos;
+				// 		}
+				// 	} break;
+				// 	case ITEM_fossil2: {
+				// 		{
+				// 			Entity* en = entity_create();
+				// 			// setup_item_fossil2(en);
+				// 			setup_item(en, ITEM_fossil2);
+				// 			pos.x += x_shift;
+				// 			en->pos = pos;
+				// 		}
+				// 	} break;
+
+				// 	default: {log_error("Can't spawn an item. switch defaulted");} break;
+				// }
 
 				x_shift -= 5;
 			}
-			current = current->next;
+			item = item->next;
 		}
 	}
 
@@ -1022,20 +1033,20 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	// void trigger_crafting_text(ItemID id){
-	// 	for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
-	// 		if (!pickup_texts[i].active) {
-	// 			Vector2 pos = get_mouse_pos_in_screen();
-	// 			pickup_texts[i].start_pos = v2(pos.x, pos.y);
-	// 			pickup_texts[i].end_pos = v2(pos.x, pos.y + 15);
-	// 			pickup_texts[i].elapsed_time = 0.0f;
-	// 			pickup_texts[i].active = true;
-	// 			// pickup_texts[i].en = en;
-	// 			pickup_texts[i].start_alpha = 1.0f;
-	// 			pickup_texts[i].end_alpha = 0.0f;
-	// 			pickup_texts[i].duration = 1.0f;
-	// 			break;  // Exit after finding an available slot
-	// 		}
-	// 	}
+		// 	for (int i = 0; i < MAX_PICKUP_TEXTS; i++) {
+		// 		if (!pickup_texts[i].active) {
+		// 			Vector2 pos = get_mouse_pos_in_screen();
+		// 			pickup_texts[i].start_pos = v2(pos.x, pos.y);
+		// 			pickup_texts[i].end_pos = v2(pos.x, pos.y + 15);
+		// 			pickup_texts[i].elapsed_time = 0.0f;
+		// 			pickup_texts[i].active = true;
+		// 			// pickup_texts[i].en = en;
+		// 			pickup_texts[i].start_alpha = 1.0f;
+		// 			pickup_texts[i].end_alpha = 0.0f;
+		// 			pickup_texts[i].duration = 1.0f;
+		// 			break;  // Exit after finding an available slot
+		// 		}
+		// 	}
 	// }
 
 
@@ -1118,6 +1129,7 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_ingot_iron:{en->name = STR("Iron ingot");}break;
 			case ITEM_ingot_gold:{en->name = STR("Iron gold");}break;
 			case ITEM_ingot_copper:{en->name = STR("Iron copper");}break;
+			case ITEM_tree_sap:{en->name = STR("Tree sap");}break;
 
 			default:{en->name = STR("case missing from 'setup_item()'");}break;
 		}
@@ -1199,6 +1211,22 @@ DimensionData *get_dimensionData(DimensionID);
 		// if (random == 2){en->sprite_id = SPRITE_tree2;}
 		// if (random == 3){en->sprite_id = SPRITE_tree3;}
 		en->sprite_id = SPRITE_tree_spruce;
+		en->health = tree_health;
+		en->destroyable = true;
+		en->rendering_prio = 0;
+		en->enable_shadow = true;
+		add_biomeID_to_entity(en, BIOME_forest);
+	}
+	
+	void setup_magical_tree(Entity* en) {
+		en->arch = ARCH_tree;
+		en->name = STR("Magical tree");
+		// int random = get_random_int_in_range(0,3);
+		// if (random == 0){en->sprite_id = SPRITE_tree0;}
+		// if (random == 1){en->sprite_id = SPRITE_tree1;}
+		// if (random == 2){en->sprite_id = SPRITE_tree2;}
+		// if (random == 3){en->sprite_id = SPRITE_tree3;}
+		en->sprite_id = SPRITE_tree_magical;
 		en->health = tree_health;
 		en->destroyable = true;
 		en->rendering_prio = 0;
@@ -1368,6 +1396,8 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_pine_tree_weight = 400;
 					biome->spawn_spruce_trees = true;
 					biome->spawn_spruce_tree_weight = 400;
+					biome->spawn_magical_trees = true;
+					biome->spawn_magical_tree_weight = 100;
 					biome->spawn_birch_trees = false;
 					biome->spawn_birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1548,93 +1578,31 @@ DimensionData *get_dimensionData(DimensionID);
 
 	}
 
-
-// 
-
-
-// :RECIPES ---------------------------------------------------------------------------------------------->
-
-	void setup_smelting_recipes(){
-		// can this be automated ????
-
-		// Iron ingot
-		furnace_recipes[ITEM_ingot_iron] = (ItemData){
-			.name = STR("Iron ingot"), 
-			.sprite_id = SPRITE_INGOT_iron, 
-			.item_id = ITEM_ingot_iron, 
-			.crafting_recipe = {{ITEM_ORE_iron, 2}},
-			.crafting_recipe_count = 1, 
-			.cooking_time = 2.0f
-		};
-		
-		// Gold ingot
-		furnace_recipes[ITEM_ingot_gold] = (ItemData){
-			.name = STR("Gold ingot"), 
-			.sprite_id = SPRITE_INGOT_gold, 
-			.item_id = ITEM_ingot_copper, 
-			.crafting_recipe = {{ITEM_ORE_gold, 3}},
-			.crafting_recipe_count = 1, 
-			.cooking_time = 5.0f
-		};
-
-		// Copper ingot
-		furnace_recipes[ITEM_ingot_copper] = (ItemData){
-			.name = STR("Copper ingot"), 
-			.sprite_id = SPRITE_INGOT_copper, 
-			.item_id = ITEM_ingot_copper, 
-			.crafting_recipe = {{ITEM_ORE_copper, 4}},
-			.crafting_recipe_count = 1, 
-			.cooking_time = 3.0f
-		};
-
+	void setup_loot_table_rock(){
+		lootTable_rock = createLootTable();
+		lootTable_rock->table_name = STR("Loot table rock");
+		// FIX: @pin2 im defining item names in multiple different places eg.A: here
+		addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
+		// TODO: should prolly change the "world->current_biome_id" to something else
+		addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->current_biome_id).fossil0_drop_chance);
+		addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->current_biome_id).fossil1_drop_chance);
+		addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->current_biome_id).fossil2_drop_chance);
 	}
 
-	void setup_crafting_recipes(){
-		// Pickaxe
-		crafting_recipes[ITEM_TOOL_pickaxe] = (ItemData){
-			.name = STR("PickAxe"),
-			.arch = ARCH_tool,
-			.tool_id = TOOL_pickaxe,
-			.sprite_id = SPRITE_tool_pickaxe,
-			.item_id = ITEM_TOOL_pickaxe,
-			.crafting_recipe = {{ITEM_rock, 4},{ITEM_twig, 2}},
-			.crafting_recipe_count = 2,
-			.cooking_time = 2.0f
-		};
-
-		// Axe
-		crafting_recipes[ITEM_TOOL_axe] = (ItemData){
-			.name = STR("Axe"),
-			.arch = ARCH_tool,
-			.tool_id = TOOL_axe,
-			.sprite_id = SPRITE_tool_axe,
-			.item_id = ITEM_TOOL_axe,
-			.crafting_recipe = {{ITEM_rock, 3},{ITEM_twig, 2}},
-			.crafting_recipe_count = 2,
-			.cooking_time = 2.0f
-		};
-		
-		// Shovel
-		crafting_recipes[ITEM_TOOL_shovel] = (ItemData){
-			.name = STR("Shovel"),
-			.arch = ARCH_tool,
-			.tool_id = TOOL_shovel,
-			.sprite_id = SPRITE_tool_shovel,
-			.item_id = ITEM_TOOL_shovel,
-			.crafting_recipe = {{ITEM_rock, 2},{ITEM_twig, 2}},
-			.crafting_recipe_count = 2,
-			.cooking_time = 2.0f
-		};
+	void setup_loot_table_pine_tree(){
+		lootTable_pine_tree = createLootTable();
+		lootTable_pine_tree->table_name = STR("Loot table pine tree");
+		addItemToLootTable(lootTable_pine_tree, &STR("Pine wood"), ITEM_pine_wood, 100);
+		addItemToLootTable(lootTable_pine_tree, &STR("Tree sap"), ITEM_tree_sap, 50);
 	}
 
-	void setup_all_recipes(){
-		setup_smelting_recipes();
-		setup_crafting_recipes();
+	void setup_all_loot_tables(){
+		setup_loot_table_rock();
+		setup_loot_table_pine_tree();
 	}
 
 
 // 
-
 
 
 

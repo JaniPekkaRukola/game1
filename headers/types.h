@@ -84,6 +84,7 @@
         SPRITE_player,
         SPRITE_tree_pine,
         SPRITE_tree_spruce,
+        SPRITE_tree_magical,
         SPRITE_rock0,
         SPRITE_rock1,
         SPRITE_rock2,
@@ -100,6 +101,7 @@
         SPRITE_item_sprout,
         SPRITE_item_berry,
         SPRITE_item_twig,
+        SPRITE_tree_sap,
 
         // Ores
         SPRITE_ORE_iron,
@@ -117,9 +119,10 @@
         SPRITE_INGOT_copper,
 
         // Tools
-        SPRITE_tool_pickaxe,
-        SPRITE_tool_axe,
-        SPRITE_tool_shovel,
+        SPRITE_TOOL_pickaxe,
+        SPRITE_TOOL_axe,
+        SPRITE_TOOL_shovel,
+        SPRITE_TOOL_torch,
 
         // Fossils
         SPRITE_item_fossil0,
@@ -145,6 +148,7 @@
         TOOL_pickaxe,
         TOOL_axe,
         TOOL_shovel,
+        TOOL_torch,
 
         TOOL_MAX,
     }ToolID;
@@ -158,6 +162,7 @@
         ITEM_berry,
         ITEM_mushroom0,
         ITEM_twig,
+        ITEM_tree_sap,
         ITEM_furnace,
         ITEM_workbench,
         ITEM_chest,
@@ -176,11 +181,11 @@
         ITEM_ingot_gold,
         ITEM_ingot_copper,
 
-
-        // tools (test)
+        // tools
         ITEM_TOOL_pickaxe,
         ITEM_TOOL_axe,
         ITEM_TOOL_shovel,
+        ITEM_TOOL_torch,
 
         // buildings (test)
         ITEM_BUILDING_furnace,
@@ -447,6 +452,8 @@
         float spawn_pine_tree_weight;
         bool spawn_spruce_trees;
         float spawn_spruce_tree_weight;
+        bool spawn_magical_trees;
+        float spawn_magical_tree_weight;
         bool spawn_birch_trees;
         float spawn_birch_tree_weight;
         bool spawn_palm_trees;
@@ -515,6 +522,7 @@
     typedef struct LootTable {
         LootItem *head;
         int itemCount;
+        string table_name;
     } LootTable;
 
 
@@ -584,9 +592,12 @@
     InventoryItemData chest_selected_item;	// hardcopy of item from chest, when starting to drag item
     InventoryItemData* item_in_hand = NULL;	// selected item in hotbar. Renders in hand
     BuildingData* selected_building_buildmode = NULL; // selected building in build mode
-    // BuildingData* selected_building = NULL; // selected building || currently open building
     int selected_slot_index = 0;
     Draw_Quad* chest_quad = NULL;
+
+    // loot tables
+    LootTable *lootTable_rock;
+    LootTable *lootTable_pine_tree;
 
 // 
 

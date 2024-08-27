@@ -49,5 +49,23 @@
 			"// |________________________________________________________________________________________________________________________________________"
 		],
 		"description": "Blank Logic info box"
+	},
+	"Crafting recipe setup":{
+		"scope": "c,cpp",
+		"prefix": "#recipe",
+		"body": [
+			"// $1",
+			"crafting_recipes[ITEM_$2] = (ItemData){",
+			"   .name = STR(\"$1\"),",
+			"   .arch = ARCH_item,",
+			"   .tool_id = TOOL_nil,",
+			"   .sprite_id = SPRITE_$4,",
+			"   .item_id = ITEM_$2,",
+			"   .crafting_recipe = {{$5},{$5}},",
+			"   .crafting_recipe_count = $6,",
+			"   .cooking_time = 2.0f",
+			"};"
+		],
+		"description": "Blank crafting recipe template"
 	}
 }
