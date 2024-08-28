@@ -10,6 +10,7 @@
         // Iron ingot
         furnace_recipes[ITEM_ingot_iron] = (ItemData){
             .name = STR("Iron ingot"), 
+			.category = ARCH_item,
             .sprite_id = SPRITE_INGOT_iron, 
             .item_id = ITEM_ingot_iron, 
             .crafting_recipe = {{ITEM_ORE_iron, 2}},
@@ -20,6 +21,7 @@
         // Gold ingot
         furnace_recipes[ITEM_ingot_gold] = (ItemData){
             .name = STR("Gold ingot"), 
+			.category = ARCH_item,
             .sprite_id = SPRITE_INGOT_gold, 
             .item_id = ITEM_ingot_copper, 
             .crafting_recipe = {{ITEM_ORE_gold, 3}},
@@ -30,6 +32,7 @@
         // Copper ingot
         furnace_recipes[ITEM_ingot_copper] = (ItemData){
             .name = STR("Copper ingot"), 
+			.category = ARCH_item,
             .sprite_id = SPRITE_INGOT_copper, 
             .item_id = ITEM_ingot_copper, 
             .crafting_recipe = {{ITEM_ORE_copper, 4}},
@@ -48,6 +51,7 @@
 		crafting_recipes[ITEM_TOOL_pickaxe] = (ItemData){
 			.name = STR("PickAxe"),
 			.arch = ARCH_tool,
+			.category = ARCH_tool,
 			.tool_id = TOOL_pickaxe,
 			.sprite_id = SPRITE_TOOL_pickaxe,
 			.item_id = ITEM_TOOL_pickaxe,
@@ -60,6 +64,7 @@
 		crafting_recipes[ITEM_TOOL_axe] = (ItemData){
 			.name = STR("Axe"),
 			.arch = ARCH_tool,
+			.category = ARCH_tool,
 			.tool_id = TOOL_axe,
 			.sprite_id = SPRITE_TOOL_axe,
 			.item_id = ITEM_TOOL_axe,
@@ -72,6 +77,7 @@
 		crafting_recipes[ITEM_TOOL_shovel] = (ItemData){
 			.name = STR("Shovel"),
 			.arch = ARCH_tool,
+			.category = ARCH_tool,
 			.tool_id = TOOL_shovel,
 			.sprite_id = SPRITE_TOOL_shovel,
 			.item_id = ITEM_TOOL_shovel,
@@ -84,6 +90,7 @@
         crafting_recipes[ITEM_TOOL_torch] = (ItemData){
            .name = STR("Torch"),
            .arch = ARCH_item,
+		   .category = ARCH_tool,
            .tool_id = TOOL_torch,
            .sprite_id = SPRITE_TOOL_torch,
            .item_id = ITEM_TOOL_torch,
@@ -96,6 +103,7 @@
 		crafting_recipes[ITEM_chest] = (ItemData){
 		   .name = STR("Chest"),
 		   .arch = ARCH_item,
+		   .category = ARCH_building,
 		   .tool_id = TOOL_nil,
 		   .sprite_id = SPRITE_building_chest,
 		   .item_id = ITEM_chest,
@@ -108,6 +116,7 @@
 		crafting_recipes[ITEM_furnace] = (ItemData){
 		   .name = STR("Furnace"),
 		   .arch = ARCH_item,
+		   .category = ARCH_building,
 		   .tool_id = TOOL_nil,
 		   .sprite_id = SPRITE_building_furnace,
 		   .item_id = ITEM_furnace,
@@ -120,6 +129,7 @@
 		crafting_recipes[ITEM_workbench] = (ItemData){
 		   .name = STR("Workbench"),
 		   .arch = ARCH_item,
+		   .category = ARCH_building,
 		   .tool_id = TOOL_nil,
 		   .sprite_id = SPRITE_building_workbench,
 		   .item_id = ITEM_workbench,

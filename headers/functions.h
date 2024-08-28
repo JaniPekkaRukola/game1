@@ -6,7 +6,7 @@
 #define m4_identity m4_make_scale(v3(1, 1, 1))
 
 
-// Function Declarations (Prototypes)
+// Function Declarations
 // void setup_portal(Entity* en, BiomeID current_biome, BiomeID dest);
 void setup_portal(Entity* en, DimensionID current_dim, DimensionID dest, SpriteID sprite_id);
 void setup_item(Entity* en, ItemID item_id);
@@ -102,43 +102,39 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	Vector2 get_player_pos(){
-		// TODO: make this better. surely this can be done without a for-loop!?
-		// for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-		// for (int i = 0; i < world->entity_count; i++){
-		// for (int i = 0; i < world->dimension.entity_count; i++){
-		// 	// Entity en = world->entities[i];
-		// 	Entity en = world->dimension.entities[i];
-		// 	if (en.arch == ARCH_player){
-		// 		return en.pos;
-		// 	}
-		// }
-		// log_error("Couldn't get player pos\n");
-		// return v2(0,0);
-		// if (world_frame.player){
-		// 	return world_frame.player->pos;
-		// }
-
 		if (world->player){
-			// return player->en->pos;
 			return world->player->en->pos;
 		}
 	}
 
-	void draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col){
+	Draw_Quad *draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col){
 		// draws a rect with borders
 		// input xfrom is the base xform with no border
 		// NOTE: if slot_col has alpha value of < 1, the border_color WILL push through underneath. See for yourself
 
+			Draw_Quad q = ZERO(Draw_Quad);
+			q.bottom_left  = v2(0,  0);
+			q.top_left     = v2(0,  inside_size.y);
+			q.top_right    = v2(inside_size.x, inside_size.y);
+			q.bottom_right = v2(inside_size.x, 0);
+			q.color = slot_col;
+			q.image = 0;
+			q.type = QUAD_TYPE_REGULAR;
+
+			draw_rect_xform(m4_translate(xform_slot, v3(border_width * -0.5, border_width * -0.5, 0)), v2(inside_size.x + border_width, inside_size.y + border_width), border_col);
+			Draw_Quad *quad = draw_quad_xform(q, xform_slot);
+
+			return quad;
+
 		// draw border
-		draw_rect_xform(m4_translate(xform_slot, v3(border_width * -0.5, border_width * -0.5, 0)), v2(inside_size.x + border_width, inside_size.y + border_width), border_col);
+		// draw_rect_xform(m4_translate(xform_slot, v3(border_width * -0.5, border_width * -0.5, 0)), v2(inside_size.x + border_width, inside_size.y + border_width), border_col);
 		// draw slot
-		draw_rect_xform(xform_slot, v2(inside_size.y, inside_size.y), slot_col);
+		// draw_rect_xform(xform_slot, v2(inside_size.y, inside_size.y), slot_col);
 	}
 
 
 
 // 
-
 
 
 // FUNCTIONS --------------------------------------------------------------------------------------------->
@@ -547,6 +543,16 @@ DimensionData *get_dimensionData(DimensionID);
 		return &sprites[0];
 	}
 
+	Sprite* get_category_sprite(EntityArchetype arch){
+		switch (arch){
+			case ARCH_nil:{  return get_sprite(SPRITE_CATEGORY_all); } break;
+			case ARCH_item:{ return get_sprite(SPRITE_CATEGORY_items); } break;
+			case ARCH_tool:{ return get_sprite(SPRITE_CATEGORY_tools); } break;
+			case ARCH_building:{ return get_sprite(SPRITE_CATEGORY_buildings); } break;
+			default: {log_error("missing case @ 'get_category_sprite'\n");} break;
+		}
+	}
+
 	Vector2 get_sprite_size(Sprite* sprite) {
 		if (sprite != NULL){
 			return (Vector2) {sprite->image->width, sprite->image->height};
@@ -584,6 +590,7 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	SpriteID get_sprite_id_from_tool(ToolID tool_id) {
+		// NOTE: prolly not in use
 		// :TOOL -------------------------->
 		switch (tool_id) {
 			case TOOL_pickaxe: return SPRITE_TOOL_pickaxe; break;
@@ -602,30 +609,43 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
-	// not in use
-		// string get_item_name_from_ItemID(ItemID id) {
-		// 	// FIX: @pin2 im defining item names in multiple different places eg.A: here
-		// 	switch (id){
-		// 		case ITEM_rock:{return STR("Rock");break;}
-		// 		case ITEM_sprout:{return STR("Sprout");break;}
-		// 		case ITEM_pine_wood:{return STR("Pine wood");break;}
-		// 		case ITEM_mushroom0:{return STR("Mushroom");break;}
-		// 		case ITEM_twig:{return STR("Twig");break;}
 
-		// 		// -> pin2 
+	// :ITEM -------------------------->
+	string get_item_name(ItemID id) {
+		// FIX: @pin2 im defining item names in multiple different places eg.A: here
+		switch (id){
+			case ITEM_rock:{return STR("Rock");break;}
+			case ITEM_pine_wood:{return STR("Pine wood");break;}
+			case ITEM_sprout:{return STR("Sprout");break;}
+			case ITEM_berry:{return STR("Berry");break;}
+			case ITEM_mushroom0:{return STR("Mushroom");break;}
+			case ITEM_twig:{return STR("Twig");break;}
+			case ITEM_tree_sap:{return STR("Tree sap");break;}
 
-		// 		// ores
-		// 		case ITEM_ORE_iron:{return STR("Iron ore");break;}
-		// 		case ITEM_ORE_gold:{return STR("Gold ore");break;}
-		// 		case ITEM_ORE_copper:{return STR("Copper ore");break;}
-				
-		// 		case ITEM_fossil0:{return STR("Fossil 0");break;}
-		// 		case ITEM_fossil1:{return STR("Fossil 1");break;}
-		// 		case ITEM_fossil2:{return STR("Fossil 2");break;}
-		// 		default:{return STR("failed to get item name");break;}
-		// 	}
-		// }
-	// 
+			case ITEM_furnace:{return STR("Furnace");break;}
+			case ITEM_workbench:{return STR("Workbench");break;}
+			case ITEM_chest:{return STR("chest");break;}
+
+			case ITEM_fossil0:{return STR("Fossil 0");break;}
+			case ITEM_fossil1:{return STR("Fossil 1");break;}
+			case ITEM_fossil2:{return STR("Fossil 2");break;}
+
+			case ITEM_ORE_iron:{return STR("Iron ore");break;}
+			case ITEM_ORE_gold:{return STR("Gold ore");break;}
+			case ITEM_ORE_copper:{return STR("Copper ore");break;}
+
+			case ITEM_ingot_iron:{return STR("Iron ingot");break;}
+			case ITEM_ingot_gold:{return STR("Gold ingot");break;}
+			case ITEM_ingot_copper:{return STR("Copper ingot");break;}
+
+			case ITEM_TOOL_pickaxe:{return STR("Pickaxe");break;}
+			case ITEM_TOOL_axe:{return STR("Axe");break;}
+			case ITEM_TOOL_shovel:{return STR("Shovel");break;}
+			case ITEM_TOOL_torch:{return STR("Torch");break;}
+			
+			default:{return STR("failed to get item name. Missing case @ 'get_item_name'");break;}
+		}
+	}
 
 
 	// :INVENTORY || :ITEM ------------>
@@ -890,54 +910,10 @@ DimensionData *get_dimensionData(DimensionID);
 		while(item != NULL) {
 			float adjustedChance = item->baseDropChance * (1 + luckModifier);
 			if (get_random_float32() < (adjustedChance / 100.0)) {
-
-
 				Entity* en = entity_create();
 				setup_item(en, item->id);
 				pos.x += x_shift;
 				en->pos = pos;
-
-				// switch (current->id) {
-				// 	case ITEM_rock: {
-				// 		{
-				// 			Entity* en = entity_create();
-				// 			// setup_item_rock(en);
-				// 			setup_item(en, ITEM_rock);
-				// 			pos.x += x_shift;
-				// 			en->pos = pos;
-				// 		}
-				// 	} break;
-				// 	case ITEM_fossil0: {
-				// 		{
-				// 			Entity* en = entity_create();
-				// 			// setup_item_fossil0(en);
-				// 			setup_item(en, ITEM_fossil0);
-				// 			pos.x += x_shift;
-				// 			en->pos = pos;
-				// 		}
-				// 	} break;
-				// 	case ITEM_fossil1: {
-				// 		{
-				// 			Entity* en = entity_create();
-				// 			// setup_item_fossil1(en);
-				// 			setup_item(en, ITEM_fossil1);
-				// 			pos.x += x_shift;
-				// 			en->pos = pos;
-				// 		}
-				// 	} break;
-				// 	case ITEM_fossil2: {
-				// 		{
-				// 			Entity* en = entity_create();
-				// 			// setup_item_fossil2(en);
-				// 			setup_item(en, ITEM_fossil2);
-				// 			pos.x += x_shift;
-				// 			en->pos = pos;
-				// 		}
-				// 	} break;
-
-				// 	default: {log_error("Can't spawn an item. switch defaulted");} break;
-				// }
-
 				x_shift -= 5;
 			}
 			item = item->next;
@@ -1120,9 +1096,9 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_ORE_iron:{en->name = get_ore_name(ORE_iron);}break;
 			case ITEM_ORE_gold:{en->name = get_ore_name(ORE_gold);}break;
 			case ITEM_ORE_copper:{en->name = get_ore_name(ORE_copper);}break;
-			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe");}break;
-			case ITEM_TOOL_axe:{en->name = STR("Axe");}break;
-			case ITEM_TOOL_shovel:{en->name = STR("Shovel");}break;
+			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe"); en->arch = ARCH_tool;}break;
+			case ITEM_TOOL_axe:{en->name = STR("Axe"); en->arch = ARCH_tool;}break;
+			case ITEM_TOOL_shovel:{en->name = STR("Shovel"); en->arch = ARCH_tool;}break;
 			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
@@ -1217,6 +1193,7 @@ DimensionData *get_dimensionData(DimensionID);
 		en->enable_shadow = true;
 		add_biomeID_to_entity(en, BIOME_forest);
 	}
+	
 	
 	void setup_magical_tree(Entity* en) {
 		en->arch = ARCH_tree;
@@ -1396,7 +1373,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_pine_tree_weight = 400;
 					biome->spawn_spruce_trees = true;
 					biome->spawn_spruce_tree_weight = 400;
-					biome->spawn_magical_trees = true;
+					biome->spawn_magical_trees = false;
 					biome->spawn_magical_tree_weight = 100;
 					biome->spawn_birch_trees = false;
 					biome->spawn_birch_tree_weight = 0;

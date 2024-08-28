@@ -134,6 +134,12 @@
         SPRITE_building_workbench,
         SPRITE_building_chest,
 
+        // Categories
+        SPRITE_CATEGORY_all,
+        SPRITE_CATEGORY_items,
+        SPRITE_CATEGORY_tools,
+        SPRITE_CATEGORY_buildings,
+
         // other
         SPRITE_portal0,
         SPRITE_portal1,
@@ -292,6 +298,7 @@
 
     // ItemAmount
     typedef struct ItemAmount{
+        // string name;
         ItemID id;
         int amount;
     } ItemAmount;
@@ -300,6 +307,7 @@
     typedef struct ItemData {
         string name;
         EntityArchetype arch;
+        EntityArchetype category;
         ItemAmount crafting_recipe[MAX_RECIPE_ITEMS];
         int crafting_recipe_count; // how many types of items in recipe ????? or output????
         ToolID tool_id;
@@ -345,8 +353,6 @@
         Vector4 pickup_text_col;
 
     } Entity;
-
-
 
     // :WorldFrame ---------------------->
     typedef struct WorldFrame {
@@ -567,8 +573,11 @@
 
 // :GLOBALS ------------------------------------------------------------------------------------------>
 
+    Vector2 camera_pos = {0, 0};
+	float view_zoom = 0.1875;   // view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
+
     // ItemID held_item; // old
-    OreID ores[ORE_MAX];
+    // OreID ores[ORE_MAX];
 
     // InventoryItemData* dragging_now;
     WorldFrame world_frame;
@@ -583,9 +592,6 @@
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
     dim_change_animation animation = {};
 
-    Vector2 camera_pos = {0, 0};
-	float view_zoom = 0.1875;   // view zoom ratio x (pixelart layer width / window width = 240 / 1280 = 0.1875)
-
     // ui rendering
     InventoryItemData inventory_selected_item;	// hardcopy of item from inventory, when starting to drag item
     InventoryItemData inventory_selected_item_in_chest_ui;	// hardcopy of item from inventory, when starting to drag item
@@ -594,7 +600,12 @@
     BuildingData* selected_building_buildmode = NULL; // selected building in build mode
     int selected_slot_index = 0;
     Draw_Quad* chest_quad = NULL;
-    EntityArchetype workbench_tab_gate = ARCH_nil; // workbench recipes sorting. ARCH_nil = all recipes
+    EntityArchetype workbench_tab_category = ARCH_nil; // workbench recipes sorting. ARCH_nil = all recipes
+    ItemData* selected_recipe_furnace = NULL; // selected recipe in furnace ui
+    ItemData* selected_recipe_workbench = NULL; // selected recipe in workbench ui
+    Matrix4 selected_recipe_xfrom;
+    bool is_recipe_selected = false;
+
 
     // loot tables
     LootTable *lootTable_rock;

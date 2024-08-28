@@ -41,11 +41,6 @@ float64 delta_t;
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 // maybe should move these into "functions.h"
 
-
-// "resizable" array helpers (by: randy)
-// void* array_add() {}
-
-
 // inline float v2_length(Vector2 a) {
 //     return sqrt(a.x * a.x + a.y * a.y);
 // }
@@ -878,8 +873,6 @@ void render_ui(){
 }
 
 
-
-
 bool smelt_button(string label, Vector2 pos, Vector2 size, bool enabled) {
 
 	Vector4 color = v4(.25, .25, .25, 1);
@@ -922,15 +915,6 @@ bool smelt_button(string label, Vector2 pos, Vector2 size, bool enabled) {
 	
 	return pressed;
 }
-
-
-
-ItemData* selected_recipe_furnace = NULL;
-ItemData* selected_recipe_workbench = NULL;
-Matrix4 selected_recipe_xfrom;
-bool is_recipe_selected = false;
-
-
 
 
 // :render building ui
@@ -1004,21 +988,39 @@ void render_building_ui(UXState ux_state)
 		if (world->workbench_alpha_target != 0.0)
 		{
 			// Tabs
-			int tab_count = 4;
-			int tab_order[ARCH_nil, ARCH_tool, ARCH_item, ARCH_building];
+			const int tab_count = 4;
+			EntityArchetype tab_order[tab_count] = {ARCH_nil, ARCH_item, ARCH_tool, ARCH_building};
 			float tab_padding = 4.0;
-			Vector2 tab_size = v2((workbench_ui_size.x - (tab_padding * tab_count + 1)) / tab_count, 10);
+			const int tab_border_size = 1;
+			Vector2 tab_size = v2((workbench_ui_size.x - ((tab_count - 1) * tab_padding)) / tab_count, 10);
 			Vector2 tab_pos = v2(workbench_ui_pos.x, workbench_ui_pos.y + workbench_ui_size.y);
 
 			for (int tab_index = 0; tab_index < tab_count; tab_index++){
+				// Vector2 pos = v2(tab_pos.x + (tab_index * (tab_size.x + tab_padding)), tab_pos.y);
 				Vector2 pos = v2(tab_pos.x + (tab_index * (tab_size.x + tab_padding)), tab_pos.y);
 				Matrix4 xform_tab = m4_identity;
-				xform_tab = m4_translate(xform_tab, v3(pos.x, pos.y, 0));
-				Draw_Quad* tab_quad = draw_rect_xform(xform_tab, v2(tab_size.x, tab_size.y), COLOR_WHITE);
-				// draw_image_xform(get_sprite(SPRITE_ICON_tool)->image, xform_tab, v2(tab_size.x, tab_size.y), COLOR_WHITE);
+				xform_tab = m4_translate(xform_tab, v3(pos.x, pos.y + 1, 0));
+				Draw_Quad* tab_quad = draw_rect_with_border(xform_tab, v2(tab_size.x, tab_size.y), tab_border_size, workbench_bg, COLOR_WHITE);
+
+				// draw category icons
+				Sprite* category_sprite = get_category_sprite(tab_order[tab_index]);
+
+				xform_tab = m4_translate(xform_tab, v3((tab_size.x * 0.5) - (category_sprite->image->width * 0.5), (tab_size.y * 0.5) - (category_sprite->image->height * 0.5), 0));
+
+				if (workbench_tab_category == tab_order[tab_index]){
+					draw_image_xform(category_sprite->image, xform_tab, get_sprite_size(category_sprite), COLOR_RED);
+				}
+				else{
+					draw_image_xform(category_sprite->image, xform_tab, get_sprite_size(category_sprite), COLOR_WHITE);
+				}
+
+
 				if (range2f_contains(quad_to_range(*tab_quad), get_mouse_pos_in_ndc())){
-					// printf("Tab clicked\n");
-					workbench_tab_gate = tab_order[tab_index];
+					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+						workbench_tab_category = tab_order[tab_index];
+						selected_recipe_workbench = NULL;
+					}
 				}
 			}
 
@@ -1052,10 +1054,11 @@ void render_building_ui(UXState ux_state)
 			for (int i = 0; i < ITEM_MAX; i++){
 				ItemData* item = &crafting_recipes[i];
 
-				if (item->arch != workbench_tab_gate){
+				// tabs
+				if (item->category != workbench_tab_category && workbench_tab_category != ARCH_nil){
 					continue;
 				}
-
+				
 				if (item->crafting_recipe_count != 0){
 
 					if (row_index >= MAX_ICONS_PER_ROW){
@@ -1167,14 +1170,19 @@ void render_building_ui(UXState ux_state)
 
 						xform = m4_translate(xform, v3(pos.x, pos.y, 0));
 						
-						draw_image_xform(sprite->image, xform, v2(recipe_icon_size, recipe_icon_size), COLOR_WHITE);
+						Draw_Quad* recipe_material_quad = draw_image_xform(sprite->image, xform, v2(recipe_icon_size, recipe_icon_size), COLOR_WHITE);
 
 						draw_text_xform(font, sprint(temp_allocator, STR("%d/%d"), get_player_inventory_item_count(recipe_item->id), recipe_item->amount), font_height, m4_translate(xform, v3(-recipe_icon_size, (recipe_icon_size * 0.5) - (recipe_material_amount.visual_size.y * 0.5), 0)), v2(0.1, 0.1), COLOR_WHITE);
 
 						recipe_icon_index++;
 
+						// draw recipe material name
+						if (range2f_contains(quad_to_range(*recipe_material_quad), get_mouse_pos_in_ndc())){
+							Matrix4 xform = m4_identity;
+							xform = m4_translate(xform, v3(get_mouse_pos_in_screen().x, get_mouse_pos_in_screen().y, 0));
+							draw_text_xform(font, sprint(temp_allocator, STR("%s"), get_item_name(recipe_item->id)), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+						}
 					}
-
 				}
 
 				// update craft button color if enough items for crafting the recipe
@@ -2103,19 +2111,19 @@ void render_entities(World* world) {
 		int asd = 1;
 	}
 
-	Entity sorted_entities_by_culling[ENTITY_MAX];
-	int temp_index = 0;
+	// Entity sorted_entities_by_culling[MAX_ENTITY_COUNT];
+	// int temp_index = 0;
 
-	if (ENABLE_FRUSTRUM_CULLING){
-		// sort only entities within the render distance
-		for (int i = 0; i < entity_count; i++){
-			Entity* en = &world->dimension->entities;
-			if (range2f_contains(en->pos, get_player_pos())){
-				sorted_entities_by_culling[temp_index] = en;
-				temp_index++;
-			}
-		}
-	}
+	// if (ENABLE_FRUSTRUM_CULLING){
+	// 	// sort only entities within the render distance
+	// 	for (int i = 0; i < entity_count; i++){
+	// 		Entity* en = &world->dimension->entities;
+	// 		// if (range2f_contains(en->pos.x, get_player_pos().x) && range2f_contains(en->pos.y, get_player_pos().y)){
+	// 		// 	sorted_entities_by_culling[temp_index] = en;
+	// 		// 	temp_index++;
+	// 		// }
+	// 	}
+	// }
 
 	// if (render_list.needs_sorting){
 		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
@@ -2408,6 +2416,12 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
 			sprites[SPRITE_building_workbench] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_workbench.png"), get_heap_allocator())};
 			sprites[SPRITE_building_chest] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_chest.png"), get_heap_allocator())};
+
+			// Load category sprites
+			sprites[SPRITE_CATEGORY_all] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_all.png"), get_heap_allocator())};
+			sprites[SPRITE_CATEGORY_items] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_item.png"), get_heap_allocator())};
+			sprites[SPRITE_CATEGORY_tools] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_tool.png"), get_heap_allocator())};
+			sprites[SPRITE_CATEGORY_buildings] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_building.png"), get_heap_allocator())};
 		// 
 
 		// :Load textures
@@ -2519,7 +2533,7 @@ int entry(int argc, char **argv)
 			// add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_twig, STR("Twig"), 2, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
-			add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
+			// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
 
 		}
 		
@@ -2554,7 +2568,7 @@ int entry(int argc, char **argv)
 
 	// ::TESTS
 	// {
-		Animation* torch_animation = setup_torch_animation();
+		// Animation* torch_animation = setup_torch_animation();
 	// }
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
@@ -2923,7 +2937,6 @@ int entry(int argc, char **argv)
 
 						if (fabsf(v2_dist(en->pos, world->player->en->pos)) < world->player->item_pickup_radius) {
 							add_item_to_inventory(en->item_id, en->name, 1, en->arch, en->sprite_id, en->tool_id, true);
-							// printf("ADDED ITEM '%s' TO INVENTORY\n", get_item_name_from_ItemID(en->item_id));
 
 							// render_pickup_text(en);
 							trigger_pickup_text(*en);
@@ -3144,7 +3157,7 @@ int entry(int argc, char **argv)
 		}
 
 		// #animation test
-		draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));
+		// draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));
 
 		// ::DEBUG STUFF ------------------------------------------------------------------------------->
 
