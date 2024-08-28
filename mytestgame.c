@@ -1003,6 +1003,26 @@ void render_building_ui(UXState ux_state)
 		// Workbench PANEL
 		if (world->workbench_alpha_target != 0.0)
 		{
+			// Tabs
+			int tab_count = 4;
+			int tab_order[ARCH_nil, ARCH_tool, ARCH_item, ARCH_building];
+			float tab_padding = 4.0;
+			Vector2 tab_size = v2((workbench_ui_size.x - (tab_padding * tab_count + 1)) / tab_count, 10);
+			Vector2 tab_pos = v2(workbench_ui_pos.x, workbench_ui_pos.y + workbench_ui_size.y);
+
+			for (int tab_index = 0; tab_index < tab_count; tab_index++){
+				Vector2 pos = v2(tab_pos.x + (tab_index * (tab_size.x + tab_padding)), tab_pos.y);
+				Matrix4 xform_tab = m4_identity;
+				xform_tab = m4_translate(xform_tab, v3(pos.x, pos.y, 0));
+				Draw_Quad* tab_quad = draw_rect_xform(xform_tab, v2(tab_size.x, tab_size.y), COLOR_WHITE);
+				// draw_image_xform(get_sprite(SPRITE_ICON_tool)->image, xform_tab, v2(tab_size.x, tab_size.y), COLOR_WHITE);
+				if (range2f_contains(quad_to_range(*tab_quad), get_mouse_pos_in_ndc())){
+					// printf("Tab clicked\n");
+					workbench_tab_gate = tab_order[tab_index];
+				}
+			}
+
+
 			Matrix4 xform_bg = m4_identity;
 
 			xform_bg = m4_translate(xform_bg, v3(workbench_ui_pos.x, workbench_ui_pos.y, 0));
@@ -1031,6 +1051,10 @@ void render_building_ui(UXState ux_state)
 			// draw icons
 			for (int i = 0; i < ITEM_MAX; i++){
 				ItemData* item = &crafting_recipes[i];
+
+				if (item->arch != workbench_tab_gate){
+					continue;
+				}
 
 				if (item->crafting_recipe_count != 0){
 

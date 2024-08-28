@@ -96,4 +96,5 @@ Animation* setup_torch_animation(){
     return anim;
 }
 
+
 #endif

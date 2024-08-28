@@ -594,6 +594,7 @@
     BuildingData* selected_building_buildmode = NULL; // selected building in build mode
     int selected_slot_index = 0;
     Draw_Quad* chest_quad = NULL;
+    EntityArchetype workbench_tab_gate = ARCH_nil; // workbench recipes sorting. ARCH_nil = all recipes
 
     // loot tables
     LootTable *lootTable_rock;
