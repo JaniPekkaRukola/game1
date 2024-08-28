@@ -6,7 +6,7 @@
 bool IS_DEBUG = false;
 // bool print_fps = true;
 bool print_fps = false;
-// bool ENABLE_FRUSTRUM_CULLING = false;
+bool ENABLE_FRUSTRUM_CULLING = false;
 bool runtime_debug = false;
 
 
@@ -2077,7 +2077,7 @@ void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count
 	// }
 */
 
-// :Render entities || :Entity render
+// ::Render entities || ::Entity render
 void render_entities(World* world) {
 
 	// NOTE: bugfix for (first item spawning is invisible) is to do "world->entity_count + 1". Don't know about the side effects of this fix tho
@@ -2101,6 +2101,20 @@ void render_entities(World* world) {
 
 	if (world->current_biome_id == BIOME_cave){
 		int asd = 1;
+	}
+
+	Entity sorted_entities_by_culling[ENTITY_MAX];
+	int temp_index = 0;
+
+	if (ENABLE_FRUSTRUM_CULLING){
+		// sort only entities within the render distance
+		for (int i = 0; i < entity_count; i++){
+			Entity* en = &world->dimension->entities;
+			if (range2f_contains(en->pos, get_player_pos())){
+				sorted_entities_by_culling[temp_index] = en;
+				temp_index++;
+			}
+		}
 	}
 
 	// if (render_list.needs_sorting){
