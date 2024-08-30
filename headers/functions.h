@@ -101,6 +101,10 @@ DimensionData *get_dimensionData(DimensionID);
 		return (Range2f) {quad.bottom_left, quad.top_right};
 	}
 
+	Range2f vector2_to_range(Vector2 vector){
+		return (Range2f) {vector.x, vector.y};
+	}
+
 	Vector2 get_player_pos(){
 		if (world->player){
 			return world->player->en->pos;
@@ -132,8 +136,31 @@ DimensionData *get_dimensionData(DimensionID);
 		// draw_rect_xform(xform_slot, v2(inside_size.y, inside_size.y), slot_col);
 	}
 
+	Range2f range2f_shift(Range2f r, Vector2 shift) {
+		r.min = v2_add(r.min, shift);
+		r.max = v2_add(r.max, shift);
+		return r;
+	}
 
+	Range2f range2f_make_bottom_center(Vector2 size) {
+		Range2f range = {0};
+		range.max = size;
+		range = range2f_shift(range, v2(size.x * -0.5, 0.0));
+		return range;
+	}
 
+	Vector2 range2f_size(Range2f range) {
+		Vector2 size = {0};
+		size = v2_sub(range.min, range.max);
+		size.x = fabsf(size.x);
+		size.y = fabsf(size.y);
+		return size;
+	}
+
+	bool range2f_contains(Range2f range, Vector2 v) {
+		return v.x >= range.min.x && v.x <= range.max.x && v.y >= range.min.y && v.y <= range.max.y;
+	}
+	
 // 
 
 
@@ -585,6 +612,12 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_ingot_copper: return SPRITE_INGOT_copper; break;
 			case ITEM_tree_sap: return SPRITE_tree_sap; break;
 
+			// tools
+			case ITEM_TOOL_pickaxe: return SPRITE_TOOL_pickaxe; break;
+			case ITEM_TOOL_axe: return SPRITE_TOOL_axe; break;
+			case ITEM_TOOL_shovel: return SPRITE_TOOL_shovel; break;
+			case ITEM_TOOL_torch: return SPRITE_TOOL_torch; break;
+
 			default: {log_error("Error @ 'get_sprite_size_from_itemID' missing case\n"); return 0;} break;
 		}
 	}
@@ -943,14 +976,16 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
-	// :TOOL -------------------------->
-	string get_tool_name(ToolID id) {
-		switch (id) {
-			case TOOL_pickaxe: return STR("Pickaxe"); break;
-			case TOOL_axe: return STR("Axe"); break;
-			default: return STR("Error: Missing get_tool_name case."); break;
-		}
-	}
+	// not in use
+		// :TOOL -------------------------->
+		// string get_tool_name(ToolID id) {
+		// 	switch (id) {
+		// 		case TOOL_pickaxe: return STR("Pickaxe"); break;
+		// 		case TOOL_axe: return STR("Axe"); break;
+		// 		default: return STR("Error: Missing get_tool_name case."); break;
+		// 	}
+		// }
+	// 
 
 
 	// :PICKUP TEXT ------------------->
@@ -1029,21 +1064,21 @@ DimensionData *get_dimensionData(DimensionID);
 	// Dimension change animation ----->
 	void update_dim_change_animation(float delta_time) {
 
-		animation.elapsed_time += delta_time;
+		animation_dim_change.elapsed_time += delta_time;
 
 		// Interpolation factors
-		float t = animation.elapsed_time / animation.duration;
+		float t = animation_dim_change.elapsed_time / animation_dim_change.duration;
 		if (t >= 1.0f) {
-			animation.active = false;
+			animation_dim_change.active = false;
 			return;
 		}
 
-		animate_v2_to_target(&animation.start_pos, animation.end_pos, delta_time, 1.0f); // 4th value controls how smooth the camera transition is to the player
+		animate_v2_to_target(&animation_dim_change.start_pos, animation_dim_change.end_pos, delta_time, 1.0f); // 4th value controls how smooth the camera transition is to the player
 
 		// printf("Camera pos = %.2f, %.2f\n", animation.start_pos.x, animation.start_pos.y);
 
 		world_frame.world_view = m4_make_scale(v3(1.0, 1.0, 1.0)); // View zoom (zooms so pixel art is the correct size)
-		world_frame.world_view = m4_mul(world_frame.world_view, m4_make_translation(v3(animation.start_pos.x, animation.start_pos.y, 0)));
+		world_frame.world_view = m4_mul(world_frame.world_view, m4_make_translation(v3(animation_dim_change.start_pos.x, animation_dim_change.start_pos.y, 0)));
 		world_frame.world_view = m4_mul(world_frame.world_view, m4_make_scale(v3(view_zoom, view_zoom, 1.0)));
 
 	}
@@ -1051,13 +1086,13 @@ DimensionData *get_dimensionData(DimensionID);
 
 	void trigger_dim_change_animation(Vector2 camera_pos){
 		// printf("TRIGGERED DIM CHANGE ANIMATION\n");
-		animation.active = true;
-		animation.duration = 1.0f;
-		animation.elapsed_time = 0.0f;
+		animation_dim_change.active = true;
+		animation_dim_change.duration = 1.0f;
+		animation_dim_change.elapsed_time = 0.0f;
 		// animation.start_pos = v2(0, 0);
-		animation.start_pos = camera_pos;
-		animation.end_pos = camera_pos;
-		animation.end_pos.y -= 10;
+		animation_dim_change.start_pos = camera_pos;
+		animation_dim_change.end_pos = camera_pos;
+		animation_dim_change.end_pos.y -= 10;
 	}
 // 
 
@@ -1099,6 +1134,7 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_axe:{en->name = STR("Axe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_shovel:{en->name = STR("Shovel"); en->arch = ARCH_tool;}break;
+			case ITEM_TOOL_torch:{en->name = STR("Torch"); en->arch = ARCH_tool;}break;
 			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
@@ -1107,7 +1143,11 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_ingot_copper:{en->name = STR("Iron copper");}break;
 			case ITEM_tree_sap:{en->name = STR("Tree sap");}break;
 
-			default:{en->name = STR("case missing from 'setup_item()'");}break;
+			// default:{en->name = STR("case missing from 'setup_item()'");}break;
+			default:{
+					log_error("Missing case for itemID '%d' @ 'setup_item", item_id);
+					assert(1==0, "");
+				}break;
 		}
 	}
 
@@ -1198,12 +1238,9 @@ DimensionData *get_dimensionData(DimensionID);
 	void setup_magical_tree(Entity* en) {
 		en->arch = ARCH_tree;
 		en->name = STR("Magical tree");
-		// int random = get_random_int_in_range(0,3);
-		// if (random == 0){en->sprite_id = SPRITE_tree0;}
-		// if (random == 1){en->sprite_id = SPRITE_tree1;}
-		// if (random == 2){en->sprite_id = SPRITE_tree2;}
-		// if (random == 3){en->sprite_id = SPRITE_tree3;}
-		en->sprite_id = SPRITE_tree_magical;
+		int random = get_random_int_in_range(0,1);
+		if (random == 0){en->sprite_id = SPRITE_tree_magical0;}
+		if (random == 1){en->sprite_id = SPRITE_tree_magical1;}
 		en->health = tree_health;
 		en->destroyable = true;
 		en->rendering_prio = 0;
@@ -1252,6 +1289,13 @@ DimensionData *get_dimensionData(DimensionID);
 		add_biomeID_to_entity(en, BIOME_cave);
 	}
 
+
+	// void setup_entity(Entity* en, EntityArchetype id){
+	// 	switch (id){
+	// 		case ARCH_rock:{setup_rock(en);}break;
+	// 		case ARCH_rock:{setup_tree(en);}break;
+	// 	}
+	// }
 
 	void setup_ore(Entity* en, OreID id) {
 		// universal
@@ -1304,6 +1348,7 @@ DimensionData *get_dimensionData(DimensionID);
 		en->enable_shadow = true;
 		en->is_item = false;
 		en->building_id = id;
+		en->building_data.crafting_queue = 0;
 
 		switch (id) {
 			case BUILDING_furnace: {
@@ -1311,6 +1356,8 @@ DimensionData *get_dimensionData(DimensionID);
 					en->sprite_id = SPRITE_building_furnace;
 					en->destroyable = true;
 					en->health = 3;
+					en->is_crafting_station = true;
+
 				}
 			} break;
 
@@ -1319,6 +1366,8 @@ DimensionData *get_dimensionData(DimensionID);
 					en->sprite_id = SPRITE_building_workbench;
 					en->destroyable = true;
 					en->health = 3;
+					en->is_crafting_station = true;
+
 				}
 			} break;
 			case BUILDING_chest: {
@@ -1327,6 +1376,8 @@ DimensionData *get_dimensionData(DimensionID);
 					en->destroyable = true;
 					en->health = 3;
 					en->building_data.has_inventory = true;
+					en->is_crafting_station = false;
+
 				}
 			} break;
 
@@ -1363,18 +1414,18 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
-					// biome->grass_color = v4(0.32, 0.97, 0.62, 1);
-					biome->grass_color = v4(1, 1, 1, 1);
+					biome->grass_color = v4(0.35, 0.82, 1, 1);
+					// biome->grass_color = v4(1, 1, 1, 1);
 					// biome->leaves_color	= v4(0, 1, 0, 1);
 					biome->ground_texture = TEXTURE_grass;
 
 					// trees
-					biome->spawn_pine_trees = true;
+					biome->spawn_pine_trees = false;
 					biome->spawn_pine_tree_weight = 400;
-					biome->spawn_spruce_trees = true;
+					biome->spawn_spruce_trees = false;
 					biome->spawn_spruce_tree_weight = 400;
-					biome->spawn_magical_trees = false;
-					biome->spawn_magical_tree_weight = 100;
+					biome->spawn_magical_trees = true;
+					biome->spawn_magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
 					biome->spawn_birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1582,5 +1633,69 @@ DimensionData *get_dimensionData(DimensionID);
 // 
 
 
+// #collision tests
+// bool vector2_contains(Vector2 range, Vector2 v) {
+// //   return v.x >= range.min.x && v.x <= range.max.x && v.y >= range.min.y && v.y <= range.max.y;
+//   return v.x >= range.x && v.x <= range.x && v.y >= range.y && v.y <= range.y;
+// }
+
+// // Function to check if two 1D ranges overlap
+// bool overlap(float min1, float max1, float min2, float max2) {
+//     return (min1 <= max2 && max1 >= min2);
+// }
+
+// // Function to check if two 4D ranges (represented by two Range2f structs) collide
+// bool checkCollision(Range2f range1, Range2f range2) {
+//     return (overlap(range1.min.x, range1.max.x, range2.min.x, range2.max.x) &&
+//             overlap(range1.min.y, range1.max.y, range2.min.y, range2.max.y));
+//             // overlap(range1.min.z, range1.max.z, range2.min.z, range2.max.z) &&
+//             // overlap(range1.min.w, range1.max.w, range2.min.w, range2.max.w));
+// }
+
+// void check_for_collisions(Vector2 input_axis){
+// 	if (is_key_just_pressed(KEY_CTRL)){
+// 		int asd = 0;
+// 	}
+// 	Vector2 player_pos = get_player_pos();
+
+// 	Vector2 before = player_pos;
+
+// 	player_pos.x += input_axis.x;
+// 	player_pos.y += input_axis.y;
+// 	Vector2 player_size;
+// 	player_size.x = get_sprite(SPRITE_player)->image->width;
+// 	player_size.y = get_sprite(SPRITE_player)->image->height;
+// 	Range2f player_hitbox;
+// 	player_hitbox.min = v2(player_pos.x, player_pos.y);
+// 	player_hitbox.max = v2(player_pos.x + player_size.x, player_pos.y + player_size.y);
+
+// 	player_hitbox.min.x -= player_size.x * 0.5;
+// 	player_hitbox.min.y -= player_size.y * 0.5;
+
+// 	Matrix4 hitbox = m4_identity;
+// 	hitbox = m4_translate(hitbox, v3(player_hitbox.min.x, player_hitbox.min.y, 0));
+// 	draw_rect_xform(hitbox, v2(player_size.x, player_size.y), v4(1, 0, 0, 0.5));
+
+// 	for (int i = 0; i < world->dimension->entity_count; i++){
+// 		Entity* en = &world->dimension->entities[i];
+// 		if (en->arch != ARCH_player){
+
+// 			Sprite* sprite = get_sprite(en->sprite_id);
+// 			Range2f en_hitbox;
+// 			en_hitbox.min = v2(en->pos.x, en->pos.y);
+// 			en_hitbox.max = v2(en->pos.x + sprite->image->width, en->pos.y + sprite->image->height);
+// 			en_hitbox.min.x -= sprite->image->width * 0.5;
+// 			en_hitbox.min.y -= sprite->image->height * 0.5;
+
+// 			Matrix4 en_hitbox_xform = m4_identity;
+// 			en_hitbox_xform = m4_translate(en_hitbox_xform, v3(en_hitbox.min.x, en_hitbox.min.y, 0));
+// 			draw_rect_xform(en_hitbox_xform, v2(sprite->image->width, sprite->image->height), v4(1, 0, 0.5, 0.5));
+// 			if (checkCollision(player_hitbox, en_hitbox)){
+// 				printf("COLLISION with %s\n", en->name);
+// 			}
+// 		}
+// 	}
+
+// }
 
 #endif

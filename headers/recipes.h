@@ -96,7 +96,7 @@
            .item_id = ITEM_TOOL_torch,
            .crafting_recipe = {{ITEM_twig, 2}, {ITEM_tree_sap, 2}},
            .crafting_recipe_count = 2,
-           .cooking_time = 2.0f
+           .cooking_time = 4.0f
         };
 
 		// Chest

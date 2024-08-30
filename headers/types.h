@@ -6,6 +6,7 @@
     #define MAX_PORTAL_COUNT 10
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
+    #define MAX_ANIMATIONS 50
     #define MAX_RECIPE_ITEMS 8
 
     const float screen_width = 240.0;
@@ -84,7 +85,8 @@
         SPRITE_player,
         SPRITE_tree_pine,
         SPRITE_tree_spruce,
-        SPRITE_tree_magical,
+        SPRITE_tree_magical0,
+        SPRITE_tree_magical1,
         SPRITE_rock0,
         SPRITE_rock1,
         SPRITE_rock2,
@@ -281,20 +283,8 @@
         EntityArchetype arch;
         ToolID tool_id;
         ItemID item_id;
+        EntityArchetype category;
     } InventoryItemData;
-
-    // :BuildingData -------------------->
-    typedef struct BuildingData { 
-        EntityArchetype to_build;
-        SpriteID sprite_id;
-        BuildingID building_id;
-        bool has_inventory;
-        InventoryItemData inventory[ITEM_MAX];
-        // display name
-        // cost
-        // health
-        // etc
-    } BuildingData;
 
     // ItemAmount
     typedef struct ItemAmount{
@@ -316,6 +306,22 @@
         float cooking_time;
     } ItemData;
 
+    // :BuildingData -------------------->
+    typedef struct BuildingData { 
+        EntityArchetype to_build;
+        SpriteID sprite_id;
+        BuildingID building_id;
+        bool has_inventory;
+        InventoryItemData inventory[ITEM_MAX];
+        ItemData *selected_crafting_item;
+        int crafting_queue;
+        float64 crafting_end_time;
+        // display name
+        // cost
+        // health
+        // etc
+    } BuildingData;
+
     // :Entity -------------------------->
     typedef struct Entity {
         // main
@@ -335,7 +341,7 @@
         // data
         PortalData portal_data;
         BuildingData building_data;
-        ItemData item_data;
+        ItemData *current_crafting_item;
 
         // booleans
         bool destroyable;
@@ -367,8 +373,8 @@
     typedef struct DimensionData {
         string name;
         DimensionID dimension_id;
-        Entity entities[MAX_ENTITY_COUNT];
         int entity_count;
+        Entity entities[MAX_ENTITY_COUNT];
         BiomeID biomes[BIOME_MAX];
         // BiomeID biome_id;
 
@@ -585,12 +591,11 @@
     World* world = 0;
     BiomeData biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];
-    ItemData crafting_recipes[ITEM_MAX];
-    ItemData furnace_recipes[ITEM_MAX];
     BuildingData buildings[BUILDING_MAX];
     Texture textures[TEXTURE_MAX];
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
-    dim_change_animation animation = {};
+    dim_change_animation animation_dim_change = {};
+
 
     // ui rendering
     InventoryItemData inventory_selected_item;	// hardcopy of item from inventory, when starting to drag item
@@ -606,6 +611,9 @@
     Matrix4 selected_recipe_xfrom;
     bool is_recipe_selected = false;
 
+    // recipes
+    ItemData crafting_recipes[ITEM_MAX];
+    ItemData furnace_recipes[ITEM_MAX];
 
     // loot tables
     LootTable *lootTable_rock;

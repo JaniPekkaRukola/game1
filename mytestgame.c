@@ -4,9 +4,9 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-// bool print_fps = true;
-bool print_fps = false;
-bool ENABLE_FRUSTRUM_CULLING = false;
+bool print_fps = true;
+// bool print_fps = false;
+bool ENABLE_FRUSTRUM_CULLING = true;
 bool runtime_debug = false;
 
 
@@ -24,6 +24,8 @@ float render_distance = 175;		// 170 is pretty good
 char KEY_player_use = 'F';
 char KEY_toggle_inventory = KEY_TAB;
 
+Animation* crafting_animation;
+Animation* torch_animation;
 
 // COLORS
 const Vector4 item_shadow_color = {0, 0, 0, 0.2};
@@ -36,7 +38,7 @@ const s32 layer_world = 10;
 
 // Global app stuff
 float64 delta_t;
-
+float64 current_time;
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 // maybe should move these into "functions.h"
@@ -44,6 +46,27 @@ float64 delta_t;
 // inline float v2_length(Vector2 a) {
 //     return sqrt(a.x * a.x + a.y * a.y);
 // }
+
+
+// :Timer stuff
+float float_alpha(float x, float min, float max) {
+	float res = (x - min) / (max - min);
+	res = clamp(res, 0.0, 1.0);
+	return res;
+}
+
+inline float64 now() {
+	// this might be renamed
+	return os_get_current_time_in_seconds();
+}
+
+float alpha_from_end_time(float64 end_time, float length) {
+	return float_alpha(now(), end_time - length, end_time);
+}
+
+bool has_reached_end_time(float64 end_time) {
+	return now() > end_time;
+}
 
 
 int compare_strings(string str, const char* cstr) {
@@ -57,33 +80,6 @@ int compare_strings(string str, const char* cstr) {
         }
     }
     return 1;
-}
-
-
-
-Range2f range2f_shift(Range2f r, Vector2 shift) {
-  r.min = v2_add(r.min, shift);
-  r.max = v2_add(r.max, shift);
-  return r;
-}
-
-Range2f range2f_make_bottom_center(Vector2 size) {
-  Range2f range = {0};
-  range.max = size;
-  range = range2f_shift(range, v2(size.x * -0.5, 0.0));
-  return range;
-}
-
-Vector2 range2f_size(Range2f range) {
-  Vector2 size = {0};
-  size = v2_sub(range.min, range.max);
-  size.x = fabsf(size.x);
-  size.y = fabsf(size.y);
-  return size;
-}
-
-bool range2f_contains(Range2f range, Vector2 v) {
-  return v.x >= range.min.x && v.x <= range.max.x && v.y >= range.min.y && v.y <= range.max.y;
 }
 
 // randy: is this something that's usually standard in math libraries or am I tripping?
@@ -353,7 +349,7 @@ void create_magical_trees(int amount, int range) {
 		setup_magical_tree(en);
 		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
 		en->pos = round_v2_to_tile(en->pos);
-		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+		en->enable_shadow = false;
 	}
 
 
@@ -654,6 +650,7 @@ void render_ui(){
 				// draw item
 				Draw_Quad* quad_item_drag = draw_image_xform(get_sprite(inventory_selected_item.sprite_id)->image, xform_item_drag, v2(slot_size, slot_size), COLOR_WHITE);
 				// draw item count
+				// @pin5 categorizing items/tools is fucky
 				if (inventory_selected_item_in_chest_ui.arch != ARCH_tool){
 					draw_text_xform(font, sprint(temp_allocator, STR("%d"), inventory_selected_item.amount), font_height, xform_item_drag, v2(0.1, 0.1), COLOR_WHITE);
 				}
@@ -942,6 +939,8 @@ void render_building_ui(UXState ux_state)
 	if (ux_state == UX_workbench){
 		world->player->inventory_ui_open = true;
 
+		BuildingData* selected_building = world->player->selected_building;
+
 		// printf("RENDERING WORKBENCH UI\n");
 
 		// workbench ui size variables
@@ -1186,7 +1185,7 @@ void render_building_ui(UXState ux_state)
 				}
 
 				// update craft button color if enough items for crafting the recipe
-				bool enough_items_for_recipe;
+				bool enough_items_for_recipe = true;
 				for (int i = 0; i < selected_recipe_workbench->crafting_recipe_count; i++){
 					ItemAmount* recipe_item = &selected_recipe_workbench->crafting_recipe[i];
 					if (!check_player_inventory_for_items(recipe_item->id, recipe_item->amount)){
@@ -1228,9 +1227,14 @@ void render_building_ui(UXState ux_state)
 							result += check_player_inventory_for_items(recipe_item->id, recipe_item->amount);
 						}
 
+						// :CRAFT ITEM
 						if (result >= selected_recipe_workbench->crafting_recipe_count){
+							
+							// selected_building. current_crafting_item = selected_recipe_workbench;
+							selected_building->selected_crafting_item = selected_recipe_workbench;
+							selected_building->crafting_queue++;
 							delete_recipe_items_from_inventory(*selected_recipe_workbench);
-							add_item_to_inventory(selected_recipe_workbench->item_id, selected_recipe_workbench->name, 1, selected_recipe_workbench->arch, selected_recipe_workbench->sprite_id, selected_recipe_workbench->tool_id, true);
+							// add_item_to_inventory(selected_recipe_workbench->item_id, selected_recipe_workbench->name, 1, selected_recipe_workbench->arch, selected_recipe_workbench->sprite_id, selected_recipe_workbench->tool_id, true);
 							// trigger_crafting_text(selected_recipe_workbench->item_id);
 						}
 					}
@@ -2107,35 +2111,46 @@ void render_entities(World* world) {
 
 	// render_list.needs_sorting = true;
 
-	if (world->current_biome_id == BIOME_cave){
-		int asd = 1;
-	}
+	// if (world->current_biome_id == BIOME_cave){
+		// int asd = 1;
+	// }
 
-	// Entity sorted_entities_by_culling[MAX_ENTITY_COUNT];
+	// Entity* sorted_entities_by_culling[MAX_ENTITY_COUNT];
 	// int temp_index = 0;
 
 	// if (ENABLE_FRUSTRUM_CULLING){
 	// 	// sort only entities within the render distance
 	// 	for (int i = 0; i < entity_count; i++){
-	// 		Entity* en = &world->dimension->entities;
-	// 		// if (range2f_contains(en->pos.x, get_player_pos().x) && range2f_contains(en->pos.y, get_player_pos().y)){
-	// 		// 	sorted_entities_by_culling[temp_index] = en;
-	// 		// 	temp_index++;
-	// 		// }
+	// 		Entity* en = &world->dimension->entities[i];
+	// 		if (en && range2f_contains(vector2_to_range(en->pos), get_player_pos())){
+	// 			sorted_entities_by_culling[temp_index] = en;
+	// 			temp_index++;
+	// 		}
 	// 	}
 	// }
 
+	// Create an array of indices
+    // int indices2[temp_index];
+    // for (int i = 0; i < temp_index; i++) {
+    //     indices2[i] = i;
+    // }
+
+	// sort_entity_indices_by_prio_and_y(indices2, &sorted_entities_by_culling, temp_index);
+	// int asdd = 0;
+
 	// if (render_list.needs_sorting){
 		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
+
 		sort_entity_indices_by_prio_and_y(indices, &world->dimension->entities, entity_count);
+
 		// sort_entities_by_prio_and_y(&world->dimension->entities, entity_count);
 	// 	render_list.needs_sorting = false;
 	// }
 
    for (int i = 0; i < entity_count; i++)  {
-
 		int index = indices[i];
 		Entity* en = &world->dimension->entities[index];
+		// Entity* en = &sorted_entities_by_culling[index];
 
 		if (en->is_valid) {
 
@@ -2175,7 +2190,14 @@ void render_entities(World* world) {
 							xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
 							xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
 
-							draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
+							// TODO: here check if item has an animation
+							if (item_in_hand->item_id == ITEM_TOOL_torch){
+								trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3));
+							}
+							else{
+								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
+							}
+
 						}
 
 						// draw debug text
@@ -2233,9 +2255,8 @@ void render_entities(World* world) {
 						// frustrum culling
 						if (entity_dist_from_player <= render_distance){
 
-
-
 							Sprite* sprite = get_sprite(en->sprite_id);
+
 							Matrix4 xform = m4_identity;
 							
 							// ITEM
@@ -2264,7 +2285,11 @@ void render_entities(World* world) {
 							}
 							
 							if (en->building_id){
-								// printf("BUILDING\n");
+								en->sprite_id;
+								if (runtime_debug){
+									int asdasd = 1;
+									printf("BUILDING\n");
+								}
 							}
 
 							xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
@@ -2294,8 +2319,55 @@ void render_entities(World* world) {
 				} break;
 			}
 		}
+
+		// :render crafting progress bar || :crafting animation
+		if (en->arch == ARCH_building && en->is_crafting_station && en->building_data.selected_crafting_item) {
+			{
+
+				ItemData item = *en->building_data.selected_crafting_item;
+				Sprite icon = *get_sprite(get_sprite_from_itemID(item.item_id));
+				Vector4 col = v4(1, 1, 1, 0.1);
+
+				float alpha = alpha_from_end_time(en->building_data.crafting_end_time, item.cooking_time);
+				col.a = alpha;
+
+				Matrix4 xform_item = m4_identity;
+				xform_item = m4_translate(xform_item, v3(en->pos.x, en->pos.y, 0));
+				xform_item = m4_translate(xform_item, v3(icon.image->width * -0.5, 0, 0));
+				draw_image_xform(icon.image, xform_item, v2(icon.image->width, icon.image->height), col);
+
+				// draw_animation(crafting_animation, now(), v2(en->pos.x, en->pos.y), item.cooking_time);
+				// trigger animation
+				trigger_animation(crafting_animation, now(), en->pos);
+			}
+
+
+			// randy's solution
+				// float radius = 4.0;
+				// Vector4 outside_col = v4(1,1,1,1);
+				// Vector4 inside_col = v4(0,0,0,1);
+				// {
+				// 	Matrix4 xform = m4_identity;
+				// 	xform = m4_translate(xform, v3(en->pos.x, en->pos.y + 14.0, 0));
+				// 	xform = m4_translate(xform, v3(-radius, -radius, 0));
+				// 	draw_circle_xform(xform, v2(radius*2, radius*2), inside_col);
+				// }
+
+				// ItemData craft_item_data = *en->building_data.selected_crafting_item;
+				// float alpha = alpha_from_end_time(en->building_data.crafting_end_time, craft_item_data.cooking_time);
+
+				// {
+				// 	Matrix4 xform = m4_identity;
+				// 	xform = m4_translate(xform, v3(en->pos.x, en->pos.y + 14.0, 0));
+				// 	xform = m4_scale(xform, v3(alpha, alpha, 1.0));
+				// 	xform = m4_translate(xform, v3(-radius, -radius, 0));
+				// 	draw_circle_xform(xform, v2(radius*2, radius*2), outside_col);
+			// }
+		}
 	}
 }
+
+
 
 // :render keybinding
 void render_keybinding(Entity* en, char keybind) {
@@ -2371,7 +2443,8 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
-			sprites[SPRITE_tree_magical] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_magical0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical0.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_magical1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical1.png"), get_heap_allocator())};
 			sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
 			sprites[SPRITE_rock1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock1.png"), get_heap_allocator())};
 			sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
@@ -2529,10 +2602,11 @@ int entry(int argc, char **argv)
 			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
 			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
 			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_tool, SPRITE_TOOL_torch, TOOL_torch, true);
-			// add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 5, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
-			// add_item_to_inventory(ITEM_rock, STR("Rock"), 1, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-			// add_item_to_inventory(ITEM_twig, STR("Twig"), 2, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
-			// add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 10, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
+			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
+			add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
+			add_item_to_inventory(ITEM_tree_sap, STR("Tree sap"), 25, ARCH_item, SPRITE_tree_sap, TOOL_nil, true);
+			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 100, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
 			// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
 
 		}
@@ -2568,7 +2642,9 @@ int entry(int argc, char **argv)
 
 	// ::TESTS
 	// {
-		// Animation* torch_animation = setup_torch_animation();
+		torch_animation = setup_torch_animation();
+		// Animation* crafting_animation = setup_crafting_animation();
+		crafting_animation = setup_crafting_animation();
 	// }
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
@@ -2581,9 +2657,9 @@ int entry(int argc, char **argv)
 		world_frame = (WorldFrame){0};
 
 		// :Timing
-		float64 now = os_get_current_time_in_seconds();
-		delta_t = now - last_time;
-		last_time = now;
+		float64 current_time = os_get_current_time_in_seconds();
+		delta_t = current_time - last_time;
+		last_time = current_time;
 		os_update(); 
 
 		// player
@@ -2597,7 +2673,7 @@ int entry(int argc, char **argv)
 
 
 		// :camera
-		if (!animation.active)
+		if (!animation_dim_change.active)
 		{
 			Vector2 target_pos = world->player->en->pos;
 			animate_v2_to_target(&camera_pos, target_pos, delta_t, 10.0f); // 4th value controls how smooth the camera transition is to the player (lower = slower)
@@ -2628,7 +2704,7 @@ int entry(int argc, char **argv)
 
 		// :Entity selection by MOUSE
 		if (!world_frame.hover_consumed)
-		{	
+		{
 			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
 			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
 
@@ -2942,6 +3018,36 @@ int entry(int argc, char **argv)
 							trigger_pickup_text(*en);
 
 							entity_destroy(en);
+							
+						}
+					}
+
+					// :crafting
+					if (en->is_crafting_station){
+						if (en->building_data.selected_crafting_item){
+							float cooking_time = en->building_data.selected_crafting_item->cooking_time;
+							if (en->building_data.crafting_end_time == 0){
+								en->building_data.crafting_end_time = now() + cooking_time;
+							}
+
+							float alpha = alpha_from_end_time(en->building_data.crafting_end_time, cooking_time);
+
+							if (has_reached_end_time(en->building_data.crafting_end_time)){
+								printf("CRAFTED ITEM\n");
+								// craft item
+								{
+									Entity* item = entity_create();
+									setup_item(item, en->building_data.selected_crafting_item->item_id);
+									item->pos = en->pos;
+								}
+
+								en->building_data.crafting_queue--;
+								en->building_data.crafting_end_time = 0;
+								assert(en->building_data.crafting_queue >= 0, "asd");
+								if (en->building_data.crafting_queue == 0){
+									en->building_data.selected_crafting_item = 0;
+								}
+							}
 						}
 					}
 				}
@@ -3148,8 +3254,8 @@ int entry(int argc, char **argv)
 
 		update_pickup_text(delta_t);
 
-
-
+		// update animations
+		update_animations(delta_t);
 
 		// render keybinding
 		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
@@ -3166,7 +3272,9 @@ int entry(int argc, char **argv)
 			if (!runtime_debug){
 				runtime_debug = true;
 			}
-			else{runtime_debug = false;}
+			else{
+				runtime_debug = false;
+				}
 			// update_biome();
 			// player->en->pos.x -= 10; 
 			// world_frame.player->pos.x -= 10;
@@ -3244,9 +3352,13 @@ int entry(int argc, char **argv)
 		// }
 
 
+		if (is_key_just_pressed('G')) {
+			// trigger_animation(torch_animation, now(), get_player_pos());
+
+		}
+			// update_animations(delta_t);
 
 		if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
-		if (is_key_just_pressed('G')) {create_portal_to(DIM_cavern, true);}
 		if (is_key_just_pressed('R')) {trigger_dim_change_animation(camera_pos);}
 
 		// #Biome
@@ -3324,12 +3436,16 @@ int entry(int argc, char **argv)
 		if (is_key_down(KEY_SHIFT)){ world->player->is_running = true;}
 		else { world->player->is_running = false;}
 
-		// Player movement
+		// ::Player movement || ::Movement
 		Vector2 input_axis = v2(0, 0);
 		if (is_key_down('W')){input_axis.y += 1.0;}
 		if (is_key_down('A')){input_axis.x -= 1.0;}
 		if (is_key_down('S')){input_axis.y -= 1.0;}
 		if (is_key_down('D')){input_axis.x += 1.0;}
+
+		// check for collisions
+		// check_for_collisions(input_axis);
+
 
 		// normalize
 		input_axis = v2_normalize(input_axis);
