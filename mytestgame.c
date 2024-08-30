@@ -2501,6 +2501,8 @@ int entry(int argc, char **argv)
 		// :Load textures
 			textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
 			textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
+			textures[TEXTURE_vignette_no_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_no_torch.png"), get_heap_allocator())};
+			textures[TEXTURE_vignette_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_torch.png"), get_heap_allocator())};
 		// 
 
 		// :Load audio
@@ -3253,15 +3255,42 @@ int entry(int argc, char **argv)
 		// Render entities
 		render_entities(world);
 
-		update_pickup_text(delta_t);
 
 		// update animations
 		update_animations(delta_t);
+
+		
+		// render screen effects
+		// render vignette || :vignette
+		if (world->dimension_id == DIM_cavern){
+			{
+				Texture* texture;
+				if (item_in_hand && item_in_hand->item_id == ITEM_TOOL_torch){
+					texture = get_texture(TEXTURE_vignette_torch);
+				}
+				else{
+					texture = get_texture(TEXTURE_vignette_no_torch);
+				}
+				Matrix4 xform = m4_identity;
+				Vector2 pos = camera_pos;
+				xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+				xform = m4_translate(xform, v3(texture->image->width * -0.5, texture->image->height * -0.5, 0));
+				draw_image_xform(texture->image, xform, v2(screen_width, screen_height), COLOR_WHITE);
+			}
+		}
+		
+		
+		update_pickup_text(delta_t);
+
 
 		// render keybinding
 		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
 			render_keybinding(world_frame.selected_entity, KEY_player_use);
 		}
+
+
+
+
 
 		// #animation test
 		// draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));

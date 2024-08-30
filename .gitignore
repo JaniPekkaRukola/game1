@@ -63,7 +63,6 @@ build/*
 .vscode/launch.json
 .vscode/*
 res/sounds/*
-res/textures/*
 oogabooga/*
 oogabooga/font.c
 tests/*

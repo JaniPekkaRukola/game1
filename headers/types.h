@@ -231,6 +231,8 @@
 
         TEXTURE_grass,
         TEXTURE_cave_floor,
+        TEXTURE_vignette_torch,
+        TEXTURE_vignette_no_torch,
 
         TEXTURE_MAX,
     } TextureID;
