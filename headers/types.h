@@ -46,6 +46,8 @@
         ARCH_mushroom = 10,
 
         ARCH_portal = 11,
+
+        ARCH_torch = 12,
         ARCH_MAX,
     } EntityArchetype;
 
@@ -233,6 +235,7 @@
         TEXTURE_cave_floor,
         TEXTURE_vignette_torch,
         TEXTURE_vignette_no_torch,
+        TEXTURE_torch_light,
 
         TEXTURE_MAX,
     } TextureID;

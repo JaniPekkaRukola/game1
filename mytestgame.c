@@ -10,6 +10,7 @@ bool ENABLE_FRUSTRUM_CULLING = true;
 bool runtime_debug = false;
 
 
+bool enable_vignette = true;
 bool enable_tooltip = true;
 bool enable_chest_tooltip = false;
 bool render_hotbar = true;
@@ -2243,6 +2244,29 @@ void render_entities(World* world) {
 					}
 				} break;
 
+				case ARCH_torch:{
+					{
+						Sprite* sprite = get_sprite(SPRITE_TOOL_torch);
+						Texture* light = get_texture(TEXTURE_torch_light);
+						Matrix4 xform = m4_identity;
+
+						xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+						xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+
+						Vector4 col = COLOR_WHITE;
+						if (world_frame.selected_entity == en){
+							col = v4(0.7, 0.7, 0.7, 1.0);
+						}
+
+						// draw sprite
+						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+
+						xform = m4_translate(xform, v3(light->image->width * -0.5, light->image->height * -0.5, 0));
+						draw_image_xform(light->image, xform, get_texture_size(*light), COLOR_WHITE);
+
+					}
+				} break;
+
 				default: 
 				{
 					if (render_other_entities){
@@ -2503,6 +2527,7 @@ int entry(int argc, char **argv)
 			textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
 			textures[TEXTURE_vignette_no_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_no_torch.png"), get_heap_allocator())};
 			textures[TEXTURE_vignette_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_torch.png"), get_heap_allocator())};
+			textures[TEXTURE_torch_light] = (Texture){ .image=load_image_from_disk(STR("res/textures/torch_light.png"), get_heap_allocator())};
 		// 
 
 		// :Load audio
@@ -2604,7 +2629,7 @@ int entry(int argc, char **argv)
 			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
 			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
 			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
-			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_tool, SPRITE_TOOL_torch, TOOL_torch, true);
+			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_torch, SPRITE_TOOL_torch, TOOL_torch, true);
 			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
 			add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
 			add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
@@ -3057,10 +3082,12 @@ int entry(int argc, char **argv)
 			}
 		}
 
+		// if (world_frame.selected_entity) printf("selected en = %d\n", world_frame.selected_entity->arch);
+
 		// :player use || :trigger building ui || MOUSE BUTTON RIGHT
 		{
 			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
-					// open chest
+				// open chest
 				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(KEY_player_use)) {
 					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
 
@@ -3079,10 +3106,22 @@ int entry(int argc, char **argv)
 					}
 				}
 			}
-
-			if (world->ux_state != UX_nil){
-				render_building_ui(world->ux_state);
+			else if (!world_frame.selected_entity && item_in_hand && item_in_hand->item_id == ITEM_TOOL_torch){
+				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)){
+					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+					Entity* torch = entity_create();
+					setup_torch(torch);
+					torch->pos = get_mouse_pos_in_world_space();
+					delete_item_from_inventory(torch->item_id, 1);
+					
+				}
 			}
+
+		}
+
+		// idk what this is doing here!? move somewhere idk!?
+		if (world->ux_state != UX_nil){
+			render_building_ui(world->ux_state);
 		}
 
 		// :Player attack || :Spawn item || :MOUSE BUTTON LEFT
@@ -3262,20 +3301,22 @@ int entry(int argc, char **argv)
 		
 		// render screen effects
 		// render vignette || :vignette
-		if (world->dimension_id == DIM_cavern){
-			{
-				Texture* texture;
-				if (item_in_hand && item_in_hand->item_id == ITEM_TOOL_torch){
-					texture = get_texture(TEXTURE_vignette_torch);
+		if (enable_vignette){
+			if (world->dimension_id == DIM_cavern){
+				{
+					Texture* texture;
+					if (item_in_hand && item_in_hand->item_id == ITEM_TOOL_torch){
+						texture = get_texture(TEXTURE_vignette_torch);
+					}
+					else{
+						texture = get_texture(TEXTURE_vignette_no_torch);
+					}
+					Matrix4 xform = m4_identity;
+					Vector2 pos = camera_pos;
+					xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+					xform = m4_translate(xform, v3(texture->image->width * -0.5, texture->image->height * -0.5, 0));
+					draw_image_xform(texture->image, xform, v2(screen_width, screen_height), COLOR_WHITE);
 				}
-				else{
-					texture = get_texture(TEXTURE_vignette_no_torch);
-				}
-				Matrix4 xform = m4_identity;
-				Vector2 pos = camera_pos;
-				xform = m4_translate(xform, v3(pos.x, pos.y, 0));
-				xform = m4_translate(xform, v3(texture->image->width * -0.5, texture->image->height * -0.5, 0));
-				draw_image_xform(texture->image, xform, v2(screen_width, screen_height), COLOR_WHITE);
 			}
 		}
 		

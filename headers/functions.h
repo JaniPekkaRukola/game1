@@ -1297,6 +1297,20 @@ DimensionData *get_dimensionData(DimensionID);
 	// 	}
 	// }
 
+	void setup_torch(Entity* en){
+		en->arch = ARCH_torch;
+		en->name = STR("Torch");
+		en->sprite_id = SPRITE_TOOL_torch;
+		en->health = 1;
+		en->destroyable = true;
+		en->item_id = ITEM_TOOL_torch;
+		en->rendering_prio = 0;
+		en->tool_id = TOOL_torch;
+		add_biomeID_to_entity(en, BIOME_forest);
+		add_biomeID_to_entity(en, BIOME_cave);
+	}
+
+
 	void setup_ore(Entity* en, OreID id) {
 		// universal
 		en->arch = ARCH_ore;
