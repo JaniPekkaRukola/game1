@@ -39,6 +39,8 @@ typedef struct Animation{
     bool active;
     Vector2 pos;
     float elapsed_time;
+    bool has_custom_size;
+    Vector2 custom_size;
 
     // bool needs_fast_updating; // basically if the pos of the animation changes
     bool is_held; // if animation is in players hand (or travels with player)
@@ -72,10 +74,21 @@ void draw_animation(Animation* anim, float64 now, Vector2 pos){
     // Draw_Quad *quad = draw_image(anim->anim_sheet, v2(pos.x, pos.y), v2(anim->anim_frame_width*4, anim->anim_frame_height*4), COLOR_WHITE);
     // Draw_Quad *quad = draw_image(anim->anim_sheet, v2(pos.x, pos.y), v2(anim->anim_frame_width, anim->anim_frame_height), COLOR_WHITE);
     Matrix4 xform = m4_identity;
-    xform = m4_translate(xform, v3(pos.x, pos.y, 0));
-    xform = m4_translate(xform, v3(anim->anim_frame_width * -0.5, anim->anim_frame_height * -0.5, 0));
+    Vector2 size;
 
-    Draw_Quad *quad = draw_image_xform(anim->anim_sheet, xform, v2(anim->anim_frame_width, anim->anim_frame_height), COLOR_WHITE);
+    if (anim->has_custom_size){
+        size = anim->custom_size;
+        xform = m4_translate(xform, v3(size.x * -0.5, 0, 0));
+    }
+    else{
+        size.x = anim->anim_frame_width;
+        size.y = anim->anim_frame_height;
+        xform = m4_translate(xform, v3(anim->anim_frame_width * -0.5, anim->anim_frame_height * -0.5, 0));
+    }
+
+    xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+    // Draw_Quad *quad = draw_image_xform(anim->anim_sheet, xform, v2(anim->anim_frame_width, anim->anim_frame_height), COLOR_WHITE);
+    Draw_Quad *quad = draw_image_xform(anim->anim_sheet, xform, v2(size.x, size.y), COLOR_WHITE);
     quad->uv.x1 = (float32)(anim_sheet_pos_x)/(float32)anim->anim_sheet->width;
     quad->uv.y1 = (float32)(anim_sheet_pos_y)/(float32)anim->anim_sheet->height;
     quad->uv.x2 = (float32)(anim_sheet_pos_x+anim->anim_frame_width) /(float32)anim->anim_sheet->width;
@@ -87,7 +100,7 @@ void draw_animation(Animation* anim, float64 now, Vector2 pos){
     // Vector2 sheet_size = v2(10, 10);
     Vector2 frame_pos_in_sheet = v2(anim_sheet_pos_x, anim_sheet_pos_y);
     Vector2 frame_size = v2(anim->anim_frame_width, anim->anim_frame_height);
-    draw_rect(sheet_pos, sheet_size, COLOR_BLACK); // Draw black background
+
     draw_rect(v2_add(sheet_pos, frame_pos_in_sheet), frame_size, COLOR_WHITE); // Draw white rect on current frame
     draw_image(anim->anim_sheet, sheet_pos, sheet_size, COLOR_WHITE); // Draw the seet
 }
@@ -138,7 +151,7 @@ Animation* setup_crafting_animation(){
 
     anim->animation_id = ANIM_crafting;
 
-    anim->anim_sheet = load_image_from_disk(STR("res/animations/crafting_animation.png"), get_heap_allocator());
+    anim->anim_sheet = load_image_from_disk(STR("res/animations/crafting_animation3.png"), get_heap_allocator());
     anim->number_of_columns = 10;
     anim->number_of_rows = 1;
     anim->total_number_of_frames = anim->number_of_rows * anim->number_of_columns;
@@ -161,8 +174,8 @@ Animation* setup_crafting_animation(){
     assert(anim->anim_end_frame_y < anim->number_of_rows, "anim_end_frame_y is out of bounds");
 
     // Calculate duration per frame in seconds
-    anim->playback_fps = 10;
-    // anim->playback_fps = (anim->number_of_columns * anim->number_of_rows) / crafting_time;
+    anim->playback_fps = 15;
+    // anim->playback_fps = (anim->number_of_columns * anim->number_of_rows) / 4.0f;
     anim->anim_time_per_frame = 1.0 / anim->playback_fps;
     anim->anim_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
 
@@ -170,6 +183,8 @@ Animation* setup_crafting_animation(){
 
     anim->active = false;
     anim->pos = v2(0, 0);
+    anim->has_custom_size = true;
+    anim->custom_size = v2(12,12);
 
     return anim;
 }

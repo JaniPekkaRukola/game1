@@ -2195,6 +2195,7 @@ void render_entities(World* world) {
 								trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3));
 							}
 							else{
+								torch_animation->active = false;
 								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
 							}
 
