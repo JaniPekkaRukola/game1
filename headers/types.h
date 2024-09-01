@@ -6,7 +6,6 @@
     #define MAX_PORTAL_COUNT 10
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
-    #define MAX_ANIMATIONS 50
     #define MAX_RECIPE_ITEMS 8
 
     const float screen_width = 240.0;
@@ -48,6 +47,9 @@
         ARCH_portal = 11,
 
         ARCH_torch = 12,
+        
+        ARCH_parallax = 13,
+
         ARCH_MAX,
     } EntityArchetype;
 
@@ -151,6 +153,13 @@
         SPRITE_MAX,
     } SpriteID;
 
+    typedef enum ParallaxID {
+        PARALLAX_nil,
+
+        PARALLAX_tree0,
+
+        PARALLAX_MAX,
+    } ParallaxID;
 
     typedef enum ToolID {
         TOOL_nil,
@@ -337,6 +346,7 @@
 
         // id
         SpriteID sprite_id;
+        ParallaxID parallax_id;
         ItemID item_id;
         BuildingID building_id;
         ToolID tool_id;
@@ -513,6 +523,13 @@
         Gfx_Image* image;
     } Sprite;
 
+    // :Parallax
+    typedef struct Parallax {
+        Gfx_Image* image;
+        float threshold_min;
+        float threshold_max;
+    } Parallax;
+
     // :ToolData ------------------------>
     typedef struct ToolData {
         string name;
@@ -596,6 +613,7 @@
     World* world = 0;
     BiomeData biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];
+    Parallax parallaxes[PARALLAX_MAX];
     BuildingData buildings[BUILDING_MAX];
     Texture textures[TEXTURE_MAX];
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];

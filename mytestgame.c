@@ -1235,6 +1235,7 @@ void render_building_ui(UXState ux_state)
 						// :CRAFT ITEM
 						if (result >= selected_recipe_workbench->crafting_recipe_count){
 							
+							trigger_animation(crafting_animation, now(), v2(0,0), selected_recipe_workbench->cooking_time);
 							// selected_building. current_crafting_item = selected_recipe_workbench;
 							selected_building->selected_crafting_item = selected_recipe_workbench;
 							selected_building->crafting_queue++;
@@ -2198,10 +2199,13 @@ void render_entities(World* world) {
 
 							// TODO: here check if item has an animation
 							if (item_in_hand->item_id == ITEM_TOOL_torch){
-								trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3));
+								// if (!torch_animation->active){
+									// trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3), 0);
+								// }
 							}
 							else{
-								torch_animation->active = false;
+								// torch_animation->active = false;
+								// if (torch_animation->active) kill_animation_now(torch_animation);
 								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
 							}
 
@@ -2269,8 +2273,31 @@ void render_entities(World* world) {
 						xform = m4_translate(xform, v3(light->image->width * -0.5, light->image->height * -0.5, 0));
 						draw_image_xform(light->image, xform, get_texture_size(*light), COLOR_WHITE);
 
-						trigger_animation(torch_animation, now(), v2(0,0));
+						// trigger_animation(torch_animation, now(), v2(0,0));
 
+					}
+				} break;
+
+				case ARCH_parallax:{
+					{
+						Parallax* parallax = get_parallax_sprite(en->parallax_id);
+
+						Matrix4 xform = m4_identity;
+						xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+
+						// get distance between parallax en and player (ABSOLUTE values)
+						float dist = fabsf(en->pos.y) + fabsf(get_player_pos().y);
+
+						// if parallax entity is above player (y-axis), then the opacity should always be "1"
+						if (get_player_pos().y < en->pos.y) dist = -10;
+
+						Vector4 col = COLOR_WHITE;
+
+						// normalize parallax opacity between thresholds
+						col.a = normalizeWithThresholds(dist, parallax->threshold_min, parallax->threshold_max);
+
+						// draw parallax image
+						draw_image_xform(parallax->image, xform, v2(parallax->image->width, parallax->image->height), col);
 					}
 				} break;
 
@@ -2370,12 +2397,12 @@ void render_entities(World* world) {
 
 				// draw_animation(crafting_animation, now(), v2(en->pos.x, en->pos.y), item.cooking_time);
 				// trigger animation
-				if (en->building_id == BUILDING_workbench){
-					trigger_animation(crafting_animation, now(), en->pos);
-				}
-				else if (en->building_id == BUILDING_furnace){
-					trigger_animation(smelting_animation, now(), en->pos);
-				}
+				// if (en->building_id == BUILDING_workbench){
+					// trigger_animation(crafting_animation, now(), en->pos);
+				// }
+				// else if (en->building_id == BUILDING_furnace){
+					// trigger_animation(smelting_animation, now(), en->pos);
+				// }
 			}
 
 
@@ -2454,6 +2481,8 @@ int entry(int argc, char **argv)
 	// bg color
 	// window.clear_color = hex_to_rgba(0x43693aff);
 	window.clear_color = v4(1,1,1,1);
+	window.force_topmost = false;
+	window.allow_resize = false;
 
 	// window.enable_vsync = true;
 
@@ -2534,6 +2563,10 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_CATEGORY_items] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_item.png"), get_heap_allocator())};
 			sprites[SPRITE_CATEGORY_tools] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_tool.png"), get_heap_allocator())};
 			sprites[SPRITE_CATEGORY_buildings] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_building.png"), get_heap_allocator())};
+		// 
+
+		// :Load parallax
+			parallaxes[PARALLAX_tree0] = (Parallax){ .image=load_image_from_disk(STR("res/sprites/tree_parallax.png"), get_heap_allocator()), .threshold_min=60, .threshold_max=250};
 		// 
 
 		// :Load textures
@@ -2686,6 +2719,15 @@ int entry(int argc, char **argv)
 				en->pos = v2(-28, -20);
 				en->pos = round_v2_to_tile(en->pos);
 			}
+
+			// parallax test
+			{
+				Entity* en = entity_create();
+				setup_parallax(en);
+				en->pos = v2(0, 0);
+			}
+
+
 		}
 	}
 

@@ -559,6 +559,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :SPRITE ------------------------>
 	Sprite* get_sprite(SpriteID id) {
+		// #? wtf is going on here
 		if (id > 0 && id <= SPRITE_MAX){
 			if (id >= 0 && id < SPRITE_MAX) {
 				Sprite* sprite = &sprites[id];
@@ -572,6 +573,19 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 		log_error("Failed to get sprite\n");
 		return &sprites[0];
+	}
+
+	Parallax* get_parallax_sprite(ParallaxID id){
+		if (id > 0 && id <= PARALLAX_MAX){
+			Parallax* parallax = &parallaxes[id];
+			if (parallax->image){
+				return parallax;
+			}
+			else{
+				return &parallaxes[0];
+			}
+		}
+		assert(1==0, "Failed to get parallax id @ 'get_parallax_sprite'");
 	}
 
 	Sprite* get_category_sprite(EntityArchetype arch){
@@ -1317,6 +1331,17 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
+	void setup_parallax(Entity* en){
+		en->arch = ARCH_parallax;
+		en->name = STR("Magical tree parallax");
+		en->sprite_id = SPRITE_nil;
+		en->parallax_id = PARALLAX_tree0;
+		en->destroyable = false;
+		en->rendering_prio = 0;
+		en->enable_shadow = false;
+		add_biomeID_to_entity(en, BIOME_forest);
+	}
+
 	void setup_ore(Entity* en, OreID id) {
 		// universal
 		en->arch = ARCH_ore;
@@ -1446,7 +1471,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_pine_tree_weight = 400;
 					biome->spawn_spruce_trees = false;
 					biome->spawn_spruce_tree_weight = 400;
-					biome->spawn_magical_trees = true;
+					biome->spawn_magical_trees = false;
 					biome->spawn_magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
 					biome->spawn_birch_tree_weight = 0;
@@ -1454,13 +1479,13 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_palm_tree_weight = 0;
 
 					// entities
-					biome->spawn_rocks = true;
+					biome->spawn_rocks = false;
 					biome->spawn_rocks_weight = 75;
-					biome->spawn_mushrooms = true;
+					biome->spawn_mushrooms = false;
 					biome->spawn_mushrooms_weight = 15;
-					biome->spawn_twigs = true;
+					biome->spawn_twigs = false;
 					biome->spawn_twigs_weight = 25;
-					biome->spawn_berries = true;
+					biome->spawn_berries = false;
 					biome->spawn_berries_weight = 20;
 
 					// fossils
@@ -1721,5 +1746,24 @@ DimensionData *get_dimensionData(DimensionID);
 // 	}
 
 // }
+
+// test
+float normalize(float x, float max){
+	return clamp(x / max, 0, 1);
+}
+
+float inverseNormalize(float x, float max) {
+    return clamp(1.0f - (x / max), 0.0f, 1.0f);
+}
+
+float normalizeWithThresholds(float x, float min, float max) {
+    if (x <= min) {
+        return 1.0f;
+    } else if (x >= max) {
+        return 0.0f;
+    } else {
+        return (max - x) / (max - min);
+    }
+}
 
 #endif
