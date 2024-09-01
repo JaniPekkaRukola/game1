@@ -271,7 +271,8 @@ void update_animations(float64 delta_t){
             anim->pos.y += 3;
         }
 
-        draw_animation(anim, os_get_current_time_in_seconds(), anim->pos);
+        // draw_animation(anim, os_get_current_time_in_seconds(), anim->pos); // deprecated
+        draw_animation(anim, os_get_elapsed_seconds(), anim->pos);
     }
 }
 

@@ -19,7 +19,7 @@ bool render_other_entities = true;
 bool draw_grid = false;
 bool render_ground_texture = true;
 
-float render_distance = 175;		// 170 is pretty good
+float render_distance = 230;
 
 // keybinds
 char KEY_player_use = 'F';
@@ -58,8 +58,8 @@ float float_alpha(float x, float min, float max) {
 }
 
 inline float64 now() {
-	// this might be renamed
-	return os_get_current_time_in_seconds();
+	// return os_get_current_time_in_seconds(); // deprecated
+	return os_get_elapsed_seconds();
 }
 
 float alpha_from_end_time(float64 end_time, float length) {
@@ -99,7 +99,8 @@ Draw_Quad ndc_quad_to_screen_quad(Draw_Quad ndc_quad) {
 
 	// NOTE: we're assuming these are the screen space matricies (by: randy)
 	Matrix4 proj = draw_frame.projection;
-	Matrix4 view = draw_frame.view;
+	// Matrix4 view = draw_frame.view; 			// deprecated
+	Matrix4 view = draw_frame.camera_xform;
 	
 	Matrix4 ndc_to_screen_space = m4_identity;
 	ndc_to_screen_space = m4_mul(ndc_to_screen_space, m4_inverse(proj));
@@ -269,14 +270,16 @@ void setup_audio_player(){
 
 
 void set_screen_space() {
-	draw_frame.view = m4_scalar(1.0);
+	// draw_frame.view = m4_scalar(1.0);		// deprecated
+	draw_frame.camera_xform = m4_scalar(1.0);
 	draw_frame.projection = m4_make_orthographic_projection(0.0, screen_width, 0.0, screen_height, -1, 10);
 }
 
 void set_world_space() {
 	// make the viewport (or whatever) to window size, instead of -1.7, 1.7, -1, 1
 	draw_frame.projection = world_frame.world_projection;
-	draw_frame.view = world_frame.world_view;
+	// draw_frame.view = world_frame.world_view; // deprecated
+	draw_frame.camera_xform = world_frame.world_view;
 }
 
 
@@ -990,7 +993,7 @@ void render_building_ui(UXState ux_state)
 		{
 			// Tabs
 			const int tab_count = 4;
-			EntityArchetype tab_order[tab_count] = {ARCH_nil, ARCH_item, ARCH_tool, ARCH_building};
+			EntityArchetype tab_order[4] = {ARCH_nil, ARCH_item, ARCH_tool, ARCH_building};		// compiler gives a warning if using the tab_count as the size of the array. #remember to keep these values the same
 			float tab_padding = 4.0;
 			const int tab_border_size = 1;
 			Vector2 tab_size = v2((workbench_ui_size.x - ((tab_count - 1) * tab_padding)) / tab_count, 10);
@@ -2132,7 +2135,6 @@ void render_entities(World* world) {
 	// 		}
 	// 	}
 	// }
-
 	// Create an array of indices
     // int indices2[temp_index];
     // for (int i = 0; i < temp_index; i++) {
@@ -2145,7 +2147,7 @@ void render_entities(World* world) {
 	// if (render_list.needs_sorting){
 		// sort_entity_indices_by_prio_and_y(render_list.indices, world->entities, render_list.count);
 
-		sort_entity_indices_by_prio_and_y(indices, &world->dimension->entities, entity_count);
+		sort_entity_indices_by_prio_and_y(indices, world->dimension->entities, entity_count);
 
 		// sort_entities_by_prio_and_y(&world->dimension->entities, entity_count);
 	// 	render_list.needs_sorting = false;
@@ -2279,7 +2281,7 @@ void render_entities(World* world) {
 
 						if (en->arch == ARCH_portal){
 							printf("FORCED CRASH @ 'render_entities'\n ");
-							float i = 1/0;
+							assert(1==0, "forced crash @ 'render_entities'");
 						}
 
 						// frustrum culling
@@ -2291,7 +2293,8 @@ void render_entities(World* world) {
 							
 							// ITEM
 							if (en->is_item) {
-								xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down
+								// xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_current_time_in_seconds(), 5.0), 0)); // bob item up and down 		// deprecated
+								xform         = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_elapsed_seconds(), 5.0), 0)); // bob item up and down
 								
 								// shadow position
 								Vector2 position = en->pos;
@@ -2315,7 +2318,6 @@ void render_entities(World* world) {
 							}
 							
 							if (en->building_id){
-								en->sprite_id;
 								if (runtime_debug){
 									int asdasd = 1;
 									printf("BUILDING\n");
@@ -2440,12 +2442,14 @@ int entry(int argc, char **argv)
 {
 	// Window
 	window.title = STR("Game.");
-	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
-	window.scaled_height = 720; 
+	// window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)		// deprecated
+	// window.scaled_height = 720;  // deprecated
+	window.point_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
+	window.point_height = 720;
 
 	// window spawn position
-	window.x = window.width * 0.5 + 350;		// window.x = 200; // default value // +350 so i can see console
-	window.y = window.height * 0.5;				// window.y = 200; // default value
+	window.x = window.point_width * 0.5 + 150;				// window.x = 200; // default value // +150 so i can see console
+	window.y = window.point_height * 0.5 - 100;				// window.y = 200; // default value	// -100
 
 	// bg color
 	// window.clear_color = hex_to_rgba(0x43693aff);
@@ -2604,13 +2608,19 @@ int entry(int argc, char **argv)
 	// ::INIT
 
 	// setups
-	setup_audio_player();
 	setup_player();
 	setup_all_biomes();
 
 	world->current_biome_id = BIOME_forest;
 	world->player->inventory_items_count = 0;
 	
+	// setup audio
+	setup_audio_player();
+	Audio_Playback_Config audio_config = {0};
+	audio_config.volume                = 1.0;
+	audio_config.playback_speed        = 1.0;
+	audio_config.enable_spacialization = true;
+	audio_config.position_ndc          = v3(0, 0, 0);
 
 	// spawning
 	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
@@ -2623,7 +2633,8 @@ int entry(int argc, char **argv)
 	// Timing
 	float64 seconds_counter = 0.0;
 	s32 frame_count = 0;
-	float64 last_time = os_get_current_time_in_seconds();
+	// float64 last_time = os_get_current_time_in_seconds(); // deprecated
+	float64 last_time = os_get_elapsed_seconds();
 
 	// view_zoom += 0.2;		// zoom out a bit
 
@@ -2695,7 +2706,8 @@ int entry(int argc, char **argv)
 		world_frame = (WorldFrame){0};
 
 		// :Timing
-		float64 current_time = os_get_current_time_in_seconds();
+		// float64 current_time = os_get_current_time_in_seconds(); // deprecated
+		float64 current_time = os_get_elapsed_seconds();
 		delta_t = current_time - last_time;
 		last_time = current_time;
 		os_update(); 
@@ -3169,7 +3181,10 @@ int entry(int argc, char **argv)
 					// printf("SELECTED EN ITEM ID = '%d'\n", selected_en->item_id);
 						
 					// get entity pos (for playing audio at position)
-					Vector3 audio_pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
+					// Vector3 audio_pos = v3(get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).x, get_mouse_pos_in_ndc(selected_en->pos.x, selected_en->pos.y).y, 0);
+					Vector3 audio_pos = v3(selected_en->pos.x, selected_en->pos.y, 0);
+					audio_config.position_ndc = v3(audio_pos.x, audio_pos.y, 0);
+
 
 
 					switch (selected_en->arch) {
@@ -3197,14 +3212,16 @@ int entry(int argc, char **argv)
 							{
 								if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_pickaxe){
 
-									play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
+									// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
+									play_one_audio_clip_with_config(audioFiles[AUDIO_hit_metal1].path, audio_config);
 
 									selected_en->health -= 1;
 									if (selected_en->health <= 0) {
 										// entity_destroy(selected_en);
 										generateLoot(lootTable_rock, 0, selected_en->pos);
 										allow_destroy = true;
-										play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
+										// play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
+										play_one_audio_clip_with_config(audioFiles[AUDIO_rock_breaking1].path, audio_config);
 									}
 								}
 								else{printf("WRONG TOOL\n");}
@@ -3225,14 +3242,16 @@ int entry(int argc, char **argv)
 						case ARCH_ore: {	// |------- ORES -------|
 							{
 								if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_pickaxe){
-									play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
+									// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
+									play_one_audio_clip_with_config(audioFiles[AUDIO_hit_metal1].path, audio_config);
 									selected_en->health -= 1;
 									if (selected_en->health <= 0){
 										Entity* en = entity_create();
 										setup_item(en, selected_en->item_id);
 										en->pos = selected_en->pos;
 										allow_destroy = true;
-										play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
+										// play_one_audio_clip_at_position(audioFiles[AUDIO_rock_breaking1].path, audio_pos);
+										play_one_audio_clip_with_config(audioFiles[AUDIO_rock_breaking1].path, audio_config);
 									}
 								}
 								else{printf("WRONG TOOL\n");}
@@ -3250,7 +3269,7 @@ int entry(int argc, char **argv)
 							}
 						} break;
 					}
-				}	// item_in_hand != NULL
+				}	// item_in_hand == NULL
 				else{
 					if (item_in_hand){
 						// |------- SHOVEL -------|
@@ -3498,6 +3517,7 @@ int entry(int argc, char **argv)
 				}
 				case (INPUT_EVENT_KEY):{break;}
 				case (INPUT_EVENT_TEXT):{break;}
+				default:{}break;
 			}
 		}
 

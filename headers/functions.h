@@ -22,7 +22,8 @@ DimensionData *get_dimensionData(DimensionID);
 		float mouse_x = input_frame.mouse_x;
 		float mouse_y = input_frame.mouse_y;
 		Matrix4 proj = draw_frame.projection;
-		Matrix4 view = draw_frame.view;
+		// Matrix4 view = draw_frame.view;			// deprecated
+		Matrix4 view = draw_frame.camera_xform;
 		float window_w = window.width;
 		float window_h = window.height;
 
@@ -37,7 +38,8 @@ DimensionData *get_dimensionData(DimensionID);
 		float mouse_x = input_frame.mouse_x;
 		float mouse_y = input_frame.mouse_y;
 		Matrix4 proj = draw_frame.projection;
-		Matrix4 view = draw_frame.view;
+		// Matrix4 view = draw_frame.view;  		// deprecated
+		Matrix4 view = draw_frame.camera_xform;
 		float window_w = window.width;
 		float window_h = window.height;
 
@@ -102,13 +104,16 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	Range2f vector2_to_range(Vector2 vector){
-		return (Range2f) {vector.x, vector.y};
+		// not in use!?
+		// return (Range2f) {vector.x, vector.y}; // compiler complaints
+		return  (Range2f) {.min=vector, .max=vector};
 	}
 
 	Vector2 get_player_pos(){
 		if (world->player){
 			return world->player->en->pos;
 		}
+		assert(1==0, "Failed to get player pos @'get_player_pos()");
 	}
 
 	Draw_Quad *draw_rect_with_border(Matrix4 xform_slot, Vector2 inside_size, float border_width, Vector4 slot_col, Vector4 border_col){
@@ -279,6 +284,7 @@ DimensionData *get_dimensionData(DimensionID);
 				return en;
 			}
 		}
+		assert(1==0, "Failed to get player en from dim @ 'get_player_en_from_current_dim'");
 	}
 
 	// Entity* get_player_en_from_dim(DimensionID dim) {
@@ -344,9 +350,7 @@ DimensionData *get_dimensionData(DimensionID);
 		if (biomes[id].enabled){
 			return biomes[id];
 		}
-		else{
-			log_error("Failed to get biomeData @ get_biome_data_from_id. NULL\n");
-		}
+		assert(1==0, "Failed to get biomeData @ get_biome_data_from_id. NULL");
 	}
 
 
@@ -578,6 +582,8 @@ DimensionData *get_dimensionData(DimensionID);
 			case ARCH_building:{ return get_sprite(SPRITE_CATEGORY_buildings); } break;
 			default: {log_error("missing case @ 'get_category_sprite'\n");} break;
 		}
+		log_error("Failed to get category sprite @ 'get_category_sprite'");
+		return get_sprite(SPRITE_nil);
 	}
 
 	Vector2 get_sprite_size(Sprite* sprite) {
@@ -848,7 +854,7 @@ DimensionData *get_dimensionData(DimensionID);
 		
 		
 		// printf("DELETED ITEM %d FROM CHEST\n", item_id);
-		InventoryItemData* inventory = &world->player->selected_building->inventory;
+		InventoryItemData* inventory = world->player->selected_building->inventory;
 
 		for (int i = 0; i < ITEM_MAX; i++){
 			InventoryItemData* chest_item = &inventory[i];
@@ -905,10 +911,8 @@ DimensionData *get_dimensionData(DimensionID);
 		if (texture.image){
 			return (Vector2) {texture.image->width, texture.image->height};
 		}
-		else{
-			log_error("ERROR @ get_texture_size. texture is NULL\n");
-			// return v2(0,0);
-		}
+		log_error("ERROR @ get_texture_size. texture is NULL\n");
+		return v2(10, 10);
 	}
 
 
@@ -955,17 +959,19 @@ DimensionData *get_dimensionData(DimensionID);
 
 
 	// :ORE --------------------------->
-	Entity* get_ore(OreID id) {
-		// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
-		for (int i = 0; i < world->dimension->entity_count; i++) {
-			// Entity* en = &world->entities[i];
-			Entity* en = &world->dimension->entities[i];
-			if (en->ore_id == id){
-				return en;
-			}
-		}
-		log_error("Failed to get ore @ 'get_ore'\n");
-	}
+
+	// not in use
+		// Entity* get_ore(OreID id) {
+		// 	// for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+		// 	for (int i = 0; i < world->dimension->entity_count; i++) {
+		// 		// Entity* en = &world->entities[i];
+		// 		Entity* en = &world->dimension->entities[i];
+		// 		if (en->ore_id == id){
+		// 			return en;
+		// 		}
+		// 	}
+		// 	log_error("Failed to get ore @ 'get_ore'\n");
+	// }
 
 	string get_ore_name(OreID id){
 		switch (id){
@@ -1352,6 +1358,8 @@ DimensionData *get_dimensionData(DimensionID);
 					
 				}
 			} break;
+
+			default:{} break;
 		}
 	}
 
@@ -1538,7 +1546,9 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->fossil2_drop_chance = 15;
 					// biome->fossil_rarity_level = 2;
 				}
-			}
+			} break;
+
+			default:{}break;
 
 		}
 
