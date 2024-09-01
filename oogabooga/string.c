@@ -84,9 +84,9 @@ strings_match(string a, string b) {
 
 string 
 string_view(string s, u64 start_index, u64 count) {
-	assert(start_index < s.count, "array_view start_index % out of range for string count %", start_index, s.count);
-	assert(count > 0, "array_view count must be more than 0");
-	assert(start_index + count <= s.count, "array_view start_index + count is out of range");
+	assert(start_index < s.count, "string_view start_index % out of range for string count %", start_index, s.count);
+	assert(count > 0, "string_view count must be more than 0");
+	assert(start_index + count <= s.count, "string_view start_index + count is out of range");
 	
 	string result;
 	result.data = s.data+start_index;
@@ -171,6 +171,10 @@ string_builder_init_reserve(String_Builder *b, u64 reserved_capacity, Allocator 
 void 
 string_builder_init(String_Builder *b, Allocator allocator) {
 	string_builder_init_reserve(b, 128, allocator);
+}
+void 
+string_builder_deinit(String_Builder *b) {
+	dealloc(b->allocator, b->buffer);
 }
 void 
 string_builder_append(String_Builder *b, string s) {

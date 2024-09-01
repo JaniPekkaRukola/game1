@@ -7,9 +7,18 @@
 #include <initguid.h>
 #include <avrt.h>
 #include <xinput.h>
+#include <shellscalingapi.h>
+
+// #Cleanup
+#if COMPILER_CLANG
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#else
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 
 #define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
-
 void* heap_alloc(u64);
 void heap_dealloc(void*);
 
@@ -112,6 +121,15 @@ SYSTEM_INFO win32_system_info;
 LARGE_INTEGER win32_counter_at_start;
 bool win32_do_handle_raw_input = false;
 HANDLE win32_xinput = 0;
+bool has_os_update_been_called_at_all = false;
+
+// Used to save windowed state when in fullscreen mode.
+DWORD win32_windowed_style = 0;
+DWORD win32_windowed_style_ex = 0;
+s32 win32_windowed_x = 0;
+s32 win32_windowed_y = 0;
+s32 win32_windowed_width = 0;
+s32 win32_windowed_height = 0;
 
 // impl input.c
 const u64 MAX_NUMBER_OF_GAMEPADS = XUSER_MAX_COUNT;
@@ -163,6 +181,7 @@ void win32_handle_key_repeat(Input_Key_Code code, s64 gamepad_index) {
 	win32_send_key_event(code, win32_key_states[code], gamepad_index);
 }
 
+void win32_query_monitors();
 
 LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
 	
@@ -179,15 +198,19 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
+        	
+        case WM_SYSKEYDOWN:
         case WM_KEYDOWN:
         	bool is_repeat = (lparam & 0x40000000) != 0;
-        	
         	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam), -1);
 	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam), -1);
-	        goto DEFAULT_HANDLE;
+	        //goto DEFAULT_HANDLE;
+	        break;
+        case WM_SYSKEYUP:
 	    case WM_KEYUP:
 	        win32_handle_key_up(os_key_to_key_code((void*)wparam), -1);
-	        goto DEFAULT_HANDLE;
+	        //goto DEFAULT_HANDLE;
+	        break;
 	    case WM_LBUTTONDOWN:
 	        win32_handle_key_down(MOUSE_BUTTON_LEFT, -1);
 	        goto DEFAULT_HANDLE;
@@ -265,6 +288,27 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
             }
 	       break;
 	    }
+	    case WM_DISPLAYCHANGE: {
+	    	
+	    	win32_query_monitors();
+	    	
+	    	goto DEFAULT_HANDLE;
+	    }
+	    case WM_GETMINMAXINFO: {
+	    	if (!window._initialized) {
+	    		goto DEFAULT_HANDLE;
+	    	}
+	    	MINMAXINFO* mmi = (MINMAXINFO*)lparam;
+            
+            mmi->ptMaxSize.x = window.monitor->resolution_x*2;
+            mmi->ptMaxSize.y = window.monitor->resolution_y*2;
+            mmi->ptMaxTrackSize.x = window.monitor->resolution_x*2;
+            mmi->ptMaxTrackSize.y = window.monitor->resolution_y*2;
+            mmi->ptMinTrackSize.x = -window.monitor->resolution_x*2;
+            mmi->ptMinTrackSize.y = -window.monitor->resolution_y*2;
+            
+	    	break;
+	    }
         default:
         
         DEFAULT_HANDLE:
@@ -280,16 +324,18 @@ win32_init_window() {
 	memset(&window, 0, sizeof(window));
 	
 	window.title = STR("Unnamed Window");
-	window.width = 1280;
-	window.height = 720;
-	window.x = 0;
-	window.y = 0;
+	window.point_width = 960;
+	window.point_height = 540;
+	window.x = 200;
+	window.y = 150;
 	window.should_close = false;
+	window.force_topmost = true;
 	window._initialized = false;
 	window.clear_color.r = 0.392f; 
 	window.clear_color.g = 0.584f;
 	window.clear_color.b = 0.929f;
 	window.clear_color.a = 1.0f;
+	
 	
 	WNDCLASSEX wc = (WNDCLASSEX){0};
     MSG msg;
@@ -311,15 +357,15 @@ win32_init_window() {
 	
 	RECT rect = {0, 0, window.width, window.height};
 	DWORD style = WS_OVERLAPPEDWINDOW;
-	DWORD ex_style = WS_EX_CLIENTEDGE;
-	ok = AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+	DWORD style_ex = WS_EX_CLIENTEDGE;
+	ok = AdjustWindowRectEx(&rect, style, FALSE, style_ex);
 	assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
 	
 	u32 actual_window_width = rect.right - rect.left;
 	u32 actual_window_height = rect.bottom - rect.top;
     // Create the window
     window._os_handle = CreateWindowEx(
-        ex_style,
+        style_ex,
         "sigma balls",
         temp_convert_to_null_terminated_string(window.title),
         style,
@@ -327,8 +373,14 @@ win32_init_window() {
         0, 0, instance, 0);
     assert(window._os_handle != 0, "Window creation failed, error: %lu", GetLastError());
 	window._initialized = true;
-    ShowWindow(window._os_handle, SW_SHOWDEFAULT);
+	window.allow_resize = true;
     UpdateWindow(window._os_handle);
+    
+    ShowWindow(window._os_handle, SW_HIDE);
+    //style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+    //style &= ~WS_EX_APPWINDOW;  // Remove from taskbar
+    //style |= WS_EX_TOOLWINDOW;  // Make it a tool window
+    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
 }
 
 void 
@@ -360,7 +412,6 @@ void os_init(u64 program_memory_capacity) {
 	context.thread_id = GetCurrentThreadId();
 
 
-
 #if CONFIGURATION == RELEASE
 	// #Configurable #Copypaste
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
@@ -368,7 +419,13 @@ void os_init(u64 program_memory_capacity) {
 	timeBeginPeriod(1);
 #endif
 
-	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	BOOL ok;
+
+	ok = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	if (!ok) {
+		hr = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+		win32_check_hr(hr);
+	}
 	
 	os_set_mouse_pointer_standard(MOUSE_POINTER_DEFAULT);
 	
@@ -379,8 +436,8 @@ void os_init(u64 program_memory_capacity) {
 	os.static_memory_start = 0;
 	os.static_memory_end = 0;
 	
+	
 	MEMORY_BASIC_INFORMATION mbi;
-    
     
     unsigned char* addr = 0;
     while (VirtualQuery(addr, &mbi, sizeof(mbi))) {
@@ -404,15 +461,6 @@ void os_init(u64 program_memory_capacity) {
 	
 #ifndef OOGABOOGA_HEADLESS
 
-	RAWINPUTDEVICE rid[1] = {0};
-	
-	rid[0].usUsagePage = 0x01;
-	rid[0].usUsage = 0x05; // HID_USAGE_GENERIC_GAMEPAD
-	
-	BOOL ok = RegisterRawInputDevices(rid, sizeof(rid)/sizeof(RAWINPUTDEVICE), sizeof(RAWINPUTDEVICE));
-	assert(ok, "Failed RegisterRawInputDevices");
-	
-	
     win32_init_window();
     
     // Set a dummy output format before audio init in case it fails.
@@ -433,6 +481,68 @@ void os_init(u64 program_memory_capacity) {
 
 
 	
+	win32_query_monitors();
+}
+
+BOOL win32_query_monitors_callback(HMONITOR monitor_handle, HDC dc, LPRECT rect, LPARAM param) {
+	MONITORINFOEX info = ZERO(MONITORINFOEX);
+    info.cbSize = sizeof(MONITORINFOEX);
+    BOOL ok = GetMonitorInfo(monitor_handle, (MONITORINFO*)&info);
+    assert(ok, "GetMonitorInfo failed");
+    
+    string monitor_id;
+    monitor_id.count = strlen(info.szDevice);
+    monitor_id.data = (u8*)info.szDevice;
+    
+    u16 *monitor_id_wide = temp_win32_fixed_utf8_to_null_terminated_wide(monitor_id);
+    
+    DEVMODEW more_info = ZERO(DEVMODEW);
+    u16 *name_wide = temp_win32_fixed_utf8_to_null_terminated_wide(monitor_id);
+    ok = EnumDisplaySettingsW(name_wide, ENUM_CURRENT_SETTINGS, &more_info);
+    assert(ok, "EnumDisplaySettingsW failed");
+    
+    DISPLAY_DEVICEW even_more_info = ZERO(DISPLAY_DEVICEW);
+	even_more_info.cb = sizeof(DISPLAY_DEVICE);
+    bool display_device_found = false;
+    for (DWORD i = 0; EnumDisplayDevicesW(NULL, i, &even_more_info, 0); ++i) {
+        if (wcscmp(even_more_info.DeviceName, monitor_id_wide) == 0) {
+            display_device_found = TRUE;
+            break;
+        }
+    }
+    assert(display_device_found, "DISPLAY_DEVICE not found");
+    
+    Os_Monitor *monitor = (Os_Monitor*)growing_array_add_empty((void**)&os.monitors);
+    memset(monitor, 0, sizeof(Os_Monitor));
+    if (info.dwFlags & MONITORINFOF_PRIMARY) os.primary_monitor = monitor;
+    
+    monitor->name = temp_win32_null_terminated_wide_to_fixed_utf8(even_more_info.DeviceString);
+    monitor->refresh_rate = more_info.dmDisplayFrequency;
+    monitor->resolution_x = info.rcMonitor.right  - info.rcMonitor.left;
+    monitor->resolution_y = info.rcMonitor.bottom - info.rcMonitor.top;
+    
+    GetDpiForMonitor(monitor_handle, MDT_EFFECTIVE_DPI, (UINT*)&monitor->dpi, (UINT*)&monitor->dpi_y);
+    
+    if (monitor_handle == MonitorFromWindow(window._os_handle, MONITOR_DEFAULTTONEAREST)) {
+    	window.monitor = monitor;
+    }
+    
+    return TRUE;
+}
+void win32_query_monitors() {
+
+	window.monitor = 0;
+
+	if (os.monitors) growing_array_clear((void**)&os.monitors);
+	else growing_array_init((void**)&os.monitors, sizeof(Os_Monitor), get_heap_allocator());
+	
+	EnumDisplayMonitors(0, 0, win32_query_monitors_callback, 0);
+	
+	os.number_of_connected_monitors = growing_array_get_valid_count(os.monitors);
+	
+	if (!window.monitor) {
+		window.monitor = os.primary_monitor;
+	}
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -546,6 +656,8 @@ void os_join_thread(Thread *t) {
 }
 ////// DEPRECATED   ^^^^^^^^^^^^^^^^
 
+
+
 void os_thread_init(Thread *t, Thread_Proc proc) {
 	memset(t, 0, sizeof(Thread));
 	t->id = 0;
@@ -611,6 +723,23 @@ void os_lock_mutex(Mutex_Handle m) {
 void os_unlock_mutex(Mutex_Handle m) {
 	BOOL result = ReleaseMutex(m);
 	assert(result, "Unlock mutex 0x%x failed with error %d", m, GetLastError());
+}
+
+void os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state) {
+	sem->os_event = CreateEvent(NULL, TRUE, initial_state ? TRUE : FALSE, NULL);
+}
+
+void os_binary_semaphore_destroy(Binary_Semaphore *sem) {
+	CloseHandle(sem->os_event);
+}
+
+void os_binary_semaphore_wait(Binary_Semaphore *sem) {
+	WaitForSingleObject(sem->os_event, INFINITE);
+	ResetEvent(sem->os_event);
+}
+
+void os_binary_semaphore_signal(Binary_Semaphore *sem) {
+	SetEvent(sem->os_event);
 }
 
 
@@ -1043,6 +1172,8 @@ bool os_do_paths_match(string a, string b) {
     return false;
 }
 
+// #Cleanup
+// These are not os-specific, why are they here?
 void fprints(File f, string fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -1059,7 +1190,21 @@ void fprintf(File f, const char* fmt, ...) {
 	va_end(args);
 }
 
+void os_wait_and_read_stdin(string *result, u64 max_count, Allocator allocator) {
+	char *buffer = talloc(max_count);
+	
+	DWORD read;
+	BOOL ok = ReadConsole(GetStdHandle(STD_INPUT_HANDLE), buffer, max_count, &read, 0);
+	
+	if (!ok) {
+		*result = string_copy(STR("STDIN is not available"), allocator);
+	} else {		
+		*result = alloc_string(allocator, read);
+		memcpy(result->data, buffer, read);
+		if (result->count >= 2 && result->data[result->count-1] == '\n') result->count -= 2;
+	}
 
+}
 
 
 
@@ -1774,42 +1919,90 @@ void set_specific_gamepad_vibration(u64 gamepad_index, float32 left, float32 rig
 
 
 void os_update() {
+
+	// Only show window after first call to os_update
+	if (!has_os_update_been_called_at_all) {
+		ShowWindow(window._os_handle, SW_SHOW);
+	    //DWORD style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	    //style &= ~(WS_EX_TOOLWINDOW);
+	    //style |= WS_EX_APPWINDOW;
+	    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
+	}
+
+	has_os_update_been_called_at_all = true;
+
 	win32_do_handle_raw_input = true;
 #ifndef OOGABOOGA_HEADLESS
-	UINT dpi = GetDpiForWindow(window._os_handle);
-    float dpi_scale_factor = dpi / 96.0f;
+	window.dpi = window.monitor->dpi;
+    float dpi_scale_factor = window.dpi / 72.0f;
+	window.point_size_in_pixels = window.dpi / 72.0;
 
 	local_persist Os_Window last_window;
-
+	
+	//
+	// Window title
 	if (!strings_match(last_window.title, window.title)) {
 		SetWindowText(window._os_handle, temp_convert_to_null_terminated_string(window.title));
 	}
 
-	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
-		window.width = window.scaled_width*dpi_scale_factor;
-		window.height = window.scaled_height*dpi_scale_factor;
+	//
+	// Window sizing & position
+
+	if (window.fullscreen && last_window.fullscreen) {
+		window.pixel_width = window.monitor->resolution_x;
+		window.pixel_height = window.monitor->resolution_y;
+		window.x = 0;
+		window.y = 0;
+	}
+
+	BOOL ok;
+	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
+	DWORD style_ex = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	int screen_height = window.monitor->resolution_y;
+
+	if (last_window.pixel_width == window.pixel_width && last_window.pixel_height == window.pixel_height) {
+		if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
+			window.width = window.scaled_width*dpi_scale_factor;
+			window.height = window.scaled_height*dpi_scale_factor;
+		}
+		
+		if (last_window.point_width != window.point_width || last_window.point_height != window.point_height) {
+			window.width = window.point_width*window.point_size_in_pixels;
+			window.height = window.point_height*window.point_size_in_pixels;
+		}
+		
+		if (last_window.point_x != window.point_x || last_window.point_y != window.point_y) {
+			window.x = window.point_x*window.point_size_in_pixels;
+			window.y = window.point_y*window.point_size_in_pixels;
+		}
 	}
 	
-	BOOL ok;
-	int screen_height = GetSystemMetrics(SM_CYSCREEN);
-	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
-	DWORD ex_style = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	// #Hack
+	// Uneven window size just causes pain with texture sampling, so I'm just doing even only
+	if (window.pixel_width % 2 != 0) window.pixel_width += 1;
+	if (window.pixel_height % 2 != 0) window.pixel_height += 1;
+	
 	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.height != window.height) {
+	
+	
 	    RECT update_rect;
 	    update_rect.left = window.x;
 	    update_rect.right = window.x + window.width;
-	    update_rect.top = window.y;
-	    update_rect.bottom = window.y + window.height; 
+	    update_rect.top = screen_height - (window.y+window.height);
+	    update_rect.bottom = screen_height - window.y; 
 	
-	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
-	    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+	    AdjustWindowRectEx(&update_rect, style, FALSE, style_ex);
 	
 	    u32 actual_width = update_rect.right - update_rect.left;
 	    u32 actual_height = update_rect.bottom - update_rect.top;
 	    u32 actual_x = update_rect.left;
-	    u32 actual_y = screen_height - update_rect.top - (update_rect.bottom - update_rect.top);
+	    u32 actual_y = update_rect.top;
 	    
-	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
+	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOACTIVATE);
+	}
+	
+	if (last_window.force_topmost != window.force_topmost) {
+		SetWindowPos(window._os_handle, window.force_topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOREPOSITION | SWP_NOSIZE | SWP_NOMOVE);
 	}
 	
 	RECT client_rect;
@@ -1817,22 +2010,18 @@ void os_update() {
 	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
 	
 	RECT adjusted_rect = client_rect;
-	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, ex_style);
+	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, style_ex);
     assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
     
     RECT window_rect;
 	ok = GetWindowRect(window._os_handle, &window_rect);
 	assert(ok, "GetWindowRect failed with error code %lu", GetLastError());
+
+	window_rect.left -= adjusted_rect.left;
+	window_rect.right -= adjusted_rect.right-client_rect.right;
 	
-	/*u32 style_space_left =   abs(client_rect.left-adjusted_rect.left);
-	u32 style_space_right =  abs(client_rect.left-adjusted_rect.right);
-	u32 style_space_bottom = abs(client_rect.left-adjusted_rect.bottom);
-	u32 style_space_top =    abs(client_rect.left-adjusted_rect.top);
-	
-	framebuffer_rect.left += style_space_left;
-	framebuffer_rect.right -= style_space_right;
-	framebuffer_rect.top += style_space_top;
-	framebuffer_rect.bottom -= style_space_bottom;*/
+	window_rect.top -= adjusted_rect.top;
+	window_rect.bottom -= adjusted_rect.bottom-client_rect.bottom;
 	
 	POINT top_left;
 	top_left.x = client_rect.left;
@@ -1853,8 +2042,56 @@ void os_update() {
     
     window.scaled_width = (u32)((bottom_right.x - top_left.x) * dpi_scale_factor);
     window.scaled_height = (u32)((bottom_right.y - top_left.y) * dpi_scale_factor);
+    
+    window.point_width = window.pixel_width / window.point_size_in_pixels;
+    window.point_height = window.pixel_height / window.point_size_in_pixels;
+    window.point_x = window.pixel_x / window.point_size_in_pixels;
+    window.point_y = window.pixel_y / window.point_size_in_pixels;
 	
+	if (last_window.allow_resize != window.allow_resize) {
+		if (window.allow_resize) style |= WS_SIZEBOX;
+		else                     style &= ~(WS_SIZEBOX);
+		SetWindowLongW(window._os_handle, GWL_STYLE, style);
+	}
+	
+	bool last_fullscreen = last_window.fullscreen;
 	last_window = window;
+	
+	//
+	// Fullscreen
+	
+	if (last_fullscreen != window.fullscreen) {
+		
+		if (window.fullscreen) {
+		
+			// Save windowed state
+			win32_windowed_style = style;
+		    win32_windowed_style_ex = style_ex;
+		    win32_windowed_x = window.x;
+		    win32_windowed_y = window.y;
+		    win32_windowed_width = window.width;
+		    win32_windowed_height = window.height;
+		    
+		    SetWindowLongW(window._os_handle, GWL_STYLE, style & ~(WS_CAPTION | WS_THICKFRAME));
+			SetWindowLongW(window._os_handle, GWL_EXSTYLE, 
+				style_ex & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)
+			);
+		    
+		} else {
+			
+			// Restore windowed_state
+			style = win32_windowed_style;
+			style_ex = win32_windowed_style_ex;
+			window.x = win32_windowed_x;
+			window.y = win32_windowed_y;
+			window.width = win32_windowed_width;
+			window.height = win32_windowed_height;
+			
+			SetWindowLongW(window._os_handle, GWL_STYLE, win32_windowed_style);
+			SetWindowLongW(window._os_handle, GWL_EXSTYLE, win32_windowed_style_ex);
+		}
+	}
+	
 	
 	
 	// Reflect what the user layer did to input state before we query for OS inputs
@@ -2146,3 +2383,11 @@ void* key_code_to_os_key(Input_Key_Code key_code) {
     return 0;
 }
 #endif /* OOGABOOGA_HEADLESS */
+
+
+// #Cleanup
+#if COMPILER_CLANG
+#pragma GCC diagnostic pop
+#else
+#pragma warning(pop)
+#endif

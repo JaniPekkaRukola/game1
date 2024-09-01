@@ -37,30 +37,53 @@
 
 typedef int   (__cdecl *Crt_Vsnprintf_Proc) (char*, size_t, const char*, va_list);
 
-typedef struct Os_Info {
+typedef struct Os_Monitor {
+	u64 refresh_rate;
+	u64 resolution_x;
+	u64 resolution_y;
+	u64 dpi;
+	u64 dpi_y;
+	string name;
+} Os_Monitor;
+
+typedef struct Os_Context {
 	u64 page_size;
 	u64 granularity;
 	
 	Dynamic_Library_Handle crt;
 	
 	Crt_Vsnprintf_Proc crt_vsnprintf;
+	
+	u64 number_of_connected_monitors;
+	Os_Monitor *monitors;
+	Os_Monitor *primary_monitor;
     
+    // These are not correct, but they probably do include static memory
     void *static_memory_start, *static_memory_end;
     
-} Os_Info;
+} Os_Context;
 
 typedef struct Os_Window {
 
-	// Keep in mind that setting these in runtime is potentially slow!
+	// Keep in mind that setting these in runtime is potentially slow since they might trigger win32 calls!
 	string title;
 	union { s32 width;  s32 pixel_width;  };
 	union { s32 height; s32 pixel_height; };
-	s32 scaled_width; // DPI scaled!
-	s32 scaled_height; // DPI scaled!
-	s32 x;
-	s32 y;
+	DEPRECATED(s32 scaled_width, "Use point_width instead, which is 72th of an inch");
+	DEPRECATED(s32 scaled_height, "Use point_height instead, which is 72th of an inch");
+	s32 point_width; // 72th of an inch
+	s32 point_height; // 72th of an inch
+	union { s32 x; s32 pixel_x; };
+	union { s32 y; s32 pixel_y; };
+	s32 point_x; // 72th of an inch
+	s32 point_y; // 72th of an inch
 	Vector4 clear_color;
 	bool enable_vsync;
+	bool fullscreen;
+	bool allow_resize;
+	bool force_topmost;
+	u32 dpi;
+	float64 point_size_in_pixels;
 	
 	bool should_close;
 	
@@ -68,16 +91,18 @@ typedef struct Os_Window {
 	bool _initialized;
 	Window_Handle _os_handle;
 	
+	Os_Monitor *monitor;
+	
 } Os_Window;
 
 // #Global
 ogb_instance Os_Window window;
-ogb_instance Os_Info os;
+ogb_instance Os_Context os;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
-Os_Info os;
-Os_Window window;
+Os_Context os = ZERO(Os_Context);
+Os_Window window = ZERO(Os_Window);
 
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
@@ -146,6 +171,24 @@ void ogb_instance
 os_unlock_mutex(Mutex_Handle m);
 
 ///
+// Binary semaphore
+typedef struct Binary_Semaphore {
+    void *os_event;
+} Binary_Semaphore;
+
+void ogb_instance
+os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
+
+void ogb_instance
+os_binary_semaphore_destroy(Binary_Semaphore *sem);
+
+void ogb_instance
+os_binary_semaphore_wait(Binary_Semaphore *sem);
+
+void ogb_instance
+os_binary_semaphore_signal(Binary_Semaphore *sem);
+
+///
 // Threading utilities
 
 void ogb_instance
@@ -195,6 +238,18 @@ ogb_instance const File OS_INVALID_FILE;
 
 void ogb_instance
 os_write_string_to_stdout(string s);
+
+bool ogb_instance
+os_write_entire_file_handle(File f, string data);
+
+bool ogb_instance
+os_write_entire_file_s(string path, string data);
+
+bool ogb_instance
+os_read_entire_file_handle(File f, string *result, Allocator allocator);
+
+bool ogb_instance
+os_read_entire_file_s(string path, string *result, Allocator allocator);
 
 typedef enum Os_Io_Open_Flags {
 	O_READ   = 0,
@@ -248,19 +303,6 @@ os_file_get_size(File f);
 
 s64 ogb_instance
 os_file_get_size_from_path(string path);
-
-
-bool ogb_instance
-os_write_entire_file_handle(File f, string data);
-
-bool ogb_instance
-os_write_entire_file_s(string path, string data);
-
-bool ogb_instance
-os_read_entire_file_handle(File f, string *result, Allocator allocator);
-
-bool ogb_instance
-os_read_entire_file_s(string path, string *result, Allocator allocator);
 
 
 bool ogb_instance
@@ -378,6 +420,7 @@ void fprint_va_list_buffered(File f, const string fmt, va_list args) {
 	}
 }
 
+void os_wait_and_read_stdin(string *result, u64 max_count, Allocator allocator);
 
 ///
 ///
