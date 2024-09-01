@@ -26,6 +26,7 @@ char KEY_player_use = 'F';
 char KEY_toggle_inventory = KEY_TAB;
 
 Animation* crafting_animation;
+Animation* smelting_animation;
 Animation* torch_animation;
 
 // COLORS
@@ -1641,6 +1642,8 @@ void render_building_ui(UXState ux_state)
 		world->player->inventory_ui_open = true;
 		// printf("RENDERING FURNACE UI\n");
 
+		BuildingData* selected_building = world->player->selected_building;
+
 		// furnace ui size variables
 		const int max_icons_row = 6;
 		const int max_icons_col = 4;
@@ -1852,16 +1855,16 @@ void render_building_ui(UXState ux_state)
 							printf("RESULT = %d\n", result);
 
 							if (result == 1){
+
+								selected_building->selected_crafting_item = selected_recipe_furnace;
+								selected_building->crafting_queue++;
+
 								delete_item_from_inventory(recipe_item->id, recipe_item->amount);
-								add_item_to_inventory(selected_recipe_furnace->item_id, selected_recipe_furnace->name, 1, ARCH_item, selected_recipe_furnace->sprite_id, TOOL_nil, true);
+								// add_item_to_inventory(selected_recipe_furnace->item_id, selected_recipe_furnace->name, 1, ARCH_item, selected_recipe_furnace->sprite_id, TOOL_nil, true);
 							}
 						}
 					}
 				}
-
-
-	
-	
 			}
 
 			
@@ -2264,6 +2267,8 @@ void render_entities(World* world) {
 						xform = m4_translate(xform, v3(light->image->width * -0.5, light->image->height * -0.5, 0));
 						draw_image_xform(light->image, xform, get_texture_size(*light), COLOR_WHITE);
 
+						trigger_animation(torch_animation, now(), v2(0,0));
+
 					}
 				} break;
 
@@ -2363,7 +2368,12 @@ void render_entities(World* world) {
 
 				// draw_animation(crafting_animation, now(), v2(en->pos.x, en->pos.y), item.cooking_time);
 				// trigger animation
-				trigger_animation(crafting_animation, now(), en->pos);
+				if (en->building_id == BUILDING_workbench){
+					trigger_animation(crafting_animation, now(), en->pos);
+				}
+				else if (en->building_id == BUILDING_furnace){
+					trigger_animation(smelting_animation, now(), en->pos);
+				}
 			}
 
 
@@ -2643,10 +2653,10 @@ int entry(int argc, char **argv)
 		{
 			// FURNACE:
 			{
-				// Entity* en = entity_create();
-				// setup_building(en, BUILDING_furnace);
-				// en->pos = v2(-15, 0);
-				// en->pos = round_v2_to_tile(en->pos);
+				Entity* en = entity_create();
+				setup_building(en, BUILDING_furnace);
+				en->pos = v2(-15, 0);
+				en->pos = round_v2_to_tile(en->pos);
 			}
 
 
@@ -2671,8 +2681,8 @@ int entry(int argc, char **argv)
 	// ::TESTS
 	// {
 		torch_animation = setup_torch_animation();
-		// Animation* crafting_animation = setup_crafting_animation();
 		crafting_animation = setup_crafting_animation();
+		smelting_animation = setup_smelting_animation();
 	// }
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 

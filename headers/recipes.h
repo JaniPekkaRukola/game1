@@ -15,7 +15,7 @@
             .item_id = ITEM_ingot_iron, 
             .crafting_recipe = {{ITEM_ORE_iron, 2}},
             .crafting_recipe_count = 1, 
-            .cooking_time = 2.0f
+            .cooking_time = 10.0f
         };
         
         // Gold ingot
@@ -26,7 +26,7 @@
             .item_id = ITEM_ingot_copper, 
             .crafting_recipe = {{ITEM_ORE_gold, 3}},
             .crafting_recipe_count = 1, 
-            .cooking_time = 5.0f
+            .cooking_time = 10.0f
         };
 
         // Copper ingot
@@ -37,7 +37,7 @@
             .item_id = ITEM_ingot_copper, 
             .crafting_recipe = {{ITEM_ORE_copper, 4}},
             .crafting_recipe_count = 1, 
-            .cooking_time = 3.0f
+            .cooking_time = 10.0f
         };
 
     }

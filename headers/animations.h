@@ -13,6 +13,7 @@ typedef enum AnimationID {
 typedef struct Animation{
 
     AnimationID animation_id;
+    string name;
 
     Gfx_Image *anim_sheet;
     u32 number_of_columns;
@@ -101,8 +102,8 @@ void draw_animation(Animation* anim, float64 now, Vector2 pos){
     Vector2 frame_pos_in_sheet = v2(anim_sheet_pos_x, anim_sheet_pos_y);
     Vector2 frame_size = v2(anim->anim_frame_width, anim->anim_frame_height);
 
-    draw_rect(v2_add(sheet_pos, frame_pos_in_sheet), frame_size, COLOR_WHITE); // Draw white rect on current frame
-    draw_image(anim->anim_sheet, sheet_pos, sheet_size, COLOR_WHITE); // Draw the seet
+    // draw_rect(v2_add(sheet_pos, frame_pos_in_sheet), frame_size, COLOR_WHITE); // Draw white rect on current frame
+    // draw_image(anim->anim_sheet, sheet_pos, sheet_size, COLOR_WHITE); // Draw the seet
 }
 
 Animation* setup_torch_animation(){
@@ -110,6 +111,7 @@ Animation* setup_torch_animation(){
     anim = alloc(get_heap_allocator(), sizeof(Animation));
 
     anim->animation_id = ANIM_torch;
+    anim->name = STR("Torch animation");
 
     anim->anim_sheet = load_image_from_disk(STR("res/animations/animation_torch.png"), get_heap_allocator());
     anim->number_of_columns = 4;
@@ -150,6 +152,7 @@ Animation* setup_crafting_animation(){
     anim = alloc(get_heap_allocator(), sizeof(Animation));
 
     anim->animation_id = ANIM_crafting;
+    anim->name = STR("Crafting animation");
 
     anim->anim_sheet = load_image_from_disk(STR("res/animations/crafting_animation3.png"), get_heap_allocator());
     anim->number_of_columns = 10;
@@ -189,6 +192,51 @@ Animation* setup_crafting_animation(){
     return anim;
 }
 
+Animation* setup_smelting_animation() {
+    Animation* anim;
+    anim = alloc(get_heap_allocator(), sizeof(Animation));
+
+    anim->animation_id = ANIM_crafting;
+    anim->name = STR("Smelting animation");
+
+    anim->anim_sheet = load_image_from_disk(STR("res/animations/smoke_test.png"), get_heap_allocator());
+    anim->number_of_columns = 8;
+    anim->number_of_rows = 7;
+    anim->total_number_of_frames = anim->number_of_rows * anim->number_of_columns;
+    
+    anim->anim_frame_width  = anim->anim_sheet->width  / anim->number_of_columns;
+    anim->anim_frame_height = anim->anim_sheet->height / anim->number_of_rows;
+    
+    anim->anim_start_frame_x = 0;
+    anim->anim_start_frame_y = 0;
+    anim->anim_end_frame_x = 1;
+    anim->anim_end_frame_y = 6;
+    anim->anim_start_index = anim->anim_start_frame_y * anim->number_of_columns + anim->anim_start_frame_x;
+    anim->anim_end_index   = anim->anim_end_frame_y   * anim->number_of_columns + anim->anim_end_frame_x;
+    anim->anim_number_of_frames = max(anim->anim_end_index, anim->anim_start_index)-min(anim->anim_end_index, anim->anim_start_index)+1;
+
+    assert(anim->anim_end_index > anim->anim_start_index, "The last frame must come before the first frame");
+    assert(anim->anim_start_frame_x < anim->number_of_columns, "anim_start_frame_x is out of bounds");
+    assert(anim->anim_start_frame_y < anim->number_of_rows, "anim_start_frame_y is out of bounds");
+    assert(anim->anim_end_frame_x < anim->number_of_columns, "anim_end_frame_x is out of bounds");
+    assert(anim->anim_end_frame_y < anim->number_of_rows, "anim_end_frame_y is out of bounds");
+
+    // Calculate duration per frame in seconds
+    anim->playback_fps = 15;
+    // anim->playback_fps = (anim->number_of_columns * anim->number_of_rows) / 4.0f;
+    anim->anim_time_per_frame = 1.0 / anim->playback_fps;
+    anim->anim_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
+
+    // anim->anim_start_time = os_get_elapsed_seconds();
+
+    anim->active = false;
+    anim->pos = v2(0, 0);
+    anim->has_custom_size = true;
+    anim->custom_size = v2(30, 30);
+
+    return anim;
+}
+
 void trigger_animation(Animation* anim, float64 start_time, Vector2 pos){
     for (int i = 0; i < MAX_ANIMATIONS; i++){
         if (!animations[i].active) { // && animations[i].animation_id == anim->animation_id
@@ -196,12 +244,14 @@ void trigger_animation(Animation* anim, float64 start_time, Vector2 pos){
             anim->active = true;
             anim->pos = pos;
             animations[i] = *anim;
+            // printf("triggered animation at %.0f, %.0f\n", anim->pos);
             break;
         }
     }
 }
 
 void update_animations(float64 delta_t){
+    // NOTE: should "MAX_ANIMATIONS" be replaced with active animation count?
     for (int i = 0; i < MAX_ANIMATIONS; i++){
         Animation* anim = &animations[i];
         if (!anim->active) continue;
@@ -211,6 +261,7 @@ void update_animations(float64 delta_t){
         float t = anim->elapsed_time / anim->anim_duration;
         if (t >= 1.0f) {
             anim->active = false;
+            printf("ANIMATION '%s' not active\n", anim->name);
             continue;
         }
 
