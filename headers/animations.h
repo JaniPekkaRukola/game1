@@ -1,6 +1,9 @@
 #ifndef ANIMATIONS_H
 #define ANIMATIONS_H
 
+#define MAX_ANIMATIONS 50
+int active_animations = 0;
+
 typedef enum AnimationID {
     ANIM_nil,
 
@@ -33,7 +36,7 @@ typedef struct Animation{
 
     float32 playback_fps;
     float32 anim_time_per_frame;
-    float32 anim_duration;
+    float32 cycle_duration;
 
     float32 anim_start_time;
 
@@ -45,6 +48,8 @@ typedef struct Animation{
 
     // bool needs_fast_updating; // basically if the pos of the animation changes
     bool is_held; // if animation is in players hand (or travels with player)
+    bool loop;
+    float duration;
 
 } Animation;
 
@@ -56,10 +61,10 @@ void draw_animation(Animation* anim, float64 now, Vector2 pos){
     // printf("DRAWGIN ANIMATION\n");
 
     // UPDATE ANIMATION
-    float32 anim_elapsed = fmodf(now - anim->anim_start_time, anim->anim_duration);
+    float32 anim_elapsed = fmodf(now - anim->anim_start_time, anim->cycle_duration);
 
     // Get current progression in animation from 0.0 to 1.0
-    float32 anim_progression_factor = anim_elapsed / anim->anim_duration;
+    float32 anim_progression_factor = anim_elapsed / anim->cycle_duration;
     
     u32 anim_current_index = anim->anim_number_of_frames * anim_progression_factor;
     u32 anim_absolute_index_in_sheet = anim->anim_start_index + anim_current_index;
@@ -138,11 +143,12 @@ Animation* setup_torch_animation(){
     // Calculate duration per frame in seconds
     anim->playback_fps = 10;
     anim->anim_time_per_frame = 1.0 / anim->playback_fps;
-    anim->anim_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
+    anim->cycle_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
 
     anim->anim_start_time = os_get_elapsed_seconds();
 
     anim->is_held = true;
+    anim->loop = true;
 
     return anim;
 }
@@ -180,7 +186,7 @@ Animation* setup_crafting_animation(){
     anim->playback_fps = 15;
     // anim->playback_fps = (anim->number_of_columns * anim->number_of_rows) / 4.0f;
     anim->anim_time_per_frame = 1.0 / anim->playback_fps;
-    anim->anim_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
+    anim->cycle_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
 
     // anim->anim_start_time = os_get_elapsed_seconds();
 
@@ -188,6 +194,7 @@ Animation* setup_crafting_animation(){
     anim->pos = v2(0, 0);
     anim->has_custom_size = true;
     anim->custom_size = v2(12,12);
+    anim->loop = true;
 
     return anim;
 }
@@ -225,7 +232,7 @@ Animation* setup_smelting_animation() {
     anim->playback_fps = 15;
     // anim->playback_fps = (anim->number_of_columns * anim->number_of_rows) / 4.0f;
     anim->anim_time_per_frame = 1.0 / anim->playback_fps;
-    anim->anim_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
+    anim->cycle_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
 
     // anim->anim_start_time = os_get_elapsed_seconds();
 
@@ -237,14 +244,25 @@ Animation* setup_smelting_animation() {
     return anim;
 }
 
-void trigger_animation(Animation* anim, float64 start_time, Vector2 pos){
+void trigger_animation(Animation* anim, float64 start_time, Vector2 pos, float duration){
     for (int i = 0; i < MAX_ANIMATIONS; i++){
         if (!animations[i].active) { // && animations[i].animation_id == anim->animation_id
             anim->anim_start_time = os_get_elapsed_seconds();
             anim->active = true;
             anim->pos = pos;
+            active_animations++;
+            
+            if (duration == 0){
+                anim->duration = anim->cycle_duration;
+            }
+            else{
+                anim->duration = duration;
+            }
+
+
             animations[i] = *anim;
             // printf("triggered animation at %.0f, %.0f\n", anim->pos);
+            printf("Triggered animation '%s'\n", anim->name);
             break;
         }
     }
@@ -252,17 +270,24 @@ void trigger_animation(Animation* anim, float64 start_time, Vector2 pos){
 
 void update_animations(float64 delta_t){
     // NOTE: should "MAX_ANIMATIONS" be replaced with active animation count?
-    for (int i = 0; i < MAX_ANIMATIONS; i++){
+    // for (int i = 0; i < MAX_ANIMATIONS; i++){
+    for (int i = 0; i < active_animations; i++){
         Animation* anim = &animations[i];
         if (!anim->active) continue;
 
         anim->elapsed_time += delta_t;
 
-        float t = anim->elapsed_time / anim->anim_duration;
+        float t = anim->elapsed_time / anim->duration;
         if (t >= 1.0f) {
-            anim->active = false;
-            printf("ANIMATION '%s' not active\n", anim->name);
-            continue;
+            if (!anim->loop){
+                anim->active = false;
+                active_animations--;
+                printf("ANIMATION '%s' not active\tactive animations = %d\n", anim->name, active_animations);
+                continue;
+            }
+            else{
+                t = 0;
+            }
         }
 
         if (anim->is_held){
@@ -276,6 +301,17 @@ void update_animations(float64 delta_t){
     }
 }
 
+void kill_animation_now(Animation* animation){
+    for (int i = 0; i < active_animations; i++){
+        Animation* active_animation = &animations[i];
+        if (active_animation->animation_id == animation->animation_id){
+            active_animation->active = false;
+            memset(&animations[i], 0, sizeof(Animation));
+            printf("KILLED animation '%s'\n", animation->name);
+            break;
+        }
+    }
+}
 
 
 #endif

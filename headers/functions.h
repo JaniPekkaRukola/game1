@@ -1335,7 +1335,11 @@ DimensionData *get_dimensionData(DimensionID);
 		en->arch = ARCH_parallax;
 		en->name = STR("Magical tree parallax");
 		en->sprite_id = SPRITE_nil;
-		en->parallax_id = PARALLAX_tree0;
+		int random = get_random_int_in_range(0,1);
+		if (random == 0) en->parallax_id = PARALLAX_tree0;
+		if (random == 1) en->parallax_id = PARALLAX_tree1;
+
+		// en->parallax_id = PARALLAX_tree0;
 		en->destroyable = false;
 		en->rendering_prio = 0;
 		en->enable_shadow = false;
@@ -1465,6 +1469,9 @@ DimensionData *get_dimensionData(DimensionID);
 					// biome->grass_color = v4(1, 1, 1, 1);
 					// biome->leaves_color	= v4(0, 1, 0, 1);
 					biome->ground_texture = TEXTURE_grass;
+
+					biome->enable_parallax = false;
+					biome->parallax_weight = 2;
 
 					// trees
 					biome->spawn_pine_trees = false;

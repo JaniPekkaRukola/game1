@@ -22,6 +22,9 @@
     const int rock_health = 8;
     const int tree_health = 5;
     const int bush_health = 1;
+
+    // forward declarations:
+    typedef struct Entity Entity;
 // 
 
 
@@ -157,6 +160,7 @@
         PARALLAX_nil,
 
         PARALLAX_tree0,
+        PARALLAX_tree1,
 
         PARALLAX_MAX,
     } ParallaxID;
@@ -330,6 +334,7 @@
         ItemData *selected_crafting_item;
         int crafting_queue;
         float64 crafting_end_time;
+        Entity* en;
         // display name
         // cost
         // health
@@ -473,6 +478,10 @@
         Vector4 grass_color;
         Vector4 leaves_color;
         TextureID ground_texture;
+
+        // parallax
+        bool enable_parallax;
+        float parallax_weight;
 
         // trees
         bool spawn_pine_trees;

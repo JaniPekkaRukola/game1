@@ -4,8 +4,8 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
-bool print_fps = true;
-// bool print_fps = false;
+// bool print_fps = true;
+bool print_fps = false;
 bool ENABLE_FRUSTRUM_CULLING = true;
 bool runtime_debug = false;
 
@@ -25,9 +25,14 @@ float render_distance = 230;
 char KEY_player_use = 'F';
 char KEY_toggle_inventory = KEY_TAB;
 
-Animation* crafting_animation;
-Animation* smelting_animation;
-Animation* torch_animation;
+// Animation* crafting_animation;
+// Animation* smelting_animation;
+// Animation* torch_animation;
+
+Animation2* crafting_animation;
+Animation2* smelting_animation;
+Animation2* held_torch_animation;
+
 
 // COLORS
 const Vector4 item_shadow_color = {0, 0, 0, 0.2};
@@ -430,6 +435,30 @@ void clear_empty_slots_in_entities(Entity* entities, int count){
     }
 }
 
+void create_parallax_trees(int amount, int range) {
+	// Creates trees
+	// Wont allow multiple trees to spawn in the same tile
+
+	Vector2 parallax_positions[amount];
+
+	for (int i = 0; i < amount; i++){
+		float x = get_random_float32_in_range(-range, range);
+		float y = get_random_float32_in_range(-range, range);
+		parallax_positions[i] = v2(x,y);
+	}
+
+	for (int i = 0; i < amount; i++){
+		Entity* en = entity_create();
+		setup_parallax(en);
+		en->pos = v2(parallax_positions[i].x, parallax_positions[i].y);
+		en->pos = round_v2_to_tile(en->pos);
+		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+	}
+
+
+	// free the list of positions
+	memset(parallax_positions, 0, sizeof(parallax_positions));
+}
 
 // ----- ::FUNC Dump (name by randy) -------------------------------------------------------------------|
 
@@ -919,7 +948,7 @@ bool smelt_button(string label, Vector2 pos, Vector2 size, bool enabled) {
 }
 
 
-// :render building ui
+// :render building ui || ::building ui
 void render_building_ui(UXState ux_state)
 {
 
@@ -930,8 +959,11 @@ void render_building_ui(UXState ux_state)
 		consume_key_just_pressed(KEY_toggle_inventory);
 		world->player->inventory_ui_open = false;
 		world->ux_state = UX_nil;
+		world->open_crafting_station = NULL;
 		return;
 	}
+
+	// world->open_crafting_station = en;
 
 	// if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)){
 	// 	consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
@@ -1235,7 +1267,9 @@ void render_building_ui(UXState ux_state)
 						// :CRAFT ITEM
 						if (result >= selected_recipe_workbench->crafting_recipe_count){
 							
-							trigger_animation(crafting_animation, now(), v2(0,0), selected_recipe_workbench->cooking_time);
+							
+							// trigger_animation(*crafting_animation, v2(0, 0), selected_recipe_workbench->cooking_time);
+							// trigger_animation(crafting_animation, now(), v2(0,0), selected_recipe_workbench->cooking_time);
 							// selected_building. current_crafting_item = selected_recipe_workbench;
 							selected_building->selected_crafting_item = selected_recipe_workbench;
 							selected_building->crafting_queue++;
@@ -1907,6 +1941,16 @@ void spawn_biome(BiomeData* biome) {
 	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
 	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
 	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->spawn_mushrooms_weight, biome->size.x); }
+	if (biome->enable_parallax) {create_parallax_trees((int)biome->parallax_weight, biome->size.x); }
+
+	
+	if (biome->spawn_ores) {
+		if (biome->spawn_ore_iron) {create_ores((int)biome->spawn_ore_iron_weight, biome->size.x, ORE_iron); }
+		if (biome->spawn_ore_gold) {create_ores((int)biome->spawn_ore_gold_weight, biome->size.x, ORE_gold); }
+		if (biome->spawn_ore_copper) {create_ores((int)biome->spawn_ore_copper_weight, biome->size.x, ORE_copper); }
+	}
+
+
 	// if (biome->has_portals) {
 	// 	for (int i = 0; i < biome->portal_count; i++){
 	// 		PortalData* portal = &biome->portals;
@@ -1916,11 +1960,7 @@ void spawn_biome(BiomeData* biome) {
 	// 		}
 	// 	}
 	// }
-	if (biome->spawn_ores) {
-		if (biome->spawn_ore_iron) {create_ores((int)biome->spawn_ore_iron_weight, biome->size.x, ORE_iron); }
-		if (biome->spawn_ore_gold) {create_ores((int)biome->spawn_ore_gold_weight, biome->size.x, ORE_gold); }
-		if (biome->spawn_ore_copper) {create_ores((int)biome->spawn_ore_copper_weight, biome->size.x, ORE_copper); }
-	}
+
 }
 
 // :load dimension entities
@@ -2199,12 +2239,13 @@ void render_entities(World* world) {
 
 							// TODO: here check if item has an animation
 							if (item_in_hand->item_id == ITEM_TOOL_torch){
+								trigger_animation(*held_torch_animation, v2(0, 0), 0);
 								// if (!torch_animation->active){
 									// trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3), 0);
 								// }
 							}
 							else{
-								// torch_animation->active = false;
+								// held_torch_animation->active = false;
 								// if (torch_animation->active) kill_animation_now(torch_animation);
 								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
 							}
@@ -2307,7 +2348,6 @@ void render_entities(World* world) {
 					// if (en->arch != ARCH_player){
 
 						if (en->arch == ARCH_portal){
-							printf("FORCED CRASH @ 'render_entities'\n ");
 							assert(1==0, "forced crash @ 'render_entities'");
 						}
 
@@ -2566,7 +2606,8 @@ int entry(int argc, char **argv)
 		// 
 
 		// :Load parallax
-			parallaxes[PARALLAX_tree0] = (Parallax){ .image=load_image_from_disk(STR("res/sprites/tree_parallax.png"), get_heap_allocator()), .threshold_min=60, .threshold_max=250};
+			parallaxes[PARALLAX_tree0] = (Parallax){ .image=load_image_from_disk(STR("res/sprites/tree_parallax.png"), get_heap_allocator()), .threshold_min=60, .threshold_max=230};
+			parallaxes[PARALLAX_tree1] = (Parallax){ .image=load_image_from_disk(STR("res/sprites/tree_parallax2.png"), get_heap_allocator()), .threshold_min=200, .threshold_max=320};
 		// 
 
 		// :Load textures
@@ -2706,10 +2747,10 @@ int entry(int argc, char **argv)
 
 			// CHEST:
 			{
-				// Entity* en = entity_create();
-				// setup_building(en, BUILDING_chest);
-				// en->pos = v2(-25, -10);
-				// en->pos = round_v2_to_tile(en->pos);
+				Entity* en = entity_create();
+				setup_building(en, BUILDING_chest);
+				en->pos = v2(-25, -10);
+				en->pos = round_v2_to_tile(en->pos);
 			}
 
 			// workbench
@@ -2722,9 +2763,9 @@ int entry(int argc, char **argv)
 
 			// parallax test
 			{
-				Entity* en = entity_create();
-				setup_parallax(en);
-				en->pos = v2(0, 0);
+				// Entity* en = entity_create();
+				// setup_parallax(en);
+				// en->pos = v2(0, 0);
 			}
 
 
@@ -2733,9 +2774,9 @@ int entry(int argc, char **argv)
 
 	// ::TESTS
 	// {
-		torch_animation = setup_torch_animation();
+		held_torch_animation = setup_torch_animation();
 		crafting_animation = setup_crafting_animation();
-		smelting_animation = setup_smelting_animation();
+		// smelting_animation = setup_smelting_animation();
 	// }
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
@@ -2837,9 +2878,15 @@ int entry(int argc, char **argv)
 							if (!world_frame.selected_entity || (dist < smallest_dist)) {
 								// this is selected entity by mouse. RENAME
 								world_frame.selected_entity = en;
+
+								// if (en->is_crafting_station){
+								// 	world->open_crafting_station = en;
+								// }
+
 								if (en->arch == ARCH_building){
 									// printf("UPDATED 'world->player->selected_building' to %d\n", en->arch);
 									world->player->selected_building = &en->building_data;
+									world->player->selected_building->en = en;
 								}
 								// smallest_dist = dist; // imo entity selection works better with this line commented
 							}
@@ -2851,6 +2898,7 @@ int entry(int argc, char **argv)
 
 
 		// :Entity selection by player position
+		// @pin6
 		{
 			float smallest_dist = 9999999;
 			float entity_selection_radius = 10.0f;
@@ -2867,6 +2915,11 @@ int entry(int argc, char **argv)
 								world_frame.selected_entity = en;
 							}
 						}
+						// else{
+						// 	if (en->is_crafting_station && world->open_crafting_station == en){
+						// 		world->open_crafting_station = NULL;
+						// 	}
+						// }
 					}
 				}
 			}
@@ -3120,6 +3173,8 @@ int entry(int argc, char **argv)
 							float cooking_time = en->building_data.selected_crafting_item->cooking_time;
 							if (en->building_data.crafting_end_time == 0){
 								en->building_data.crafting_end_time = now() + cooking_time;
+								trigger_animation(*crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
+
 							}
 
 							float alpha = alpha_from_end_time(en->building_data.crafting_end_time, cooking_time);
@@ -3332,6 +3387,7 @@ int entry(int argc, char **argv)
 		}
 
 		// :Player use 'F'
+		// @pin6: selecting stuff is split between two places. combine
 		{
 			if (is_key_just_pressed('F')){
 				consume_key_just_pressed('F');
@@ -3340,6 +3396,11 @@ int entry(int argc, char **argv)
 
 				Entity* selected_en = world_frame.selected_entity;
 				if (selected_en){
+
+					// if (selected_en->is_crafting_station){
+					// 	world->open_crafting_station = selected_en;
+					// }
+
 					switch (selected_en->arch){
 
 						case ARCH_portal:{ // #portal
@@ -3402,7 +3463,7 @@ int entry(int argc, char **argv)
 
 
 
-
+		if (world->open_crafting_station) printf("Open crafting station = %.0f\n", world->open_crafting_station->pos.x);
 
 		// #animation test
 		// draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));
@@ -3495,13 +3556,13 @@ int entry(int argc, char **argv)
 
 
 		if (is_key_just_pressed('G')) {
-			// trigger_animation(torch_animation, now(), get_player_pos());
+			trigger_animation(*held_torch_animation, v2(0,0), 2.0f);
 
 		}
 			// update_animations(delta_t);
 
-		if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
-		if (is_key_just_pressed('R')) {trigger_dim_change_animation(camera_pos);}
+		// if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+		// if (is_key_just_pressed('R')) {trigger_dim_change_animation(camera_pos);}
 
 		// #Biome
 		// if (is_key_just_pressed('N')) {change_biomes(world, BIOME_forest);}
