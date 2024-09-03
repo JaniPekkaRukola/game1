@@ -25,13 +25,9 @@ float render_distance = 230;
 char KEY_player_use = 'F';
 char KEY_toggle_inventory = KEY_TAB;
 
-// Animation* crafting_animation;
-// Animation* smelting_animation;
-// Animation* torch_animation;
-
-Animation2* crafting_animation;
-Animation2* smelting_animation;
-Animation2* held_torch_animation;
+Animation* crafting_animation;
+Animation* smelting_animation;
+Animation* held_torch_animation;
 
 
 // COLORS
@@ -2239,7 +2235,8 @@ void render_entities(World* world) {
 
 							// TODO: here check if item has an animation
 							if (item_in_hand->item_id == ITEM_TOOL_torch){
-								trigger_animation(*held_torch_animation, v2(0, 0), 0);
+								// trigger_animation(*held_torch_animation, v2(0, 0), 0);
+								trigger_animation(held_torch_animation, v2(0, 0), 0);
 								// if (!torch_animation->active){
 									// trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3), 0);
 								// }
@@ -2776,7 +2773,7 @@ int entry(int argc, char **argv)
 	// {
 		held_torch_animation = setup_torch_animation();
 		crafting_animation = setup_crafting_animation();
-		// smelting_animation = setup_smelting_animation();
+		smelting_animation = setup_smelting_animation();
 	// }
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
@@ -3173,7 +3170,9 @@ int entry(int argc, char **argv)
 							float cooking_time = en->building_data.selected_crafting_item->cooking_time;
 							if (en->building_data.crafting_end_time == 0){
 								en->building_data.crafting_end_time = now() + cooking_time;
-								trigger_animation(*crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
+								// trigger_animation(*crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
+								assert(world->player->selected_building == NULL, "Selected building was a NULLPTR, when trying to trigger an animation");
+								trigger_animation(crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
 
 							}
 
@@ -3556,7 +3555,7 @@ int entry(int argc, char **argv)
 
 
 		if (is_key_just_pressed('G')) {
-			trigger_animation(*held_torch_animation, v2(0,0), 2.0f);
+			trigger_animation(held_torch_animation, v2(0,0), 2.0f);
 
 		}
 			// update_animations(delta_t);

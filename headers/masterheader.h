@@ -4,7 +4,6 @@
 #include "types.h"
 #include "functions.h"
 #include "recipes.h"
-// #include "animations.h"
-#include "animations2.h"
+#include "animations.h"
 
 #endif
