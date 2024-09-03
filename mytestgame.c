@@ -25,10 +25,6 @@ float render_distance = 230;
 char KEY_player_use = 'F';
 char KEY_toggle_inventory = KEY_TAB;
 
-Animation* crafting_animation;
-Animation* smelting_animation;
-Animation* held_torch_animation;
-
 
 // COLORS
 const Vector4 item_shadow_color = {0, 0, 0, 0.2};
@@ -818,7 +814,7 @@ void render_ui(){
 			}
 		}
 	}
-	// :Render Hotbar
+	// :Render Hotbar || ::hotbar
 	if (render_hotbar && world->ux_state != UX_building && world->ux_state != UX_place_mode)
 	{
 		// NOTE: could replace this long if statement with just the "render_hotbar" bool
@@ -1264,14 +1260,9 @@ void render_building_ui(UXState ux_state)
 						if (result >= selected_recipe_workbench->crafting_recipe_count){
 							
 							
-							// trigger_animation(*crafting_animation, v2(0, 0), selected_recipe_workbench->cooking_time);
-							// trigger_animation(crafting_animation, now(), v2(0,0), selected_recipe_workbench->cooking_time);
-							// selected_building. current_crafting_item = selected_recipe_workbench;
 							selected_building->selected_crafting_item = selected_recipe_workbench;
 							selected_building->crafting_queue++;
 							delete_recipe_items_from_inventory(*selected_recipe_workbench);
-							// add_item_to_inventory(selected_recipe_workbench->item_id, selected_recipe_workbench->name, 1, selected_recipe_workbench->arch, selected_recipe_workbench->sprite_id, selected_recipe_workbench->tool_id, true);
-							// trigger_crafting_text(selected_recipe_workbench->item_id);
 						}
 					}
 				}
@@ -2228,20 +2219,20 @@ void render_entities(World* world) {
 						// :Render held item
 						if (item_in_hand != NULL && item_in_hand->valid){
 
-							Sprite* sprite_held_item = get_sprite(item_in_hand->sprite_id);
-							Matrix4 xform_held_item = m4_scalar(1.0);
-							xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
-							xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
-
 							// TODO: here check if item has an animation
 							if (item_in_hand->item_id == ITEM_TOOL_torch){
-								// trigger_animation(*held_torch_animation, v2(0, 0), 0);
-								trigger_animation(held_torch_animation, v2(0, 0), 0);
-								// if (!torch_animation->active){
-									// trigger_animation(torch_animation, now(), v2(en->pos.x + 4, en->pos.y + 3), 0);
-								// }
+								// held_torch_animation->active = true;
+								update_player_torch_animation(get_player_pos());
+
 							}
 							else{
+								// held_torch_animation->active = false;
+								stop_player_torch_animation();
+								Sprite* sprite_held_item = get_sprite(item_in_hand->sprite_id);
+								Matrix4 xform_held_item = m4_scalar(1.0);
+								xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
+								xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
+
 								// held_torch_animation->active = false;
 								// if (torch_animation->active) kill_animation_now(torch_animation);
 								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
@@ -2311,6 +2302,7 @@ void render_entities(World* world) {
 						xform = m4_translate(xform, v3(light->image->width * -0.5, light->image->height * -0.5, 0));
 						draw_image_xform(light->image, xform, get_texture_size(*light), COLOR_WHITE);
 
+						// torch animation on ground
 						// trigger_animation(torch_animation, now(), v2(0,0));
 
 					}
@@ -2432,14 +2424,6 @@ void render_entities(World* world) {
 				xform_item = m4_translate(xform_item, v3(icon.image->width * -0.5, 0, 0));
 				draw_image_xform(icon.image, xform_item, v2(icon.image->width, icon.image->height), col);
 
-				// draw_animation(crafting_animation, now(), v2(en->pos.x, en->pos.y), item.cooking_time);
-				// trigger animation
-				// if (en->building_id == BUILDING_workbench){
-					// trigger_animation(crafting_animation, now(), en->pos);
-				// }
-				// else if (en->building_id == BUILDING_furnace){
-					// trigger_animation(smelting_animation, now(), en->pos);
-				// }
 			}
 
 
@@ -2771,7 +2755,8 @@ int entry(int argc, char **argv)
 
 	// ::TESTS
 	// {
-		held_torch_animation = setup_torch_animation();
+		held_torch_animation = setup_held_torch_animation();
+		// ground_torch_animation = setup_ground_torch_animation();
 		crafting_animation = setup_crafting_animation();
 		smelting_animation = setup_smelting_animation();
 	// }
@@ -3170,8 +3155,7 @@ int entry(int argc, char **argv)
 							float cooking_time = en->building_data.selected_crafting_item->cooking_time;
 							if (en->building_data.crafting_end_time == 0){
 								en->building_data.crafting_end_time = now() + cooking_time;
-								// trigger_animation(*crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
-								assert(world->player->selected_building == NULL, "Selected building was a NULLPTR, when trying to trigger an animation");
+								assert(world->player->selected_building != NULL, "Selected building was a NULLPTR, when trying to trigger an animation");
 								trigger_animation(crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
 
 							}
