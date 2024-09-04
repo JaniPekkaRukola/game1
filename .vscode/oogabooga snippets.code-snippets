@@ -50,6 +50,16 @@
 		],
 		"description": "Blank Logic info box"
 	},
+	"Blank category":{
+		"scope": "c,cpp",
+		"prefix": "#category",
+		"body": [
+			"//  -----------------------------",
+			"//  ↓ $0 ↓",
+			"//  -----------------------------"
+
+		],
+	},
 	"Crafting recipe setup":{
 		"scope": "c,cpp",
 		"prefix": "#recipe",
