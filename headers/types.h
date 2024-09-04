@@ -8,6 +8,8 @@
     #define MAX_PICKUP_TEXTS 10
     #define MAX_RECIPE_ITEMS 8
 
+
+
     const float screen_width = 240.0;
     const float screen_height = 135.0;
 
@@ -24,7 +26,9 @@
     const int bush_health = 1;
 
     // forward declarations:
+    // typedef struct BiomeData BiomeData;
     typedef struct Entity Entity;
+
 // 
 
 
@@ -274,6 +278,24 @@
 // 
 
 
+// :Engine ------------------------------------------------------------------------------------------->
+
+    // Yoinked Range.c stuff
+    typedef struct Range1f {
+        float min;
+        float max;
+    } Range1f;
+
+    typedef struct Range2f {
+        Vector2 min;
+        Vector2 max;
+    } Range2f;
+
+    inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
+
+// 
+
+
 // :STRUCTS ------------------------------------------------------------------------------------------>
 
     // :Portal -------------------------->
@@ -406,66 +428,7 @@
         // enemies
     } DimensionData;
 
-    // :Player -------------------------->
-    typedef struct Player {
-        Entity* en; // player position is inside en
-        // EntityArchetype arch;
-        // Vector2 position; // this is kinda useless. USE "en->pos" for position
-        float walking_speed;
-        float running_speed_amount;
-        bool is_running;
-        DimensionID dimension_id;
-
-        float health;
-        float item_pickup_radius;
-        float entity_selection_radius;
-        // ItemData *selected_item;
-        Entity *selected_entity;
-        BuildingData* selected_building; // selected building || currently open building
-
-        // UXState ux_state;
-
-        bool inventory_ui_open;
-        InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
-        int inventory_items_count; // might be useless, used in checking for items in player inventory. Could be replaced by a for loop at the check items func! 
-
-    } Player;
-
-    // :World --------------------------->
-    typedef struct World {
-        BiomeID current_biome_id;
-        // struct BiomeData* biome_data;
-
-        DimensionID dimension_id; // current dimension id
-        DimensionData *dimension; // current dimension data
-        // InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
-        // int inventory_items_count;
-        UXState ux_state; // move this into player struct !?
-        
-        // ui stuff
-        float inventory_alpha;
-        float inventory_alpha_target;
-        float building_menu_alpha;
-        float building_menu_alpha_target;
-        float chest_alpha;
-        float chest_alpha_target;
-        float furnace_alpha;
-        float furnace_alpha_target;
-        float workbench_alpha;
-        float workbench_alpha_target;
-
-        BuildingID placing_building; // bad name
-        Entity* open_crafting_station; // currently opened crafting station
-
-        Entity portals[MAX_PORTAL_COUNT];
-        int portal_count;
-        PortalPair portal_pairs[MAX_PORTAL_PAIRS];
-        int portal_pair_count;
-
-        Player *player;
-    } World;
-
-    // :Biome --------------------------->
+    // :BiomeData ----------------------->
     typedef struct BiomeData {
         // string name;
         // Vector2 size;
@@ -525,9 +488,77 @@
         // portal
         bool has_portals;
         // PortalData portals[MAX_PORTAL_COUNT];
-
-
     } BiomeData;
+
+
+    // :Biome --------------------------->
+    typedef struct Biome {
+        string name;
+        Vector2 size;
+        Range2f pos;
+        BiomeData biome_data;
+        bool enabled;
+    } Biome;
+
+    // :Player -------------------------->
+    typedef struct Player {
+        Entity* en; // player position is inside en
+        // EntityArchetype arch;
+        // Vector2 position; // this is kinda useless. USE "en->pos" for position
+        float walking_speed;
+        float running_speed_amount;
+        bool is_running;
+        DimensionID dimension_id;
+
+        float health;
+        float item_pickup_radius;
+        float entity_selection_radius;
+        // ItemData *selected_item;
+        Entity *selected_entity;
+        BuildingData* selected_building; // selected building || currently open building
+
+        // UXState ux_state;
+
+        bool inventory_ui_open;
+        InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
+        int inventory_items_count; // might be useless, used in checking for items in player inventory. Could be replaced by a for loop at the check items func! 
+
+    } Player;
+
+    // :World --------------------------->
+    typedef struct World {
+        BiomeID current_biome_id;
+        // struct BiomeData* biome_data;
+
+        DimensionID dimension_id; // current dimension id
+        DimensionData *dimension; // current dimension data
+        // InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
+        // int inventory_items_count;
+        UXState ux_state; // move this into player struct !?
+        
+        // ui stuff
+        float inventory_alpha;
+        float inventory_alpha_target;
+        float building_menu_alpha;
+        float building_menu_alpha_target;
+        float chest_alpha;
+        float chest_alpha_target;
+        float furnace_alpha;
+        float furnace_alpha_target;
+        float workbench_alpha;
+        float workbench_alpha_target;
+
+        BuildingID placing_building; // bad name
+        Entity* open_crafting_station; // currently opened crafting station
+
+        Entity portals[MAX_PORTAL_COUNT];
+        int portal_count;
+        PortalPair portal_pairs[MAX_PORTAL_PAIRS];
+        int portal_pair_count;
+
+        Player *player;
+    } World;
+
 
     // :Sprite -------------------------->
     typedef struct Sprite {
@@ -622,7 +653,7 @@
     WorldFrame world_frame;
     DimensionData dimensions[DIM_MAX];
     World* world = 0;
-    BiomeData biomes[BIOME_MAX];
+    Biome biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];
     Parallax parallaxes[PARALLAX_MAX];
     BuildingData buildings[BUILDING_MAX];
@@ -653,23 +684,6 @@
     LootTable *lootTable_rock;
     LootTable *lootTable_pine_tree;
 
-// 
-
-
-// :Engine ------------------------------------------------------------------------------------------->
-
-    // Yoinked Range.c stuff
-    typedef struct Range1f {
-        float min;
-        float max;
-    } Range1f;
-
-    typedef struct Range2f {
-        Vector2 min;
-        Vector2 max;
-    } Range2f;
-
-    inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
 // 
 
 

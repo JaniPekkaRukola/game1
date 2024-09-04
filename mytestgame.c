@@ -2306,7 +2306,8 @@ float distanceSquared(Vector2 v1, Vector2 v2) {
 // should rename biome_size to biome location. AND add separate biome size vector2
 void update_biome(){
 	Vector2 player_pos = get_player_pos();
-	Vector2 biome_position = get_biome_data_from_id(world->current_biome_id).size;
+	// Vector2 biome_position = get_biome_data_from_id(world->current_biome_id).size;
+	Vector2 biome_position = get_biome_from_id(world->current_biome_id).size;
 	
 
 	if (player_pos.x >= -biome_position.x && player_pos.x <= biome_position.x &&
@@ -2512,9 +2513,9 @@ int entry(int argc, char **argv)
 	audio_config.position_ndc          = v3(0, 0, 0);
 
 	// spawning
-	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
-	spawn_biome(&temp_data);
-	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
+	// BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
+	// spawn_biome(&temp_data);
+	// memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
 	// setup loot-tables
 	setup_all_loot_tables();

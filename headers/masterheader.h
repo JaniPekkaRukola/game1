@@ -5,5 +5,6 @@
 #include "functions.h"
 #include "recipes.h"
 #include "animations.h"
+#include "create_entities.h"
 
 #endif
