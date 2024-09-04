@@ -467,9 +467,11 @@
 
     // :Biome --------------------------->
     typedef struct BiomeData {
-        string name;
-        Vector2 size;
-        bool enabled;
+        // string name;
+        // Vector2 size;
+        // bool enabled;
+
+        // Range2f pos;
 
         bool spawn_animals;
         bool spawn_water;
