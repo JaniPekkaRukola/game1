@@ -371,6 +371,7 @@
         bool is_crafting_station;
         bool is_selectable_by_mouse;
         bool enable_shadow;
+        bool has_animation;
         // bool render_sprite;
 
         // other

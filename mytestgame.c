@@ -2297,13 +2297,13 @@ void render_entities(World* world) {
 						}
 
 						// draw sprite
-						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+						// draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+
+						// torch animation on ground
+						trigger_animation(ground_torch_animation, en->pos, 0);
 
 						xform = m4_translate(xform, v3(light->image->width * -0.5, light->image->height * -0.5, 0));
 						draw_image_xform(light->image, xform, get_texture_size(*light), COLOR_WHITE);
-
-						// torch animation on ground
-						// trigger_animation(torch_animation, now(), v2(0,0));
 
 					}
 				} break;
@@ -2756,7 +2756,7 @@ int entry(int argc, char **argv)
 	// ::TESTS
 	// {
 		held_torch_animation = setup_held_torch_animation();
-		// ground_torch_animation = setup_ground_torch_animation();
+		ground_torch_animation = setup_ground_torch_animation();
 		crafting_animation = setup_crafting_animation();
 		smelting_animation = setup_smelting_animation();
 	// }
@@ -3215,16 +3215,20 @@ int entry(int argc, char **argv)
 					setup_torch(torch);
 					torch->pos = get_mouse_pos_in_world_space();
 					delete_item_from_inventory(torch->item_id, 1);
+					stop_player_torch_animation();
 					
 				}
 			}
 
 		}
 
+
 		// idk what this is doing here!? move somewhere idk!?
 		if (world->ux_state != UX_nil){
 			render_building_ui(world->ux_state);
 		}
+
+
 
 		// :Player attack || :Spawn item || :MOUSE BUTTON LEFT
 		{
@@ -3345,6 +3349,11 @@ int entry(int argc, char **argv)
 								setup_item(en, selected_en->item_id);
 								en->pos = selected_en->pos;
 								allow_destroy = true;
+
+								// TODO: fix this caveman solution
+								if (selected_en->has_animation && selected_en->arch == ARCH_torch){
+									kill_animation(ground_torch_animation);
+								}
 								
 							}
 						} break;

@@ -1154,7 +1154,7 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_axe:{en->name = STR("Axe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_shovel:{en->name = STR("Shovel"); en->arch = ARCH_tool;}break;
-			case ITEM_TOOL_torch:{en->name = STR("Torch"); en->arch = ARCH_torch;}break;
+			case ITEM_TOOL_torch:{en->name = STR("Torch"); en->arch = ARCH_item;}break;
 			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
@@ -1326,6 +1326,7 @@ DimensionData *get_dimensionData(DimensionID);
 		en->item_id = ITEM_TOOL_torch;
 		en->rendering_prio = 0;
 		en->tool_id = TOOL_torch;
+		en->has_animation = true;
 		add_biomeID_to_entity(en, BIOME_forest);
 		add_biomeID_to_entity(en, BIOME_cave);
 	}

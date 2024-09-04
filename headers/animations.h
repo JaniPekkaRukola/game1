@@ -52,6 +52,7 @@ Animation animations[MAX_ANIMATIONS];
 Animation* crafting_animation;
 Animation* smelting_animation;
 Animation* held_torch_animation;
+Animation* ground_torch_animation;
 
 
 
@@ -145,6 +146,54 @@ Animation* setup_held_torch_animation(){
 
     anim->has_offset = true;
     anim->offset = v2(3, -1);
+
+    anim->active = false;
+    anim->looping = true;
+    anim->has_custom_size = false;
+    // anim->custom_size = v2(8, 12);
+    anim->unique_id = get_new_id();
+
+    return anim;
+}
+
+Animation* setup_ground_torch_animation(){
+    Animation* anim = alloc(get_heap_allocator(), sizeof(Animation));
+
+    anim->anim_id = ANIM_ground_torch;
+    anim->name = "Torch animation (ground)";
+    anim->anim_sheet = load_image_from_disk(STR("res/animations/animation_torch.png"), get_heap_allocator());
+
+    anim->number_of_columns = 4;
+    anim->number_of_rows = 1;
+    anim->total_number_of_frames = anim->number_of_rows * anim->number_of_columns;
+    
+    anim->anim_frame_width  = anim->anim_sheet->width  / anim->number_of_columns;
+    anim->anim_frame_height = anim->anim_sheet->height / anim->number_of_rows;
+    
+    // anim->anim_start_frame_x = 0;
+    // anim->anim_start_frame_y = 0;
+    // anim->anim_end_frame_x = 3;
+    // anim->anim_end_frame_y = 0;
+    // anim->anim_start_index = anim->anim_start_frame_y * anim->number_of_columns + anim->anim_start_frame_x;
+    // anim->anim_end_index   = anim->anim_end_frame_y   * anim->number_of_columns + anim->anim_end_frame_x;
+    // anim->anim_number_of_frames = max(anim->anim_end_index, anim->anim_start_index)-min(anim->anim_end_index, anim->anim_start_index)+1;
+
+    // assert(anim->anim_end_index > anim->anim_start_index, "The last frame must come before the first frame");
+    // assert(anim->anim_start_frame_x < anim->number_of_columns, "anim_start_frame_x is out of bounds");
+    // assert(anim->anim_start_frame_y < anim->number_of_rows, "anim_start_frame_y is out of bounds");
+    // assert(anim->anim_end_frame_x < anim->number_of_columns, "anim_end_frame_x is out of bounds");
+    // assert(anim->anim_end_frame_y < anim->number_of_rows, "anim_end_frame_y is out of bounds");
+
+    anim->anim_start_index = 0;
+    anim->anim_end_index = 3;
+    anim->anim_number_of_frames = anim->anim_end_index - anim->anim_start_index + 1;
+
+    anim->playback_fps = 10;
+    anim->anim_time_per_frame = 1.0 / anim->playback_fps;
+    anim->cycle_duration = anim->anim_time_per_frame * (float32)anim->anim_number_of_frames;
+
+    anim->has_offset = false;
+    // anim->offset = v2(3, -1);
 
     anim->active = false;
     anim->looping = true;
