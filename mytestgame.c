@@ -2499,7 +2499,10 @@ int entry(int argc, char **argv)
 
 	// setups
 	setup_player();
-	setup_all_biomes();
+	// setup_all_biomes();
+
+	// #WG-test
+	init_biome_maps();
 
 	world->current_biome_id = BIOME_forest;
 	world->player->inventory_items_count = 0;
@@ -2788,6 +2791,10 @@ int entry(int argc, char **argv)
 			if (world->current_biome_id == BIOME_cave){
 				int asd = 1;
 			}
+
+			// #WG-test
+			world->current_biome_id = biome_at_tile(world->dimension_id, get_player_pos().x, get_player_pos().y);
+
 			Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
 			Vector4 color = COLOR_WHITE;
 

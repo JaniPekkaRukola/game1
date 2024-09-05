@@ -190,7 +190,7 @@ DimensionData *get_dimensionData(DimensionID);
 			if (biomes[id].enabled){
 				return biomes[id].biome_data;
 			}
-			assert(1==0, "Failed to get biomeData @ get_biome_data_from_id. NULL");
+			// assert(1==0, "Failed to get biomeData @ get_biome_data_from_id. NULL");
 		}
 
 		Biome get_biome_from_id(BiomeID id){
@@ -228,16 +228,31 @@ DimensionData *get_dimensionData(DimensionID);
 			return 0;
 		}
 
+		BiomeID float_to_biomeid(float f){
+			// TODO: make this better
+			if (f < 0 || f > 1){
+				log_error("Failed to get biomeID from float @ 'float to biomeid'\n");
+				return BIOME_nil;
+			}
+
+			if (f > 0 && f <= 0.3) return BIOME_forest;
+			if (f > 0.3 && f <= 0.6) return BIOME_pine_forest;
+			if (f > 0.6 && f <= 1) return BIOME_cave;
+
+			return BIOME_nil;
+		}
+
 		
 
 		// void worldgen(Matrix3 perlin){
 		// 	for (int i = 0; i < PERLIN_PIXELS; i++){
 		// 		float pixel = perlin[i];
-		// 		if (pixel > 0 && pixel <= 0.3){
-		// 			// biome == forest
-		// 		}
-		// 		else if (pixel > 0.3)
+		// 		BiomeID biomeid = float_to_biomeid(pixel);
+
+		// 		spawn_biome(biomeid);
+
 		// 	}
+		// 	return;
 		// }
 
 
