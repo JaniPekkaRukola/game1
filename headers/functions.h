@@ -1549,7 +1549,8 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->enabled = true;
 					biome->biome_data.spawn_animals = false;
 					biome->biome_data.spawn_water = false;
-					biome->biome_data.grass_color = v4(0.35, 0.82, 1, 1);
+					// biome->biome_data.grass_color = v4(0.35, 0.82, 1, 1);
+					biome->biome_data.grass_color = v4(0,1,0,1);
 					// biome->biome_data.grass_color = v4(1, 1, 1, 1);
 					// biome->biome_data.leaves_color	= v4(0, 1, 0, 1);
 					biome->biome_data.ground_texture = TEXTURE_grass;
@@ -1642,6 +1643,84 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->biome_data.spawn_rocks = true;
 					biome->biome_data.spawn_rocks_weight = 85;
 					biome->biome_data.spawn_mushrooms = true;
+					biome->biome_data.spawn_mushrooms_weight = 35;
+					// biome->spawn_twigs = false;
+					// biome->spawn_twigs_weight = 0;
+
+					// ores
+					biome->biome_data.spawn_ores = false;
+					biome->biome_data.spawn_ore_iron = false;
+					biome->biome_data.spawn_ore_gold = false;
+					biome->biome_data.spawn_ore_copper = false;
+					biome->biome_data.spawn_ore_iron_weight = 0;
+					biome->biome_data.spawn_ore_gold_weight = 0;
+					biome->biome_data.spawn_ore_copper_weight = 0;
+
+					// fossils
+					biome->biome_data.spawn_fossils = true;
+					biome->biome_data.fossil0_drop_chance = 15;
+					biome->biome_data.fossil1_drop_chance = 15;
+					biome->biome_data.fossil2_drop_chance = 15;
+					// biome->fossil_rarity_level = 2;
+				}
+			} break;
+
+			case BIOME_magical_forest:{
+				{
+					biome->name = STR("Magical forest");
+					biome->size = v2(400, -400); // actually the biome position
+					// TODO: maybe make a Vector4 with biome corners
+					// biome->biome_pos;
+					biome->enabled = true;
+					biome->biome_data.spawn_animals = false;
+					biome->biome_data.spawn_water = false;
+					// biome->biome_data.grass_color = v4(0.6, 0.7, 1.0, 1);
+					biome->biome_data.grass_color = v4(0,1,1,1);
+					biome->biome_data.ground_texture = TEXTURE_grass;
+
+					// entities
+					biome->biome_data.spawn_rocks = false;
+					biome->biome_data.spawn_rocks_weight = 85;
+					biome->biome_data.spawn_mushrooms = true;
+					biome->biome_data.spawn_mushrooms_weight = 35;
+					// biome->spawn_twigs = false;
+					// biome->spawn_twigs_weight = 0;
+
+					// ores
+					biome->biome_data.spawn_ores = false;
+					biome->biome_data.spawn_ore_iron = false;
+					biome->biome_data.spawn_ore_gold = false;
+					biome->biome_data.spawn_ore_copper = false;
+					biome->biome_data.spawn_ore_iron_weight = 0;
+					biome->biome_data.spawn_ore_gold_weight = 0;
+					biome->biome_data.spawn_ore_copper_weight = 0;
+
+					// fossils
+					biome->biome_data.spawn_fossils = true;
+					biome->biome_data.fossil0_drop_chance = 15;
+					biome->biome_data.fossil1_drop_chance = 15;
+					biome->biome_data.fossil2_drop_chance = 15;
+					// biome->fossil_rarity_level = 2;
+				}
+			} break;
+
+			case BIOME_desert:{
+				{
+					biome->name = STR("Desert");
+					biome->size = v2(400, -400); // actually the biome position
+					// TODO: maybe make a Vector4 with biome corners
+					// biome->biome_pos;
+					biome->enabled = true;
+					biome->biome_data.spawn_animals = false;
+					biome->biome_data.spawn_water = false;
+					// biome->biome_data.grass_color = v4(0.6, 0.7, 1.0, 1);
+					biome->biome_data.grass_color = v4(1,1,0,1);
+					biome->biome_data.ground_texture = TEXTURE_grass;
+
+					// entities
+					biome->biome_data.spawn_rocks = false;
+					biome->biome_data.spawn_rocks_weight = 85;
+					biome->biome_data.spawn_mushrooms = false;
 					biome->biome_data.spawn_mushrooms_weight = 35;
 					// biome->spawn_twigs = false;
 					// biome->spawn_twigs_weight = 0;

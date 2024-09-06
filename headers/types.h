@@ -67,6 +67,8 @@
         // Above ground biomes
         BIOME_forest,
         BIOME_pine_forest,
+        BIOME_magical_forest,
+        BIOME_desert,
 
         // Underground biomes
         BIOME_cave,
@@ -303,60 +305,61 @@
     typedef struct Map {
         int width;
         int height;
-        BiomeID* biome_id;
+        BiomeID* tiles;
     } Map;
 
-    Map world_maps[BIOME_MAX];
+    // Map world_maps[BIOME_MAX];
+    Map world_maps[BIOME_MAX] = {0};
 
-    void init_biome_maps(){
-        Map* map = &world_maps[DIM_overworld];
+    void init_biome_maps() {
 
-        string png;
-        bool ok = os_read_entire_file("res/biometest.png", &png, get_heap_allocator());
-        assert(ok);
+	Map* map = &world_maps[DIM_overworld];
 
-        int width;
-        int height;
-        int channels;
-        stbi_set_flip_vertically_on_load(1);
-        third_party_allocator = get_heap_allocator();
-        u8* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
-        assert(stb_data);
-        // assert(channels==4);
-        third_party_allocator = ZERO(Allocator);
+	string png;
+	// bool ok = os_read_entire_file("res/biometest.png.png", &png, get_heap_allocator());
+	bool ok = os_read_entire_file("res/biometest.png", &png, get_heap_allocator());
+	assert(ok);
 
-        map->width = width;
-        map->height = height;
-        map->biome_id = alloc(get_heap_allocator(), width * height * sizeof(BiomeID));
+	int width, height, channels;
+	stbi_set_flip_vertically_on_load(1);
+	third_party_allocator = get_heap_allocator();
+	u8* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
+	assert(stb_data);
+	assert(channels == 4);
+	third_party_allocator = ZERO(Allocator);
 
-        for(int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++){
-            int index = y * width * x;
-            u8* pixel = stb_data + index + channels;
+	map->width = width;
+	map->height = height;
+	map->tiles = alloc(get_heap_allocator(), width * height * sizeof(BiomeID));
 
-            u8 r = pixel[0];
-            u8 g = pixel[1];
-            u8 b = pixel[2];
-            Vector4 color = {(float)r/255.0f, (float)g/255.0f, (float)b/255.0f, 1};
-            if (v4_equals(color, COLOR_WHITE)){
-                map->biome_id[index] = BIOME_forest;
-            }
-            else if (v4_equals(color, COLOR_BLACK)){
-                map->biome_id[index] = BIOME_cave;
-            }
-        }
-        
-    }
+	for (int y = 0; y < height; y++)
+	for (int x = 0; x < width; x++)
+	{
+		int index = y * width + x;
+		u8* pixel = stb_data + index * channels;
+
+		u8 r = pixel[0];
+		u8 g = pixel[1];
+		u8 b = pixel[2];
+		Vector4 col = {(float)r/255.0f, (float)g/255.0f, (float)b/255.0f, 1.0};
+		if (v4_equals(col, COLOR_WHITE)) {
+			map->tiles[index] = BIOME_forest;
+		} else if (v4_equals(col, hex_to_rgba(0x00ff91ff))) {
+			map->tiles[index] = BIOME_magical_forest;
+		} else if (!v4_equals(col, COLOR_BLACK)) {
+			map->tiles[index] = BIOME_desert;
+		}
+	}
+}
 
 
-    BiomeID biome_at_tile(DimensionID dim, int x, int y){
+    BiomeID biome_at_tile(DimensionID dim, int x, int y) {
         Map map = world_maps[dim];
         BiomeID biome = 0;
         int x_index = x + floor((float)map.width * 0.5);
         int y_index = y + floor((float)map.height * 0.5);
-        if (x_index < map.width && x_index >= 0 && y_index < map.height && y_index >= 0){
-            biome = map.biome_id[y_index * map.width + x_index];
-
+        if (x_index < map.width && x_index >= 0 && y_index < map.height && y_index >= 0) {
+            biome = map.tiles[y_index * map.width + x_index];
         }
         return biome;
     }

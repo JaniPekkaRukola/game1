@@ -16,7 +16,7 @@ bool enable_chest_tooltip = false;
 bool render_hotbar = true;
 bool render_player = true;
 bool render_other_entities = true;
-bool draw_grid = false;
+bool draw_grid = true;
 bool render_ground_texture = true;
 
 float render_distance = 230;
@@ -2336,7 +2336,8 @@ int entry(int argc, char **argv)
 
 	// bg color
 	// window.clear_color = hex_to_rgba(0x43693aff);
-	window.clear_color = v4(1,1,1,1);
+	// window.clear_color = v4(1,1,1,1);
+	window.clear_color = COLOR_BLACK;
 	window.force_topmost = false;
 	window.allow_resize = false;
 
@@ -2499,7 +2500,7 @@ int entry(int argc, char **argv)
 
 	// setups
 	setup_player();
-	// setup_all_biomes();
+	setup_all_biomes();
 
 	// #WG-test
 	init_biome_maps();
@@ -2752,31 +2753,38 @@ int entry(int argc, char **argv)
 			// NOTE: rendering tiles has a big fkin impact on fps 
 			int player_tile_x = world_pos_to_tile_pos(world->player->en->pos.x);
 			int player_tile_y = world_pos_to_tile_pos(world->player->en->pos.y);
-			int tile_radius_x = 18;
-			int tile_radius_y = 12;
+			// int tile_radius_x = 18;
+			// int tile_radius_y = 12;
+
+			int tile_radius_x = 25;
+			int tile_radius_y = 20;
 
 			for (int x = player_tile_x - tile_radius_x; x < player_tile_x + tile_radius_x; x++){
 				for (int y = player_tile_y - tile_radius_y; y < player_tile_y + tile_radius_y; y++){
-					if ((x +(y % 2 == 0) ) % 2 == 0) {
-						Vector4 col = v4(0.1, 0.1, 0.1, 0.1);
-						// Vector4 col = forest->grass_color;
-						float x_pos = x * tile_width;
-						float y_pos = y * tile_width;
-						if (x == mouse_tile_x && y == mouse_tile_y) {
-							// Change tile under mouse pos to a different color
-							// col.a = 0.5;
-						}
-						// Draw Tile Grid
-						draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
+
+					BiomeID biome = biome_at_tile(world->current_biome_id, x, y);
+					if (biome == 0){
+						// printf("BIOME = 0\n");
+						continue;
 					}
+
+					Vector4 col = get_biome_data_from_id(biome).grass_color;
+
+					float x_pos = x * tile_width;
+					float y_pos = y * tile_width;
+
+					// Draw Tile
+					draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
 				}
 			}
-			// Draw different tile on mouse pos
-			// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
 		}
 
 
+
+
+
 		// :Draw ground texture || :draw_ground 
+		render_ground_texture = false;
 		if (render_ground_texture)
 		{
 
