@@ -13,6 +13,8 @@ void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
 DimensionData *get_dimensionData(DimensionID);
 
+// worldgen stuff
+// https://chatgpt.com/c/66dc8408-64f4-800a-82f0-7f65897ea243
 
 
 
@@ -65,6 +67,10 @@ DimensionData *get_dimensionData(DimensionID);
 
 	int world_pos_to_tile_pos(float world_pos) {
 		return roundf(world_pos / (float)tile_width);
+	}
+
+	Vector2i v2_world_pos_to_tile_pos(Vector2 world_pos) {
+		return (Vector2i) { world_pos_to_tile_pos(world_pos.x), world_pos_to_tile_pos(world_pos.y) };
 	}
 
 	float tile_pos_to_world_pos(int tile_pos) {
@@ -166,10 +172,90 @@ DimensionData *get_dimensionData(DimensionID);
 		return v.x >= range.min.x && v.x <= range.max.x && v.y >= range.min.y && v.y <= range.max.y;
 	}
 	
+	bool v4_equals(Vector4 a, Vector4 b) {
+ 		return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+	}
+
 // 
 
 
 // FUNCTIONS --------------------------------------------------------------------------------------------->
+
+	// :WORLD ------------------------->
+	void init_WorldData(WorldData* map) {
+
+		string png;
+		bool ok = os_read_entire_file("res/biometest.png", &png, get_heap_allocator());
+		assert(ok);
+
+		int width, height, channels;
+		stbi_set_flip_vertically_on_load(1);
+		third_party_allocator = get_heap_allocator();
+		u8* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
+		assert(stb_data);
+		assert(channels == 4);
+		third_party_allocator = ZERO(Allocator);
+
+		map->width = width;
+		map->height = height;
+		map->tiles = alloc(get_heap_allocator(), width * height * sizeof(BiomeID));
+		assert(map->tiles && "Failed to allocate memory for tiles");
+
+		for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int index = y * width + x;
+            u8* pixel = stb_data + index * 4;  // Access RGBA pixel
+
+			// printf("index = %d\n", index);
+
+            u8 r = pixel[0];
+            u8 g = pixel[1];
+            u8 b = pixel[2];
+
+            // Map color to biome and store in biome_map
+            if (r == 255 && g == 255 && b == 255) {
+                map->tiles[index] = BIOME_forest;
+				// printf("forest\n");
+				// printf("Tile[%d, %d] = %d\n", x, y, map->tiles[index]);
+            }
+			
+			else if (r == 255 && g == 0 && b == 0) {
+                map->tiles[index] = BIOME_pine_forest;
+				// printf("pine forest\n");
+				// printf("Tile[%d, %d] = %d\n", x, y, map->tiles[index]);
+            }
+			
+			else if (r == 0 && g == 0 && b == 0) {
+                map->tiles[index] = BIOME_cave;
+				// printf("cave\n");
+				// printf("Tile[%d, %d] = %d\n", x, y, map->tiles[index]);
+            }
+			
+			else {
+                map->tiles[index] = BIOME_nil;
+				// printf("nil\n");
+				// printf("Tile[%d, %d] = %d\n", x, y, map->tiles[index]);
+            }
+        }
+		}
+
+		// stbi_image_free(stb_data);
+		// for (int i = 0; i < 10; ++i) {
+ 		//    printf("Tile[%d] = %d\n", i, map->tiles[i]);
+		// }
+
+	}
+
+	BiomeID biome_at_tile(Tile tile) {
+		BiomeID biome = 0;
+		int x_index = tile.x + floor((float)map.width * 0.5);
+		int y_index = tile.y + floor((float)map.height * 0.5);
+		if (x_index < map.width && x_index >= 0 && y_index < map.height && y_index >= 0) {
+			biome = map.tiles[y_index * map.width + x_index];
+		}
+		return biome;
+	}
+
 
 	// :ENTITY ------------------------>
 	Entity* entity_create() {
@@ -347,10 +433,17 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :BIOME ------------------------->
 	BiomeData get_biome_data_from_id(BiomeID id){
-		if (biomes[id].enabled){
-			return biomes[id];
+		// if (biomes[id].enabled){
+		for (BiomeID i = 0; i < BIOME_MAX; i++){
+			// BiomeData* biome = world->dimension->biomes[i];
+			BiomeData* biome = &biomes[i];
+			if (biome && biome->id == id && biome->enabled){
+				return *biome;
+			}
 		}
-		assert(1==0, "Failed to get biomeData @ get_biome_data_from_id. NULL");
+		// assert(1==0, "Failed to get biomeData @ 'get_biome_data_from_id'");
+		BiomeData asd = {0};
+		return asd;
 	}
 
 
@@ -359,21 +452,21 @@ DimensionData *get_dimensionData(DimensionID);
 		return &dimensions[id];
 	}
 
-	void add_biomes_to_dimension(DimensionID dim, BiomeID* biomes, int count){
-		for (int i = 0; i < count; i++){
-			int asd = sizeof(biomes);
-			BiomeID biome_id = biomes[i];
-			dimensions[dim].biomes[i] = biome_id;
-			// printf("ADDED biomeid %d to dimension %s\n", biome_id, get_dimensionData(dim)->name);
-		}
-	}
+	// void add_biomes_to_dimension(DimensionID dim, BiomeID* biomes, int count){
+	// 	for (int i = 0; i < count; i++){
+	// 		int asd = sizeof(biomes);
+	// 		BiomeID biome_id = biomes[i];
+	// 		dimensions[dim].biomes[i]->id = biome_id;
+	// 		// printf("ADDED biomeid %d to dimension %s\n", biome_id, get_dimensionData(dim)->name);
+	// 	}
+	// }
 	
-	void add_all_biomes_to_dimensions() {
-		// TODO: for loop here pls
-		add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
-		// add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_pine_forest}, 1);
-		add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
-	}
+	// void add_all_biomes_to_dimensions() {
+	// 	// TODO: for loop here pls
+	// 	add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_forest, BIOME_cave}, 2);
+	// 	// add_biomes_to_dimension(DIM_overworld, (BiomeID[]){BIOME_pine_forest}, 1);
+	// 	add_biomes_to_dimension(DIM_cavern, (BiomeID[]){BIOME_cave}, 1);
+	// }
 
 
 	// :PORTAL ------------------------>
@@ -448,7 +541,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 		if (result == 0){
 			// BiomeID current_dim = world->dimension->dimension_id;
-			DimensionID current_dim = world->dimension->dimension_id;
+			DimensionID current_dim = world->dimension->id;
 
 			Entity* en = entity_create();
 			setup_portal(en, current_dim, dest, get_dimensionData(dest)->portal_sprite_in);
@@ -458,8 +551,8 @@ DimensionData *get_dimensionData(DimensionID);
 			// en->pos.x -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 			// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 
-			add_biomeID_to_entity(en, world->current_biome_id);
-			// add_biomeID_to_entity(en, world->dimension->biome_id);
+			// add_biomeID_to_entity(en, world->current_biome_id);
+			add_biomeID_to_entity(en, world->dimension->current_biome_id);
 			en->is_valid = true;
 			en->portal_data.enabled = true;
 			en->portal_data.id = id;	// link portals
@@ -910,7 +1003,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :TEXTURE ----------------------->
 	Texture* get_texture(TextureID id) {
-		if (id >= 0 && id < TEXTURE_MAX) {
+		if (id > 0 && id < TEXTURE_MAX) {
 			Texture* texture = &textures[id];
 			if (texture->image) {
 				return texture;
@@ -1130,7 +1223,8 @@ DimensionData *get_dimensionData(DimensionID);
 		en->item_id = item_id;
 		en->enable_shadow = true;
 		en->pickup_text_col = v4(1,1,1,1);
-		add_biomeID_to_entity(en, world->current_biome_id);
+		// add_biomeID_to_entity(en, world->current_biome_id);
+		add_biomeID_to_entity(en, world->dimension->current_biome_id);
 
 		// naming (maybe figure out a better solution. Or just hardcode everything but only once! @pin2)
 		// #crash: happens when get_ore can't find the name of the ore. prolly not because of get_ore func but because of this switch case. Happens prolly because trying to assing the result from get_ore to an entity which doesn't exist. idk why the setups above swich dont crash. idk
@@ -1154,7 +1248,7 @@ DimensionData *get_dimensionData(DimensionID);
 			case ITEM_TOOL_pickaxe:{en->name = STR("Pickaxe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_axe:{en->name = STR("Axe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_shovel:{en->name = STR("Shovel"); en->arch = ARCH_tool;}break;
-			case ITEM_TOOL_torch:{en->name = STR("Torch"); en->arch = ARCH_item;}break;
+			case ITEM_TOOL_torch:{en->name = STR("Torch"); en->arch = ARCH_torch;}break;
 			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
 			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
@@ -1326,7 +1420,6 @@ DimensionData *get_dimensionData(DimensionID);
 		en->item_id = ITEM_TOOL_torch;
 		en->rendering_prio = 0;
 		en->tool_id = TOOL_torch;
-		en->has_animation = true;
 		add_biomeID_to_entity(en, BIOME_forest);
 		add_biomeID_to_entity(en, BIOME_cave);
 	}
@@ -1457,20 +1550,25 @@ DimensionData *get_dimensionData(DimensionID);
 
 		BiomeData* biome = 0;
 		biome = alloc(get_heap_allocator(), sizeof(BiomeData));
+		biome->id = BIOME_nil;
+		biome->grass_color = v4(1, 1, 1, 1);
 
 		switch (id){
 			case BIOME_forest:{
 				{
 					biome->name = STR("Forest");
+					biome->id = BIOME_forest;
 					biome->size = v2(400, 400); // actually the biome position
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
-					biome->grass_color = v4(0.35, 0.82, 1, 1);
+					// biome->grass_color = v4(0.35, 0.82, 1, 1);
 					// biome->grass_color = v4(1, 1, 1, 1);
 					// biome->leaves_color	= v4(0, 1, 0, 1);
-					biome->ground_texture = TEXTURE_grass;
-
+					biome->grass_color = v4(0, 1, 0, 1);
+					// biome->ground_texture = TEXTURE_grass;
+					biome->ground_texture = TEXTURE_TILE_forest;
+					
 					biome->enable_parallax = false;
 					biome->parallax_weight = 2;
 
@@ -1497,7 +1595,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_berries_weight = 20;
 
 					// fossils
-					biome->spawn_fossils = true;
+					biome->spawn_fossils = false;
 					biome->fossil0_drop_chance = 5;
 					biome->fossil1_drop_chance = 5;
 					biome->fossil2_drop_chance = 5;
@@ -1508,14 +1606,12 @@ DimensionData *get_dimensionData(DimensionID);
 			case BIOME_cave:{
 				{
 					biome->name = STR("Cave");
+					biome->id = BIOME_cave;
 					biome->size = v2(400, 400); // actually the biome position
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
-					// biome->grass_color = v4(0.32, 0.97, 0.62, 1);
-					// biome->grass_color = v4(1, 0.97, 0.62, 1);
-					// biome->leaves_color	= v4(0, 1, 0, 1);
-					biome->ground_texture = TEXTURE_cave_floor;
+					biome->ground_texture = TEXTURE_TILE_cave;
 
 					// entities
 					biome->spawn_rocks = true;
@@ -1546,14 +1642,18 @@ DimensionData *get_dimensionData(DimensionID);
 			case BIOME_pine_forest:{
 				{
 					biome->name = STR("Pine forest");
+					biome->id = BIOME_pine_forest;
 					biome->size = v2(400, -400); // actually the biome position
 					// TODO: maybe make a Vector4 with biome corners
 					// biome->biome_pos;
 					biome->enabled = true;
 					biome->spawn_animals = false;
 					biome->spawn_water = false;
-					biome->grass_color = v4(0.6, 0.7, 1.0, 1);
-					biome->ground_texture = TEXTURE_grass;
+					// biome->grass_color = v4(0.6, 0.7, 1.0, 1);
+					biome->grass_color = v4(0, 1, 1, 1);
+					// biome->ground_texture = TEXTURE_grass;
+					// biome->ground_texture = TEXTURE_TILE_pine_forest;
+					biome->ground_texture = TEXTURE_TILE_forest;
 
 					// entities
 					biome->spawn_rocks = true;
@@ -1601,7 +1701,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 		DimensionData* dimension = 0;
 		dimension = alloc(get_heap_allocator(), sizeof(DimensionData));
-		dimension->dimension_id = id;
+		dimension->id = id;
 		dimension->ground_color = v4(1, 1, 1, 1);
 
 		switch (id){
@@ -1646,7 +1746,8 @@ DimensionData *get_dimensionData(DimensionID);
 		en->enable_shadow = false;
 		en->portal_data.dim_destination = dest;
 		en->is_selectable_by_mouse = false;
-		BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
+		// BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
+		BiomeID current_biome = get_dimensionData(current_dim)->current_biome_id;
 		add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
 		en->rendering_prio = -1;
@@ -1669,9 +1770,9 @@ DimensionData *get_dimensionData(DimensionID);
 		// FIX: @pin2 im defining item names in multiple different places eg.A: here
 		addItemToLootTable(lootTable_rock, &STR("Stone"), ITEM_rock, 100);
 		// TODO: should prolly change the "world->current_biome_id" to something else
-		addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->current_biome_id).fossil0_drop_chance);
-		addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->current_biome_id).fossil1_drop_chance);
-		addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->current_biome_id).fossil2_drop_chance);
+		addItemToLootTable(lootTable_rock, &STR("Ammonite Fossil"), ITEM_fossil0, get_biome_data_from_id(world->dimension->current_biome_id).fossil0_drop_chance);
+		addItemToLootTable(lootTable_rock, &STR("Bone Fossil"), ITEM_fossil1, get_biome_data_from_id(world->dimension->current_biome_id).fossil1_drop_chance);
+		addItemToLootTable(lootTable_rock, &STR("Fang Fossil"), ITEM_fossil2, get_biome_data_from_id(world->dimension->current_biome_id).fossil2_drop_chance);
 	}
 
 	void setup_loot_table_pine_tree(){

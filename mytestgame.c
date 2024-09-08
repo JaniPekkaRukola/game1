@@ -10,7 +10,7 @@ bool ENABLE_FRUSTRUM_CULLING = true;
 bool runtime_debug = false;
 
 
-bool enable_vignette = true;
+bool enable_vignette = false;
 bool enable_tooltip = true;
 bool enable_chest_tooltip = false;
 bool render_hotbar = true;
@@ -20,6 +20,7 @@ bool draw_grid = false;
 bool render_ground_texture = true;
 
 float render_distance = 230;
+float render_distance_32 = 10; // for 32x32 tiles
 
 // keybinds
 char KEY_player_use = 'F';
@@ -1953,7 +1954,8 @@ void spawn_biome(BiomeData* biome) {
 // :load dimension entities
 void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 	
-	BiomeID biome_id = world->dimension->biomes[0];
+	// BiomeID biome_id = world->dimension->biomes[0];
+	BiomeID biome_id = world->dimension->current_biome_id;
 	int min_entity_count = 10;	// spawn dimension entities only if "world->dimension->entity_count" is kinda low (min_entity_count). This fixes the issue of new entities spawning every time the dimension is changed -> MAX_ENTITY_COUNT is reached easily -> crash
 	// TODO: find a better solution for this mess
 
@@ -1998,11 +2000,16 @@ void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	// printf("Changed window color form %.0f, %.0f, %.0f", window.clear_color.r, window.clear_color.g, window.clear_color.b);
 	// printf("   to   %.0f, %.0f, %.0f\n", window.clear_color.r, window.clear_color.g, window.clear_color.b);
 	
-	world->dimension_id = new_dim;
+	// world->dimension_id = new_dim;
 	world->dimension = get_dimensionData(new_dim);
-	world->current_biome_id = world->dimension->biomes[0];
-	load_dimension_entities(world->dimension_id, dest_pos);
+	world->dimension->id = new_dim;
+	// world->current_biome_id = world->dimension->biomes[0];
+	// load_dimension_entities(world->dimension_id, dest_pos);
+	load_dimension_entities(world->dimension->id, dest_pos);
 	// window.clear_color = get_dimensionData(new_dim)->ground_color;
+
+	if (new_dim == DIM_overworld) view_zoom = 0.2;
+	else if (new_dim == DIM_cavern) view_zoom = 0.11;
 
 	// if (new_dim == DIM_cavern){
 	// 	trigger_dim_change_animation(camera_pos);
@@ -2256,7 +2263,7 @@ void render_entities(World* world) {
 						if (entity_dist_from_player <= render_distance){
 							for (int i = 0; i < en->biome_count; i++) {
 								BiomeID portal_biome_id = en->biome_ids[i];
-								if (portal_biome_id == world->current_biome_id){
+								if (portal_biome_id == world->dimension->current_biome_id){
 									// printf("Drawing sprite at biome = %s\t", get_biome_data_from_id(portal_biome_id).name);
 									// printf("portal destination id: %d\n", en->portal_data.destination);
 									Sprite* sprite = get_sprite(en->sprite_id);
@@ -2472,7 +2479,7 @@ float distanceSquared(Vector2 v1, Vector2 v2) {
 // should rename biome_size to biome location. AND add separate biome size vector2
 void update_biome(){
 	Vector2 player_pos = get_player_pos();
-	Vector2 biome_position = get_biome_data_from_id(world->current_biome_id).size;
+	Vector2 biome_position = get_biome_data_from_id(world->dimension->current_biome_id).size;
 	
 
 	if (player_pos.x >= -biome_position.x && player_pos.x <= biome_position.x &&
@@ -2592,11 +2599,16 @@ int entry(int argc, char **argv)
 		// 
 
 		// :Load textures
-			textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
+			textures[0] = (Texture){ .image=load_image_from_disk(STR("res/textures/texture_nil.png"), get_heap_allocator())};
+			textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass_small.png"), get_heap_allocator())};
 			textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
 			textures[TEXTURE_vignette_no_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_no_torch.png"), get_heap_allocator())};
 			textures[TEXTURE_vignette_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_torch.png"), get_heap_allocator())};
 			textures[TEXTURE_torch_light] = (Texture){ .image=load_image_from_disk(STR("res/textures/torch_light.png"), get_heap_allocator())};
+			
+			textures[TEXTURE_TILE_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_forest.png"), get_heap_allocator())};
+			textures[TEXTURE_TILE_cave] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_cave.png"), get_heap_allocator())};
+			textures[TEXTURE_TILE_pine_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_pine_forest.png"), get_heap_allocator())};
 		// 
 
 		// :Load audio
@@ -2636,15 +2648,17 @@ int entry(int argc, char **argv)
 	// 
 
 
+	init_WorldData(&map);
+
+
+
 	// setup dimensions
 	setup_all_dimensions();
-	add_all_biomes_to_dimensions();
+	// add_all_biomes_to_dimensions();
 
 	// set current dimension
 	world->dimension = get_dimensionData(DIM_overworld);
-	// world->dimension = get_dimensionData(DIM_cavern);
-	world->dimension_id = DIM_overworld;
-	// world->dimension_id = DIM_cavern;
+	world->dimension->id = DIM_overworld;
 	world->dimension->entity_count = 0;
 
 
@@ -2666,7 +2680,7 @@ int entry(int argc, char **argv)
 	setup_player();
 	setup_all_biomes();
 
-	world->current_biome_id = BIOME_forest;
+	world->dimension->current_biome_id = BIOME_forest;
 	world->player->inventory_items_count = 0;
 	
 	// setup audio
@@ -2678,7 +2692,7 @@ int entry(int argc, char **argv)
 	audio_config.position_ndc          = v3(0, 0, 0);
 
 	// spawning
-	BiomeData temp_data = get_biome_data_from_id(world->current_biome_id);
+	BiomeData temp_data = get_biome_data_from_id(world->dimension->current_biome_id);
 	spawn_biome(&temp_data);
 	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
@@ -2908,224 +2922,272 @@ int entry(int argc, char **argv)
 		}
 
 
-		// :Render grid (:Grid)
-		if (draw_grid)
-		{	
-			// NOTE: rendering tiles has a big fkin impact on fps 
-			int player_tile_x = world_pos_to_tile_pos(world->player->en->pos.x);
-			int player_tile_y = world_pos_to_tile_pos(world->player->en->pos.y);
-			int tile_radius_x = 18;
-			int tile_radius_y = 12;
-
-			for (int x = player_tile_x - tile_radius_x; x < player_tile_x + tile_radius_x; x++){
-				for (int y = player_tile_y - tile_radius_y; y < player_tile_y + tile_radius_y; y++){
-					if ((x +(y % 2 == 0) ) % 2 == 0) {
-						Vector4 col = v4(0.1, 0.1, 0.1, 0.1);
-						// Vector4 col = forest->grass_color;
-						float x_pos = x * tile_width;
-						float y_pos = y * tile_width;
-						if (x == mouse_tile_x && y == mouse_tile_y) {
-							// Change tile under mouse pos to a different color
-							// col.a = 0.5;
-						}
-						// Draw Tile Grid
-						draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
-					}
-				}
-			}
-			// Draw different tile on mouse pos
-			// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
-		}
 
 
-		// :Draw ground texture || :draw_ground 
+
+		// new way of rendering ground
 		if (render_ground_texture)
 		{
+			// int radius = 10;
+			// int TILE_SIZE = tile_width;
+			int TILE_SIZE = 32;
 
-			// this shit way too complex
-			// disgusting
-
-			// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
-			// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
 			float player_pos_x = world->player->en->pos.x;
 			float player_pos_y = world->player->en->pos.y;
 
-			if (world->current_biome_id == BIOME_cave){
-				int asd = 1;
-			}
-			Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
-			Vector4 color = COLOR_WHITE;
+			int player_tile_x = (int)(player_pos_x / TILE_SIZE);
+			int player_tile_y = (int)(player_pos_y / TILE_SIZE);
 
-			// add color adjustment to texture
-			// Vector4 col_adjustment = get_biome_data_from_id(world->current_biome_id).grass_color;
-			if (get_biome_data_from_id(world->current_biome_id).grass_color.a != 0){
-				color = get_biome_data_from_id(world->current_biome_id).grass_color;
-			}
+			for (int y = -render_distance_32; y <= render_distance_32; y++) {
+				for (int x = -render_distance_32; x <= render_distance_32; x++) {
 
-			//  ______________
-			// | Xform LOGIC:
-			// | - A B C
-			// | - D M E
-			// | - F G H
-			// |______________
+					float tile_pos_x = (player_tile_x + x) * TILE_SIZE;
+					float tile_pos_y = (player_tile_y + y) * TILE_SIZE;
 
-			Matrix4 xform_M = m4_identity;
-			Matrix4 xform_A = m4_identity;
-			Matrix4 xform_B = m4_identity;
-			Matrix4 xform_C = m4_identity;
-			Matrix4 xform_D = m4_identity;
-			Matrix4 xform_E = m4_identity;
-			Matrix4 xform_F = m4_identity;
-			Matrix4 xform_G = m4_identity;
-			Matrix4 xform_H = m4_identity;
+					BiomeData tile_biome_data = get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(tile_pos_x, tile_pos_y))));
 
-			// attempt #4
-			// Vector2 texture_size = get_texture_size(texture); // old
-			Vector2 texture_size = get_texture_size(*texture); // new
-
-			float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
-			float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
-			bool x_axis_fix = false;
-			
-			// x-axis fix
-			if (player_pos_y < 0 && traveled_step_y == 0 && traveled_step_x != 0){
-				x_axis_fix = true;
-			}
-
-			if (traveled_step_x < 0){ 			// left
-				// printf("LEFT ");
-				if (traveled_step_y < 0){
-					// printf("DOWN \n");
-					xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		,	traveled_step_y - texture_size.y			, 0));
-					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y 							, 0));
-					xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		,	traveled_step_y 							, 0));
-					xform_C = m4_translate(xform_C, v3(traveled_step_x						,	traveled_step_y 							, 0));
-					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - texture_size.y			, 0));
-					xform_E = m4_translate(xform_E, v3(traveled_step_x						,	traveled_step_y - texture_size.y			, 0));
-					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - (texture_size.y * 2)		, 0));
-					xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		,	traveled_step_y - (texture_size.y * 2)		, 0));
-					xform_H = m4_translate(xform_H, v3(traveled_step_x						,	traveled_step_y - (texture_size.y * 2)		, 0));
-				}
-				else{
-					// printf("UP \n");
-					xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		, 	traveled_step_y								, 0));
-					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y + texture_size.y			, 0));
-					xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		, 	traveled_step_y + texture_size.y			, 0));
-					xform_C = m4_translate(xform_C, v3(traveled_step_x						, 	traveled_step_y + texture_size.y			, 0));
-					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y								, 0));
-					xform_E = m4_translate(xform_E, v3(traveled_step_x						, 	traveled_step_y								, 0));
-					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y - texture_size.y			, 0));
-					xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		, 	traveled_step_y - texture_size.y			, 0));
-					xform_H = m4_translate(xform_H, v3(traveled_step_x						, 	traveled_step_y - texture_size.y			, 0));
-				}
-			}
-			
-			else if (traveled_step_x == 0){ 	// middle x = 0
-				// printf("MIDDLE\n");
-				if (player_pos_x < 0.0f){
-					if (player_pos_y < 0.0f){
-						xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y - texture_size.y			, 0));
-						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
-						xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
-						xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y							, 0));
-						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
-						xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
-						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y * 2		, 0));
-						xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
-						xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
-
+					// Get the texture for the tile
+					Texture* texture = get_texture(tile_biome_data.ground_texture);
+					
+					Vector4 color = COLOR_WHITE;
+					// color adj
+					if (tile_biome_data.grass_color.a != 0) {
+						color = tile_biome_data.grass_color;
 					}
-					else{
-						xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y							, 0));
-						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y + texture_size.y			, 0));
-						xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
-						xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
-						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
-						xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y							, 0));
-						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
-						xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
-						xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
 
-					}
-				}
-				else{
-					if (player_pos_y < 0.0f){
-						xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y - texture_size.y			, 0));
-						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
-						xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y							, 0));
-						xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
-						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
-						xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
-						xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
-						xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
-
-					}
-					else{
-						xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y							, 0));
-						xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
-						xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
-						xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
-						xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
-						xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
-						xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
-						xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
-						xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-
-					}
+					// draw the tile
+					draw_image(texture->image, v2(tile_pos_x, tile_pos_y), get_texture_size(*texture), color);
 				}
 			}
-
-			else{ 								// right
-				// printf("RIGHT ");
-				if (traveled_step_y < 0){
-					// printf("DOWN\n");
-					xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y - texture_size.y			, 0));
-					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y 							, 0));
-					xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y 							, 0));
-					xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y 							, 0));
-					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
-					xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - (texture_size.y * 2)	, 0));
-					xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - (texture_size.y * 2)	, 0));
-					xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - (texture_size.y * 2)	, 0));
-				}
-				else{
-					// printf("UP\n");
-					xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y							, 0));
-					xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
-					xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y + texture_size.y			, 0));
-					xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
-					xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y							, 0));
-					xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y							, 0));
-					xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
-					xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - texture_size.y			, 0));
-					xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-				}
-			}
-
-			if (x_axis_fix){
-				xform_M = m4_translate(xform_M, v3(0, -texture_size.y, 0));
-				xform_A = m4_translate(xform_A, v3(0, -texture_size.y, 0));
-				xform_B = m4_translate(xform_B, v3(0, -texture_size.y, 0));
-				xform_C = m4_translate(xform_C, v3(0, -texture_size.y, 0));
-				xform_D = m4_translate(xform_D, v3(0, -texture_size.y, 0));
-				xform_E = m4_translate(xform_E, v3(0, -texture_size.y, 0));
-				xform_F = m4_translate(xform_F, v3(0, -texture_size.y, 0));
-				xform_G = m4_translate(xform_G, v3(0, -texture_size.y, 0));
-				xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
-			}
-
-			draw_image_xform(texture->image, xform_M, texture_size, color);
-			draw_image_xform(texture->image, xform_A, texture_size, color);
-			draw_image_xform(texture->image, xform_B, texture_size, color);
-			draw_image_xform(texture->image, xform_C, texture_size, color);
-			draw_image_xform(texture->image, xform_D, texture_size, color);
-			draw_image_xform(texture->image, xform_E, texture_size, color);
-			draw_image_xform(texture->image, xform_F, texture_size, color);
-			draw_image_xform(texture->image, xform_G, texture_size, color);
-			draw_image_xform(texture->image, xform_H, texture_size, color);
 		}
+
+
+
+
+
+
+		// // :Render grid (:Grid)
+		// draw_grid = false;
+		// if (draw_grid)
+		// {	
+		// 	// NOTE: rendering tiles has a big fkin impact on fps 
+		// 	int player_tile_x = world_pos_to_tile_pos(world->player->en->pos.x);
+		// 	int player_tile_y = world_pos_to_tile_pos(world->player->en->pos.y);
+		// 	int tile_radius_x = 18;
+		// 	int tile_radius_y = 12;
+
+		// 	for (int x = player_tile_x - tile_radius_x; x < player_tile_x + tile_radius_x; x++){
+		// 		for (int y = player_tile_y - tile_radius_y; y < player_tile_y + tile_radius_y; y++){
+						
+		// 				// BiomeID id = biome_at_tile(v2_world_pos_to_tile_pos(get_player_pos()));
+
+		// 				float x_pos = x * tile_width;
+		// 				float y_pos = y * tile_width;
+
+		// 				BiomeID id = biome_at_tile(v2_world_pos_to_tile_pos(v2(x_pos, y_pos)));
+		// 				Vector4 col = get_biome_data_from_id(id).grass_color;
+						
+		// 				// Draw Tile Grid
+		// 				draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
+		// 			// }
+		// 		}
+		// 	}
+		// 	// Draw different tile on mouse pos
+		// 	// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
+		// }
+
+
+		// // :Draw ground texture || :draw_ground 
+		// render_ground_texture = false;
+		// if (render_ground_texture)
+		// {
+
+		// 	// this shit way too complex
+		// 	// disgusting
+
+		// 	// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
+		// 	// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
+		// 	float player_pos_x = world->player->en->pos.x;
+		// 	float player_pos_y = world->player->en->pos.y;
+
+		// 	if (world->dimension->current_biome_id == BIOME_cave){
+		// 		int asd = 1;
+		// 	}
+		// 	// Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
+		// 	Texture* texture = get_texture(get_biome_data_from_id(world->dimension->current_biome_id).ground_texture);
+		// 	// Texture* texture = get_texture(get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(player_pos_x, player_pos_y)))).ground_texture);
+		// 	Vector4 color = COLOR_WHITE;
+
+		// 	// add color adjustment to texture
+		// 	// Vector4 col_adjustment = get_biome_data_from_id(world->current_biome_id).grass_color;
+		// 	if (get_biome_data_from_id(world->dimension->current_biome_id).grass_color.a != 0){
+		// 		color = get_biome_data_from_id(world->dimension->current_biome_id).grass_color;
+		// 	}
+
+		// 	//  ______________
+		// 	// | Xform LOGIC:
+		// 	// | - A B C
+		// 	// | - D M E
+		// 	// | - F G H
+		// 	// |______________
+
+		// 	Matrix4 xform_M = m4_identity;
+		// 	Matrix4 xform_A = m4_identity;
+		// 	Matrix4 xform_B = m4_identity;
+		// 	Matrix4 xform_C = m4_identity;
+		// 	Matrix4 xform_D = m4_identity;
+		// 	Matrix4 xform_E = m4_identity;
+		// 	Matrix4 xform_F = m4_identity;
+		// 	Matrix4 xform_G = m4_identity;
+		// 	Matrix4 xform_H = m4_identity;
+
+		// 	// attempt #4
+		// 	// Vector2 texture_size = get_texture_size(texture); // old
+		// 	Vector2 texture_size = get_texture_size(*texture); // new
+
+		// 	float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
+		// 	float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
+		// 	bool x_axis_fix = false;
+			
+		// 	// x-axis fix
+		// 	if (player_pos_y < 0 && traveled_step_y == 0 && traveled_step_x != 0){
+		// 		x_axis_fix = true;
+		// 	}
+
+		// 	if (traveled_step_x < 0){ 			// left
+		// 		// printf("LEFT ");
+		// 		if (traveled_step_y < 0){
+		// 			// printf("DOWN \n");
+		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		,	traveled_step_y - texture_size.y			, 0));
+		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y 							, 0));
+		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		,	traveled_step_y 							, 0));
+		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x						,	traveled_step_y 							, 0));
+		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - texture_size.y			, 0));
+		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x						,	traveled_step_y - texture_size.y			, 0));
+		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - (texture_size.y * 2)		, 0));
+		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		,	traveled_step_y - (texture_size.y * 2)		, 0));
+		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x						,	traveled_step_y - (texture_size.y * 2)		, 0));
+		// 		}
+		// 		else{
+		// 			// printf("UP \n");
+		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		, 	traveled_step_y								, 0));
+		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y + texture_size.y			, 0));
+		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		, 	traveled_step_y + texture_size.y			, 0));
+		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x						, 	traveled_step_y + texture_size.y			, 0));
+		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y								, 0));
+		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x						, 	traveled_step_y								, 0));
+		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y - texture_size.y			, 0));
+		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		, 	traveled_step_y - texture_size.y			, 0));
+		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x						, 	traveled_step_y - texture_size.y			, 0));
+		// 		}
+		// 	}
+			
+		// 	else if (traveled_step_x == 0){ 	// middle x = 0
+		// 		// printf("MIDDLE\n");
+		// 		if (player_pos_x < 0.0f){
+		// 			if (player_pos_y < 0.0f){
+		// 				xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y - texture_size.y			, 0));
+		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
+		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y							, 0));
+		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
+		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y * 2		, 0));
+		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
+
+		// 			}
+		// 			else{
+		// 				xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y							, 0));
+		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y + texture_size.y			, 0));
+		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
+		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
+		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y							, 0));
+		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
+		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+
+		// 			}
+		// 		}
+		// 		else{
+		// 			if (player_pos_y < 0.0f){
+		// 				xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y							, 0));
+		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
+		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+
+		// 			}
+		// 			else{
+		// 				xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y							, 0));
+		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
+		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
+		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+
+		// 			}
+		// 		}
+		// 	}
+
+		// 	else{ 								// right
+		// 		// printf("RIGHT ");
+		// 		if (traveled_step_y < 0){
+		// 			// printf("DOWN\n");
+		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y - texture_size.y			, 0));
+		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y 							, 0));
+		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y 							, 0));
+		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y 							, 0));
+		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
+		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - (texture_size.y * 2)	, 0));
+		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - (texture_size.y * 2)	, 0));
+		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - (texture_size.y * 2)	, 0));
+		// 		}
+		// 		else{
+		// 			// printf("UP\n");
+		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y							, 0));
+		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y + texture_size.y			, 0));
+		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
+		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y							, 0));
+		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
+		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - texture_size.y			, 0));
+		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+		// 		}
+		// 	}
+
+		// 	if (x_axis_fix){
+		// 		xform_M = m4_translate(xform_M, v3(0, -texture_size.y, 0));
+		// 		xform_A = m4_translate(xform_A, v3(0, -texture_size.y, 0));
+		// 		xform_B = m4_translate(xform_B, v3(0, -texture_size.y, 0));
+		// 		xform_C = m4_translate(xform_C, v3(0, -texture_size.y, 0));
+		// 		xform_D = m4_translate(xform_D, v3(0, -texture_size.y, 0));
+		// 		xform_E = m4_translate(xform_E, v3(0, -texture_size.y, 0));
+		// 		xform_F = m4_translate(xform_F, v3(0, -texture_size.y, 0));
+		// 		xform_G = m4_translate(xform_G, v3(0, -texture_size.y, 0));
+		// 		xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
+		// 	}
+
+		// 	draw_image_xform(texture->image, xform_M, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_A, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_B, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_C, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_D, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_E, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_F, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_G, texture_size, color);
+		// 	draw_image_xform(texture->image, xform_H, texture_size, color);
+		// }
 
 
 		// :Update entities || :Item pick up
@@ -3364,7 +3426,7 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_shovel){
-							if (world->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
+							if (world->dimension->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
 						}
 					}
 				}
@@ -3426,7 +3488,7 @@ int entry(int argc, char **argv)
 		// render screen effects
 		// render vignette || :vignette
 		if (enable_vignette){
-			if (world->dimension_id == DIM_cavern){
+			if (world->dimension->id == DIM_cavern){
 				{
 					Texture* texture;
 					if (item_in_hand && item_in_hand->item_id == ITEM_TOOL_torch){
@@ -3436,7 +3498,8 @@ int entry(int argc, char **argv)
 						texture = get_texture(TEXTURE_vignette_no_torch);
 					}
 					Matrix4 xform = m4_identity;
-					Vector2 pos = camera_pos;
+					// Vector2 pos = camera_pos;
+					Vector2 pos = get_player_pos();
 					xform = m4_translate(xform, v3(pos.x, pos.y, 0));
 					xform = m4_translate(xform, v3(texture->image->width * -0.5, texture->image->height * -0.5, 0));
 					draw_image_xform(texture->image, xform, v2(screen_width, screen_height), COLOR_WHITE);
@@ -3457,6 +3520,10 @@ int entry(int argc, char **argv)
 
 		if (world->open_crafting_station) printf("Open crafting station = %.0f\n", world->open_crafting_station->pos.x);
 
+		// bool should_respawn = biome_at_tile(v2_world_pos_to_tile_pos(v2(0,0))) == BIOME_cave;
+
+		printf("player biome = %d\n", biome_at_tile(v2_world_pos_to_tile_pos(get_player_pos())));
+
 		// #animation test
 		// draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));
 
@@ -3475,6 +3542,8 @@ int entry(int argc, char **argv)
 			// world_frame.player->pos.x -= 10;
 			// printf("%.0f, %.0f\n", get_player_pos().x, get_player_pos().y);
 		}
+
+		// printf("current dim = %d\n", world->dimension->id);
 
 
 		// if(runtime_debug){

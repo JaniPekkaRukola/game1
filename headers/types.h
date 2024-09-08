@@ -250,6 +250,10 @@
         TEXTURE_vignette_no_torch,
         TEXTURE_torch_light,
 
+        TEXTURE_TILE_forest,
+        TEXTURE_TILE_pine_forest,
+        TEXTURE_TILE_cave,
+
         TEXTURE_MAX,
     } TextureID;
 
@@ -390,85 +394,9 @@
         // Entity* player;
     } WorldFrame;
 
-    // :Dimension ----------------------->
-    typedef struct DimensionData {
-        string name;
-        DimensionID dimension_id;
-        int entity_count;
-        Entity entities[MAX_ENTITY_COUNT];
-        BiomeID biomes[BIOME_MAX];
-        // BiomeID biome_id;
-
-        SpriteID portal_sprite_in;
-        SpriteID portal_sprite_out;
-        // int portal_count;
-
-        Vector4 ground_color;
-        // enemies
-    } DimensionData;
-
-    // :Player -------------------------->
-    typedef struct Player {
-        Entity* en; // player position is inside en
-        // EntityArchetype arch;
-        // Vector2 position; // this is kinda useless. USE "en->pos" for position
-        float walking_speed;
-        float running_speed_amount;
-        bool is_running;
-        DimensionID dimension_id;
-
-        float health;
-        float item_pickup_radius;
-        float entity_selection_radius;
-        // ItemData *selected_item;
-        Entity *selected_entity;
-        BuildingData* selected_building; // selected building || currently open building
-
-        // UXState ux_state;
-
-        bool inventory_ui_open;
-        InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
-        int inventory_items_count; // might be useless, used in checking for items in player inventory. Could be replaced by a for loop at the check items func! 
-
-    } Player;
-
-    // :World --------------------------->
-    typedef struct World {
-        BiomeID current_biome_id;
-        // struct BiomeData* biome_data;
-
-        DimensionID dimension_id; // current dimension id
-        DimensionData *dimension; // current dimension data
-        // InventoryItemData inventory_items[ITEM_MAX]; // NOTE: move this into player struct
-        // int inventory_items_count;
-        UXState ux_state; // move this into player struct !?
-        
-        // ui stuff
-        float inventory_alpha;
-        float inventory_alpha_target;
-        float building_menu_alpha;
-        float building_menu_alpha_target;
-        float chest_alpha;
-        float chest_alpha_target;
-        float furnace_alpha;
-        float furnace_alpha_target;
-        float workbench_alpha;
-        float workbench_alpha_target;
-
-        BuildingID placing_building; // bad name
-        Entity* open_crafting_station; // currently opened crafting station
-
-        Entity portals[MAX_PORTAL_COUNT];
-        int portal_count;
-        PortalPair portal_pairs[MAX_PORTAL_PAIRS];
-        int portal_pair_count;
-
-        Player *player;
-    } World;
-
-    // :Biome --------------------------->
     typedef struct BiomeData {
         string name;
+        BiomeID id;
         Vector2 size;
         bool enabled;
 
@@ -524,9 +452,98 @@
         // portal
         bool has_portals;
         // PortalData portals[MAX_PORTAL_COUNT];
-
-
     } BiomeData;
+
+    // :Dimension ----------------------->
+    typedef struct DimensionData {
+        string name;
+        DimensionID id;
+        int entity_count;
+        Entity entities[MAX_ENTITY_COUNT];
+        // BiomeID biomes[BIOME_MAX];
+        // BiomeData* biomes[BIOME_MAX];
+        BiomeID current_biome_id;
+
+        SpriteID portal_sprite_in;
+        SpriteID portal_sprite_out;
+        // int portal_count;
+
+        Vector4 ground_color;
+        // enemies
+    } DimensionData;
+
+    // :Player -------------------------->
+    typedef struct Player {
+        Entity* en; // player position is inside en
+        // EntityArchetype arch;
+        // Vector2 position; // this is kinda useless. USE "en->pos" for position
+        float walking_speed;
+        float running_speed_amount;
+        bool is_running;
+        DimensionID dimension_id;
+
+        float health;
+        float item_pickup_radius;
+        float entity_selection_radius;
+        // ItemData *selected_item;
+        Entity *selected_entity;
+        BuildingData* selected_building; // selected building || currently open building
+
+        // UXState ux_state;
+
+        bool inventory_ui_open;
+        InventoryItemData inventory[ITEM_MAX]; // this is players inventory. "ITEM_MAX" is basically max inventory size.
+        int inventory_items_count; // might be useless, used in checking for items in player inventory. Could be replaced by a for loop at the check items func! 
+
+    } Player;
+
+    typedef Vector2i Tile;
+
+    typedef struct TileData {
+        Tile tile;
+        // Entity* entity_at_tile;
+    } TileData;
+
+    typedef struct WorldData { // map
+        int width;
+        int height;
+        BiomeID* tiles;
+        // WorldGenerationConfig config; // current worldgeneration config
+    } WorldData;
+    WorldData map = {0};
+
+    // :World --------------------------->
+    typedef struct World {
+        // BiomeID current_biome_id;
+        // struct BiomeData* biome_data;
+
+        // DimensionID dimension_id; // current dimension id
+        DimensionData *dimension; // current dimension data
+        UXState ux_state; // move this into player struct !?
+        
+        // ui stuff
+        float inventory_alpha;
+        float inventory_alpha_target;
+        float building_menu_alpha;
+        float building_menu_alpha_target;
+        float chest_alpha;
+        float chest_alpha_target;
+        float furnace_alpha;
+        float furnace_alpha_target;
+        float workbench_alpha;
+        float workbench_alpha_target;
+
+        BuildingID placing_building; // bad name
+        Entity* open_crafting_station; // currently opened crafting station
+
+        Entity portals[MAX_PORTAL_COUNT];
+        int portal_count;
+        PortalPair portal_pairs[MAX_PORTAL_PAIRS];
+        int portal_pair_count;
+
+        Player *player;
+    } World;
+
 
     // :Sprite -------------------------->
     typedef struct Sprite {
