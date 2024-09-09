@@ -13,6 +13,7 @@
 
     // int portal_pair_count = 0;
     const int tile_width = 8;
+    // const int tile_width = 32;
     int selected_slot = 0;
     Gfx_Font* font;
     u32 font_height = 48;
@@ -60,16 +61,26 @@
     typedef enum BiomeID {
         BIOME_nil,
 
-        // Above ground biomes
+        // Overworld biomes
         BIOME_forest,
         BIOME_pine_forest,
+        BIOME_magical_forest,
+        BIOME_desert,
+        BIOME_polar,
 
-        // Underground biomes
+        // Cavern biomes
         BIOME_cave,
-        // BIOME_dark_cave,
+        // BIOME_overgrown_cave,
+        // BIOME_cave?
         // BIOME_crystal_cave,
-        // BIOME_ice_cave,
-        // BIOME_desert_cave,
+        // BIOME_graveyard,
+
+        // floating island biomes
+        // BIOME_floating_island,
+        // BIOME_floating_forest, ??
+        // BIOME_windy_planes, ??
+        // BIOME_rainy, ??
+        // BIOME_bliss, ??
 
         BIOME_MAX,
     } BiomeID;
@@ -269,11 +280,11 @@
         UX_furnace,
         UX_workbench,
 
+        UX_mainmenu,
 
 
         // UX_map,
         // UX_settings,
-        // UX_menu,
     } UXState;
 // 
 

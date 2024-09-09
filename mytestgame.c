@@ -4,13 +4,15 @@
 // ----- ::Settings || ::Tweaks || ::Global --------------------------------------------------------|
 
 bool IS_DEBUG = false;
+// #define DEV_TESTING
+
 // bool print_fps = true;
 bool print_fps = false;
 bool ENABLE_FRUSTRUM_CULLING = true;
 bool runtime_debug = false;
 
 
-bool enable_vignette = false;
+bool enable_vignette = true;
 bool enable_tooltip = true;
 bool enable_chest_tooltip = false;
 bool render_hotbar = true;
@@ -1951,6 +1953,57 @@ void spawn_biome(BiomeData* biome) {
 
 }
 
+void unload_biome_entities(BiomeID id){
+	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+		Entity* en = &world->dimension->entities[i];
+		if (en){
+			for (int j = 0; j < BIOME_MAX; j++) {
+				BiomeID tempid = en->biome_ids[j];
+				if (tempid == id){
+					memset(en, 0, sizeof(Entity));
+					continue;
+				}
+			}
+		}
+	} 
+}
+
+void update_biome(){
+
+	int TILE_SIZE = 8;
+	// int player_tile_x = (int)(get_player_pos().x / TILE_SIZE);
+	// int player_tile_y = (int)(get_player_pos().y / TILE_SIZE);
+
+	// float tile_pos_x = (player_tile_x + 0) * TILE_SIZE;
+	// float tile_pos_y = (player_tile_y + 0) * TILE_SIZE;
+
+	Matrix4 xform = m4_identity;
+
+	float tile_pos_x = get_player_pos().x;
+	float tile_pos_y = get_player_pos().y;
+
+	BiomeID current_biome_id = world->dimension->current_biome_id;
+	BiomeID new_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(tile_pos_x, tile_pos_y)));
+
+
+	if (current_biome_id != new_biome_id){
+		world->dimension->current_biome_id = new_biome_id;
+
+		BiomeData biomedata = get_biome_data_from_id(new_biome_id);
+
+		unload_biome_entities(current_biome_id);
+		spawn_biome(&biomedata);
+		printf("Spawned new biome\n");
+	}
+
+
+
+
+	// printf("world->dimension->current_biome_id = %d\n", world->dimension->current_biome_id);
+}
+
+
+
 // :load dimension entities
 void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 	
@@ -1964,6 +2017,7 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 		{
 			if (get_dimensionData(id)->entity_count < min_entity_count){ 
 				spawn_biome(&biomes[biome_id]);
+				// printf("Spawned overworld entities\n");
 			}
 		} break;
 
@@ -1971,6 +2025,7 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 		{
 			if (get_dimensionData(id)->entity_count < min_entity_count){
 				spawn_biome(&biomes[biome_id]);
+				// printf("Spawned cavern entities\n");
 			}
 		} break;
 
@@ -2331,7 +2386,7 @@ void render_entities(World* world) {
 						Vector4 col = COLOR_WHITE;
 
 						// normalize parallax opacity between thresholds
-						col.a = normalizeWithThresholds(dist, parallax->threshold_min, parallax->threshold_max);
+						// col.a = normalizeWithThresholds(dist, parallax->threshold_min, parallax->threshold_max);
 
 						// draw parallax image
 						draw_image_xform(parallax->image, xform, v2(parallax->image->width, parallax->image->height), col);
@@ -2476,19 +2531,19 @@ float distanceSquared(Vector2 v1, Vector2 v2) {
 }
 
 
-// should rename biome_size to biome location. AND add separate biome size vector2
-void update_biome(){
-	Vector2 player_pos = get_player_pos();
-	Vector2 biome_position = get_biome_data_from_id(world->dimension->current_biome_id).size;
+// // should rename biome_size to biome location. AND add separate biome size vector2
+// void update_biome(){
+// 	Vector2 player_pos = get_player_pos();
+// 	Vector2 biome_position = get_biome_data_from_id(world->dimension->current_biome_id).size;
 	
 
-	if (player_pos.x >= -biome_position.x && player_pos.x <= biome_position.x &&
-        player_pos.y >= -biome_position.y && player_pos.y <= biome_position.y) {
-        printf("player is in biome\n");
-    } else {
-        printf("Player is NOT in biome\n");
-    }
-}
+// 	if (player_pos.x >= -biome_position.x && player_pos.x <= biome_position.x &&
+//         player_pos.y >= -biome_position.y && player_pos.y <= biome_position.y) {
+//         printf("player is in biome\n");
+//     } else {
+//         printf("Player is NOT in biome\n");
+//     }
+// }
 
 
 // ----- SETUP -----------------------------------------------------------------------------------------|
@@ -2497,10 +2552,9 @@ int entry(int argc, char **argv)
 {
 	// Window
 	window.title = STR("Game.");
-	// window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)		// deprecated
-	// window.scaled_height = 720;  // deprecated
 	window.point_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
 	window.point_height = 720;
+	// window.height = 500;
 
 	// window spawn position
 	window.x = window.point_width * 0.5 + 150;				// window.x = 200; // default value // +150 so i can see console
@@ -2508,7 +2562,7 @@ int entry(int argc, char **argv)
 
 	// bg color
 	// window.clear_color = hex_to_rgba(0x43693aff);
-	window.clear_color = v4(1,1,1,1);
+	// window.clear_color = v4(1,1,1,1);
 	window.force_topmost = false;
 	window.allow_resize = false;
 
@@ -2676,12 +2730,14 @@ int entry(int argc, char **argv)
 
 	// ::INIT
 
-	// setups
-	setup_player();
-	setup_all_biomes();
+	setup_world();
 
-	world->dimension->current_biome_id = BIOME_forest;
-	world->player->inventory_items_count = 0;
+	// // setups
+	// setup_player();
+	// setup_all_biomes();
+
+	// world->dimension->current_biome_id = BIOME_forest;
+	// world->player->inventory_items_count = 0;
 	
 	// setup audio
 	setup_audio_player();
@@ -2712,60 +2768,61 @@ int entry(int argc, char **argv)
 
 
 	// ::CHEATS
-	{	
-		// add item to inventory
-		{
-			// test adding items to inventory
-			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
-			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
-			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
-			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_torch, SPRITE_TOOL_torch, TOOL_torch, true);
-			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
-			add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-			add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
-			add_item_to_inventory(ITEM_tree_sap, STR("Tree sap"), 25, ARCH_item, SPRITE_tree_sap, TOOL_nil, true);
-			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 100, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
-			// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
+	// {	
+		// moved these into "setup_world()"
+		// // add item to inventory
+		// {
+		// 	// test adding items to inventory
+		// 	add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
+		// 	add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
+		// 	add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
+		// 	add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_torch, SPRITE_TOOL_torch, TOOL_torch, true);
+		// 	add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
+		// 	add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+		// 	add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
+		// 	add_item_to_inventory(ITEM_tree_sap, STR("Tree sap"), 25, ARCH_item, SPRITE_tree_sap, TOOL_nil, true);
+		// 	add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 100, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
+		// 	// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
 
-		}
+		// }
 		
-		// test adding buildings to world
-		{
-			// FURNACE:
-			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_furnace);
-				en->pos = v2(-15, 0);
-				en->pos = round_v2_to_tile(en->pos);
-			}
+		// // test adding buildings to world
+		// {
+		// 	// FURNACE:
+		// 	{
+		// 		Entity* en = entity_create();
+		// 		setup_building(en, BUILDING_furnace);
+		// 		en->pos = v2(-15, 0);
+		// 		en->pos = round_v2_to_tile(en->pos);
+		// 	}
 
 
-			// CHEST:
-			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_chest);
-				en->pos = v2(-25, -10);
-				en->pos = round_v2_to_tile(en->pos);
-			}
+		// 	// CHEST:
+		// 	{
+		// 		Entity* en = entity_create();
+		// 		setup_building(en, BUILDING_chest);
+		// 		en->pos = v2(-25, -10);
+		// 		en->pos = round_v2_to_tile(en->pos);
+		// 	}
 
-			// workbench
-			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_workbench);
-				en->pos = v2(-28, -20);
-				en->pos = round_v2_to_tile(en->pos);
-			}
+		// 	// workbench
+		// 	{
+		// 		Entity* en = entity_create();
+		// 		setup_building(en, BUILDING_workbench);
+		// 		en->pos = v2(-28, -20);
+		// 		en->pos = round_v2_to_tile(en->pos);
+		// 	}
 
-			// parallax test
-			{
-				// Entity* en = entity_create();
-				// setup_parallax(en);
-				// en->pos = v2(0, 0);
-			}
+		// 	// parallax test
+		// 	{
+		// 		// Entity* en = entity_create();
+		// 		// setup_parallax(en);
+		// 		// en->pos = v2(0, 0);
+		// 	}
 
 
-		}
-	}
+		// }
+	// }
 
 	// ::TESTS
 	// {
@@ -2775,14 +2832,14 @@ int entry(int argc, char **argv)
 		smelting_animation = setup_smelting_animation();
 	// }
 
+
+	// world->ux_state = UX_mainmenu;
+	Gfx_Image* mainmenu_bg = load_image_from_disk(STR("res/title_screen.png"), get_heap_allocator());
+
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
 	while (!window.should_close) {
 
-
 		reset_temporary_storage();
-
-		// reset world_frame
-		world_frame = (WorldFrame){0};
 
 		// :Timing
 		// float64 current_time = os_get_current_time_in_seconds(); // deprecated
@@ -2791,10 +2848,62 @@ int entry(int argc, char **argv)
 		last_time = current_time;
 		os_update(); 
 
+		if (world->ux_state == UX_mainmenu){
+			{
+			
+			Vector2 size = v2(mainmenu_bg->width, mainmenu_bg->height);
+			Matrix4 xform = m4_identity;
+			xform = m4_translate(xform, v3(size.x * -0.5, size.y * -0.5, 0));
+			draw_image_xform(mainmenu_bg, xform, v2(mainmenu_bg->width, mainmenu_bg->height), COLOR_WHITE);
+
+			Matrix4 xform_play = m4_identity;
+			// xform_play = m4_translate(xform_play, v3((size.x * -0.5) + 658, (size.y * -0.5) + 403, 0));
+			xform_play = m4_translate(xform_play, v3((size.x * -0.5), (size.y * -0.5), 0));
+			xform_play = m4_translate(xform_play, v3(658, size.y - 506, 0));
+
+			Vector4 col = v4(1, 0, 0, 0.0);
+
+			Draw_Quad* quad_play = draw_rect_xform(xform_play, v2(392, 103), col);
+
+			if (range2f_contains(quad_to_range(*quad_play), get_mouse_pos_in_ndc())){
+				if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
+					
+					if (os_is_file_s(STR("world"))) {
+						bool result = world_attempt_load_from_disk();
+						if (!result) {
+							// just setup a new world if it fails. temp
+							setup_world();
+						}
+						setup_world();
+					}
+					else {
+						setup_world();
+					}
+
+					world_save_to_disk();
+				}
+			}
+
+			// gfx_update();
+
+			
+			}
+		}
+
+
+	else{
+
+
+		// reset world_frame
+		world_frame = (WorldFrame){0};
+
+
 		// player
 		world->player->en = get_player_en_from_current_dim();
 		sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
 		// update_biome();
+		
+		
 
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
@@ -2967,226 +3076,226 @@ int entry(int argc, char **argv)
 
 
 		// // :Render grid (:Grid)
-		// draw_grid = false;
-		// if (draw_grid)
-		// {	
-		// 	// NOTE: rendering tiles has a big fkin impact on fps 
-		// 	int player_tile_x = world_pos_to_tile_pos(world->player->en->pos.x);
-		// 	int player_tile_y = world_pos_to_tile_pos(world->player->en->pos.y);
-		// 	int tile_radius_x = 18;
-		// 	int tile_radius_y = 12;
+			// draw_grid = false;
+			// if (draw_grid)
+			// {	
+			// 	// NOTE: rendering tiles has a big fkin impact on fps 
+			// 	int player_tile_x = world_pos_to_tile_pos(world->player->en->pos.x);
+			// 	int player_tile_y = world_pos_to_tile_pos(world->player->en->pos.y);
+			// 	int tile_radius_x = 18;
+			// 	int tile_radius_y = 12;
 
-		// 	for (int x = player_tile_x - tile_radius_x; x < player_tile_x + tile_radius_x; x++){
-		// 		for (int y = player_tile_y - tile_radius_y; y < player_tile_y + tile_radius_y; y++){
-						
-		// 				// BiomeID id = biome_at_tile(v2_world_pos_to_tile_pos(get_player_pos()));
+			// 	for (int x = player_tile_x - tile_radius_x; x < player_tile_x + tile_radius_x; x++){
+			// 		for (int y = player_tile_y - tile_radius_y; y < player_tile_y + tile_radius_y; y++){
+							
+			// 				// BiomeID id = biome_at_tile(v2_world_pos_to_tile_pos(get_player_pos()));
 
-		// 				float x_pos = x * tile_width;
-		// 				float y_pos = y * tile_width;
+			// 				float x_pos = x * tile_width;
+			// 				float y_pos = y * tile_width;
 
-		// 				BiomeID id = biome_at_tile(v2_world_pos_to_tile_pos(v2(x_pos, y_pos)));
-		// 				Vector4 col = get_biome_data_from_id(id).grass_color;
-						
-		// 				// Draw Tile Grid
-		// 				draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
-		// 			// }
-		// 		}
-		// 	}
-		// 	// Draw different tile on mouse pos
-		// 	// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
-		// }
+			// 				BiomeID id = biome_at_tile(v2_world_pos_to_tile_pos(v2(x_pos, y_pos)));
+			// 				Vector4 col = get_biome_data_from_id(id).grass_color;
+							
+			// 				// Draw Tile Grid
+			// 				draw_rect(v2(x_pos + tile_width * -0.5, y_pos + tile_width * -0.5), v2(tile_width, tile_width), col);
+			// 			// }
+			// 		}
+			// 	}
+			// 	// Draw different tile on mouse pos
+			// 	// draw_rect(v2(tile_pos_to_world_pos(mouse_tile_x) + tile_width * -0.5, tile_pos_to_world_pos(mouse_tile_y) + tile_width * -0.5), v2(tile_width, tile_width), v4(0.5, 0.5, 0.5, 0.5)); //hex_to_rgba(0x406438ff)
+			// }
 
 
-		// // :Draw ground texture || :draw_ground 
-		// render_ground_texture = false;
-		// if (render_ground_texture)
-		// {
+			// // :Draw ground texture || :draw_ground 
+			// render_ground_texture = false;
+			// if (render_ground_texture)
+			// {
 
-		// 	// this shit way too complex
-		// 	// disgusting
+			// 	// this shit way too complex
+			// 	// disgusting
 
-		// 	// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
-		// 	// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
-		// 	float player_pos_x = world->player->en->pos.x;
-		// 	float player_pos_y = world->player->en->pos.y;
+			// 	// int player_tile_x = world_pos_to_tile_pos(player_en->pos.x);
+			// 	// int player_tile_y = world_pos_to_tile_pos(player_en->pos.y);
+			// 	float player_pos_x = world->player->en->pos.x;
+			// 	float player_pos_y = world->player->en->pos.y;
 
-		// 	if (world->dimension->current_biome_id == BIOME_cave){
-		// 		int asd = 1;
-		// 	}
-		// 	// Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
-		// 	Texture* texture = get_texture(get_biome_data_from_id(world->dimension->current_biome_id).ground_texture);
-		// 	// Texture* texture = get_texture(get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(player_pos_x, player_pos_y)))).ground_texture);
-		// 	Vector4 color = COLOR_WHITE;
+			// 	if (world->dimension->current_biome_id == BIOME_cave){
+			// 		int asd = 1;
+			// 	}
+			// 	// Texture* texture = get_texture(get_biome_data_from_id(world->current_biome_id).ground_texture);
+			// 	Texture* texture = get_texture(get_biome_data_from_id(world->dimension->current_biome_id).ground_texture);
+			// 	// Texture* texture = get_texture(get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(player_pos_x, player_pos_y)))).ground_texture);
+			// 	Vector4 color = COLOR_WHITE;
 
-		// 	// add color adjustment to texture
-		// 	// Vector4 col_adjustment = get_biome_data_from_id(world->current_biome_id).grass_color;
-		// 	if (get_biome_data_from_id(world->dimension->current_biome_id).grass_color.a != 0){
-		// 		color = get_biome_data_from_id(world->dimension->current_biome_id).grass_color;
-		// 	}
+			// 	// add color adjustment to texture
+			// 	// Vector4 col_adjustment = get_biome_data_from_id(world->current_biome_id).grass_color;
+			// 	if (get_biome_data_from_id(world->dimension->current_biome_id).grass_color.a != 0){
+			// 		color = get_biome_data_from_id(world->dimension->current_biome_id).grass_color;
+			// 	}
 
-		// 	//  ______________
-		// 	// | Xform LOGIC:
-		// 	// | - A B C
-		// 	// | - D M E
-		// 	// | - F G H
-		// 	// |______________
+			// 	//  ______________
+			// 	// | Xform LOGIC:
+			// 	// | - A B C
+			// 	// | - D M E
+			// 	// | - F G H
+			// 	// |______________
 
-		// 	Matrix4 xform_M = m4_identity;
-		// 	Matrix4 xform_A = m4_identity;
-		// 	Matrix4 xform_B = m4_identity;
-		// 	Matrix4 xform_C = m4_identity;
-		// 	Matrix4 xform_D = m4_identity;
-		// 	Matrix4 xform_E = m4_identity;
-		// 	Matrix4 xform_F = m4_identity;
-		// 	Matrix4 xform_G = m4_identity;
-		// 	Matrix4 xform_H = m4_identity;
+			// 	Matrix4 xform_M = m4_identity;
+			// 	Matrix4 xform_A = m4_identity;
+			// 	Matrix4 xform_B = m4_identity;
+			// 	Matrix4 xform_C = m4_identity;
+			// 	Matrix4 xform_D = m4_identity;
+			// 	Matrix4 xform_E = m4_identity;
+			// 	Matrix4 xform_F = m4_identity;
+			// 	Matrix4 xform_G = m4_identity;
+			// 	Matrix4 xform_H = m4_identity;
 
-		// 	// attempt #4
-		// 	// Vector2 texture_size = get_texture_size(texture); // old
-		// 	Vector2 texture_size = get_texture_size(*texture); // new
+			// 	// attempt #4
+			// 	// Vector2 texture_size = get_texture_size(texture); // old
+			// 	Vector2 texture_size = get_texture_size(*texture); // new
 
-		// 	float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
-		// 	float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
-		// 	bool x_axis_fix = false;
-			
-		// 	// x-axis fix
-		// 	if (player_pos_y < 0 && traveled_step_y == 0 && traveled_step_x != 0){
-		// 		x_axis_fix = true;
-		// 	}
+			// 	float traveled_step_x = (int)((player_pos_x / (texture_size.x * 2)) * 2) * texture_size.x;
+			// 	float traveled_step_y = (int)((player_pos_y / (texture_size.y * 2)) * 2) * texture_size.y;
+			// 	bool x_axis_fix = false;
+				
+			// 	// x-axis fix
+			// 	if (player_pos_y < 0 && traveled_step_y == 0 && traveled_step_x != 0){
+			// 		x_axis_fix = true;
+			// 	}
 
-		// 	if (traveled_step_x < 0){ 			// left
-		// 		// printf("LEFT ");
-		// 		if (traveled_step_y < 0){
-		// 			// printf("DOWN \n");
-		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		,	traveled_step_y - texture_size.y			, 0));
-		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y 							, 0));
-		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		,	traveled_step_y 							, 0));
-		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x						,	traveled_step_y 							, 0));
-		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - texture_size.y			, 0));
-		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x						,	traveled_step_y - texture_size.y			, 0));
-		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - (texture_size.y * 2)		, 0));
-		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		,	traveled_step_y - (texture_size.y * 2)		, 0));
-		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x						,	traveled_step_y - (texture_size.y * 2)		, 0));
-		// 		}
-		// 		else{
-		// 			// printf("UP \n");
-		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		, 	traveled_step_y								, 0));
-		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y + texture_size.y			, 0));
-		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		, 	traveled_step_y + texture_size.y			, 0));
-		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x						, 	traveled_step_y + texture_size.y			, 0));
-		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y								, 0));
-		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x						, 	traveled_step_y								, 0));
-		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y - texture_size.y			, 0));
-		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		, 	traveled_step_y - texture_size.y			, 0));
-		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x						, 	traveled_step_y - texture_size.y			, 0));
-		// 		}
-		// 	}
-			
-		// 	else if (traveled_step_x == 0){ 	// middle x = 0
-		// 		// printf("MIDDLE\n");
-		// 		if (player_pos_x < 0.0f){
-		// 			if (player_pos_y < 0.0f){
-		// 				xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y - texture_size.y			, 0));
-		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
-		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
-		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y							, 0));
-		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
-		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
-		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y * 2		, 0));
-		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
-		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
+			// 	if (traveled_step_x < 0){ 			// left
+			// 		// printf("LEFT ");
+			// 		if (traveled_step_y < 0){
+			// 			// printf("DOWN \n");
+			// 			xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		,	traveled_step_y - texture_size.y			, 0));
+			// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y 							, 0));
+			// 			xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		,	traveled_step_y 							, 0));
+			// 			xform_C = m4_translate(xform_C, v3(traveled_step_x						,	traveled_step_y 							, 0));
+			// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - texture_size.y			, 0));
+			// 			xform_E = m4_translate(xform_E, v3(traveled_step_x						,	traveled_step_y - texture_size.y			, 0));
+			// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	,	traveled_step_y - (texture_size.y * 2)		, 0));
+			// 			xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		,	traveled_step_y - (texture_size.y * 2)		, 0));
+			// 			xform_H = m4_translate(xform_H, v3(traveled_step_x						,	traveled_step_y - (texture_size.y * 2)		, 0));
+			// 		}
+			// 		else{
+			// 			// printf("UP \n");
+			// 			xform_M = m4_translate(xform_M, v3(traveled_step_x - texture_size.x		, 	traveled_step_y								, 0));
+			// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y + texture_size.y			, 0));
+			// 			xform_B = m4_translate(xform_B, v3(traveled_step_x - texture_size.x		, 	traveled_step_y + texture_size.y			, 0));
+			// 			xform_C = m4_translate(xform_C, v3(traveled_step_x						, 	traveled_step_y + texture_size.y			, 0));
+			// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y								, 0));
+			// 			xform_E = m4_translate(xform_E, v3(traveled_step_x						, 	traveled_step_y								, 0));
+			// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x * 2	, 	traveled_step_y - texture_size.y			, 0));
+			// 			xform_G = m4_translate(xform_G, v3(traveled_step_x - texture_size.x		, 	traveled_step_y - texture_size.y			, 0));
+			// 			xform_H = m4_translate(xform_H, v3(traveled_step_x						, 	traveled_step_y - texture_size.y			, 0));
+			// 		}
+			// 	}
+				
+			// 	else if (traveled_step_x == 0){ 	// middle x = 0
+			// 		// printf("MIDDLE\n");
+			// 		if (player_pos_x < 0.0f){
+			// 			if (player_pos_y < 0.0f){
+			// 				xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y - texture_size.y			, 0));
+			// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
+			// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+			// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y							, 0));
+			// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
+			// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+			// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y * 2		, 0));
+			// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+			// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
 
-		// 			}
-		// 			else{
-		// 				xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y							, 0));
-		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y + texture_size.y			, 0));
-		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
-		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
-		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
-		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y							, 0));
-		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
-		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
-		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+			// 			}
+			// 			else{
+			// 				xform_M = m4_translate(xform_M, v3(-texture_size.x							, traveled_step_y							, 0));
+			// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y + texture_size.y			, 0));
+			// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+			// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
+			// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y							, 0));
+			// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x							, traveled_step_y							, 0));
+			// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x * 2	, traveled_step_y - texture_size.y			, 0));
+			// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
 
-		// 			}
-		// 		}
-		// 		else{
-		// 			if (player_pos_y < 0.0f){
-		// 				xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y - texture_size.y			, 0));
-		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
-		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y							, 0));
-		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
-		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
-		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
-		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
-		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+			// 			}
+			// 		}
+			// 		else{
+			// 			if (player_pos_y < 0.0f){
+			// 				xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+			// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+			// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y							, 0));
+			// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+			// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
+			// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y * 2		, 0));
+			// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y * 2		, 0));
 
-		// 			}
-		// 			else{
-		// 				xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y							, 0));
-		// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
-		// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
-		// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
-		// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
-		// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
-		// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
-		// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
-		// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 			}
+			// 			else{
+			// 				xform_M = m4_translate(xform_M, v3(traveled_step_x							, traveled_step_y							, 0));
+			// 				xform_A = m4_translate(xform_A, v3(-traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+			// 				xform_B = m4_translate(xform_B, v3(-traveled_step_x							, traveled_step_y + texture_size.y			, 0));
+			// 				xform_C = m4_translate(xform_C, v3(-traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
+			// 				xform_D = m4_translate(xform_D, v3(-traveled_step_x - texture_size.x		, traveled_step_y							, 0));
+			// 				xform_E = m4_translate(xform_E, v3(-traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+			// 				xform_F = m4_translate(xform_F, v3(-traveled_step_x - texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 				xform_G = m4_translate(xform_G, v3(-traveled_step_x							, traveled_step_y - texture_size.y			, 0));
+			// 				xform_H = m4_translate(xform_H, v3(-traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
 
-		// 			}
-		// 		}
-		// 	}
+			// 			}
+			// 		}
+			// 	}
 
-		// 	else{ 								// right
-		// 		// printf("RIGHT ");
-		// 		if (traveled_step_y < 0){
-		// 			// printf("DOWN\n");
-		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y - texture_size.y			, 0));
-		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y 							, 0));
-		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y 							, 0));
-		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y 							, 0));
-		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
-		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - (texture_size.y * 2)	, 0));
-		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - (texture_size.y * 2)	, 0));
-		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - (texture_size.y * 2)	, 0));
-		// 		}
-		// 		else{
-		// 			// printf("UP\n");
-		// 			xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y							, 0));
-		// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
-		// 			xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y + texture_size.y			, 0));
-		// 			xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
-		// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y							, 0));
-		// 			xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y							, 0));
-		// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
-		// 			xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - texture_size.y			, 0));
-		// 			xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
-		// 		}
-		// 	}
+			// 	else{ 								// right
+			// 		// printf("RIGHT ");
+			// 		if (traveled_step_y < 0){
+			// 			// printf("DOWN\n");
+			// 			xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y - texture_size.y			, 0));
+			// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y 							, 0));
+			// 			xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y 							, 0));
+			// 			xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y 							, 0));
+			// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
+			// 			xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - (texture_size.y * 2)	, 0));
+			// 			xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - (texture_size.y * 2)	, 0));
+			// 			xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - (texture_size.y * 2)	, 0));
+			// 		}
+			// 		else{
+			// 			// printf("UP\n");
+			// 			xform_M = m4_translate(xform_M, v3(traveled_step_x 						, traveled_step_y							, 0));
+			// 			xform_A = m4_translate(xform_A, v3(traveled_step_x - texture_size.x		, traveled_step_y + texture_size.y			, 0));
+			// 			xform_B = m4_translate(xform_B, v3(traveled_step_x						, traveled_step_y + texture_size.y			, 0));
+			// 			xform_C = m4_translate(xform_C, v3(traveled_step_x + texture_size.x		, traveled_step_y + texture_size.y			, 0));
+			// 			xform_D = m4_translate(xform_D, v3(traveled_step_x - texture_size.x 	, traveled_step_y							, 0));
+			// 			xform_E = m4_translate(xform_E, v3(traveled_step_x + texture_size.x		, traveled_step_y							, 0));
+			// 			xform_F = m4_translate(xform_F, v3(traveled_step_x - texture_size.x 	, traveled_step_y - texture_size.y			, 0));
+			// 			xform_G = m4_translate(xform_G, v3(traveled_step_x						, traveled_step_y - texture_size.y			, 0));
+			// 			xform_H = m4_translate(xform_H, v3(traveled_step_x + texture_size.x		, traveled_step_y - texture_size.y			, 0));
+			// 		}
+			// 	}
 
-		// 	if (x_axis_fix){
-		// 		xform_M = m4_translate(xform_M, v3(0, -texture_size.y, 0));
-		// 		xform_A = m4_translate(xform_A, v3(0, -texture_size.y, 0));
-		// 		xform_B = m4_translate(xform_B, v3(0, -texture_size.y, 0));
-		// 		xform_C = m4_translate(xform_C, v3(0, -texture_size.y, 0));
-		// 		xform_D = m4_translate(xform_D, v3(0, -texture_size.y, 0));
-		// 		xform_E = m4_translate(xform_E, v3(0, -texture_size.y, 0));
-		// 		xform_F = m4_translate(xform_F, v3(0, -texture_size.y, 0));
-		// 		xform_G = m4_translate(xform_G, v3(0, -texture_size.y, 0));
-		// 		xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
-		// 	}
+			// 	if (x_axis_fix){
+			// 		xform_M = m4_translate(xform_M, v3(0, -texture_size.y, 0));
+			// 		xform_A = m4_translate(xform_A, v3(0, -texture_size.y, 0));
+			// 		xform_B = m4_translate(xform_B, v3(0, -texture_size.y, 0));
+			// 		xform_C = m4_translate(xform_C, v3(0, -texture_size.y, 0));
+			// 		xform_D = m4_translate(xform_D, v3(0, -texture_size.y, 0));
+			// 		xform_E = m4_translate(xform_E, v3(0, -texture_size.y, 0));
+			// 		xform_F = m4_translate(xform_F, v3(0, -texture_size.y, 0));
+			// 		xform_G = m4_translate(xform_G, v3(0, -texture_size.y, 0));
+			// 		xform_H = m4_translate(xform_H, v3(0, -texture_size.y, 0));
+			// 	}
 
-		// 	draw_image_xform(texture->image, xform_M, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_A, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_B, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_C, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_D, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_E, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_F, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_G, texture_size, color);
-		// 	draw_image_xform(texture->image, xform_H, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_M, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_A, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_B, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_C, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_D, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_E, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_F, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_G, texture_size, color);
+			// 	draw_image_xform(texture->image, xform_H, texture_size, color);
 		// }
 
 
@@ -3426,7 +3535,10 @@ int entry(int argc, char **argv)
 						// |------- SHOVEL -------|
 						// #portal
 						if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_shovel){
-							if (world->dimension->current_biome_id == BIOME_forest){ create_portal_to(DIM_cavern, true); }
+							// if (world->dimension->current_biome_id == BIOME_forest){
+							if (world->dimension->id == DIM_overworld){
+								create_portal_to(DIM_cavern, true); 
+							}
 						}
 					}
 				}
@@ -3518,11 +3630,13 @@ int entry(int argc, char **argv)
 
 
 
-		if (world->open_crafting_station) printf("Open crafting station = %.0f\n", world->open_crafting_station->pos.x);
+		// if (world->open_crafting_station) printf("Open crafting station = %.0f\n", world->open_crafting_station->pos.x);
+		// update_biome();
+
 
 		// bool should_respawn = biome_at_tile(v2_world_pos_to_tile_pos(v2(0,0))) == BIOME_cave;
 
-		printf("player biome = %d\n", biome_at_tile(v2_world_pos_to_tile_pos(get_player_pos())));
+		// printf("player biome = %d\n", biome_at_tile(v2_world_pos_to_tile_pos(get_player_pos())));
 
 		// #animation test
 		// draw_animation(torch_animation, now, v2(get_player_pos().x, get_player_pos().y));
@@ -3622,7 +3736,14 @@ int entry(int argc, char **argv)
 		}
 			// update_animations(delta_t);
 
-		// if (is_key_just_pressed('H')) {generateLoot(lootTable_rock, 100, v2(0,0));}
+		// if (is_key_just_pressed('N')) {
+		// 	world_save_to_disk();
+		// }
+
+		// if (is_key_just_pressed('M')) {
+		// 	int result = world_attempt_load_from_disk();
+		// 	printf("Result loading from disc = %d\n", result);
+		// }
 		// if (is_key_just_pressed('R')) {trigger_dim_change_animation(camera_pos);}
 
 		// #Biome
@@ -3634,7 +3755,6 @@ int entry(int argc, char **argv)
 		// if (is_key_just_pressed('M')) {change_dimensions(DIM_cavern);}
 
 		// if (is_key_just_pressed('Y')) {trigger_pickup_text();}
-
 
 
 
@@ -3716,9 +3836,19 @@ int entry(int argc, char **argv)
 		input_axis = v2_normalize(input_axis);
 
 		// player_pos = player_pos + (input_axis * 10.0);
+
+
+		// @ship del this
+		if (IS_DEBUG){
+			world->player->running_speed_amount = 500;
+		}
+		else{
+			world->player->running_speed_amount = 100;
+		}
 		
 		if (world->player->is_running){ world->player->en->pos = v2_add(world->player->en->pos, v2_mulf(input_axis, world->player->running_speed_amount * delta_t)); }
 		else { world->player->en->pos = v2_add(world->player->en->pos, v2_mulf(input_axis, world->player->walking_speed * delta_t)); }
+	}
 
 		gfx_update();
 
@@ -3733,5 +3863,6 @@ int entry(int argc, char **argv)
 			frame_count = 0;
 		}
 	}
+
 	return 0;
 }
