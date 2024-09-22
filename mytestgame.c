@@ -2178,6 +2178,7 @@ void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count
 	// }
 */
 
+
 // ::Render entities || ::Entity render
 void render_entities(World* world) {
 
@@ -2554,7 +2555,7 @@ int entry(int argc, char **argv)
 
 	// bg color
 	// window.clear_color = hex_to_rgba(0x43693aff);
-	// window.clear_color = v4(1,1,1,1);
+	window.clear_color = v4(0.3,0.3,0.3,1);
 	window.force_topmost = false;
 	window.allow_resize = false;
 
@@ -2694,38 +2695,70 @@ int entry(int argc, char **argv)
 		}
 	// 
 
+	// ::INIT
 
 	// init_WorldData(&map);
 
-
+	setup_world();
 
 	// setup dimensions
 	setup_all_dimensions();
-	// add_all_biomes_to_dimensions();
-
-	// set current dimension
 	world->dimension = get_dimensionData(DIM_overworld);
 	// world->dimension->id = DIM_overworld;
 	world->dimension->entity_count = 0;
+	world->dimension->current_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(0,0))); // do get_player_pos() here instead of 0,0 vector
 
-	int asdasdasd2=0;
+
+	setup_player();
 
 
+	#if defined(DEV_TESTING)
+	// test adding buildings to world
+	{
+		// FURNACE:
+		{
+			Entity* en = entity_create();
+			setup_building(en, BUILDING_furnace);
+			en->pos = v2(-15, 0);
+			en->pos = round_v2_to_tile(en->pos);
+		}
+
+
+		// CHEST:
+		{
+			Entity* en = entity_create();
+			setup_building(en, BUILDING_chest);
+			en->pos = v2(-25, -10);
+			en->pos = round_v2_to_tile(en->pos);
+		}
+
+		// workbench
+		{
+			Entity* en = entity_create();
+			setup_building(en, BUILDING_workbench);
+			en->pos = v2(-28, -20);
+			en->pos = round_v2_to_tile(en->pos);
+		}
+
+		// parallax test
+		{
+			// Entity* en = entity_create();
+			// setup_parallax(en);
+			// en->pos = v2(0, 0);
+		}
+	}
+	#endif
 
 	// Building resource setup
-	{
-		buildings[BUILDING_furnace] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_furnace, .building_id=BUILDING_furnace};
-		buildings[BUILDING_workbench] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_workbench, .building_id=BUILDING_workbench};
-		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_chest, .building_id=BUILDING_chest};
-	}
+	setup_all_building_resources();
+
 
 	// crafting & smelting recipes setup
 	setup_all_recipes();
 
 
-	// ::INIT
 
-	setup_world();
+	// setup_world();
 
 	// Set all chunk pointers to NULL (indicating unloaded chunks)
 	// Allocate the 2D array of Chunk pointers
@@ -2740,11 +2773,11 @@ int entry(int argc, char **argv)
 	// 	memset(world->dimension->chunks[x], 0, CHUNK_SIZE * sizeof(Chunk*));
 	// }
 
-	world->dimension->chunks = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate rows
-	for (int i = 0; i < MAX_CHUNKS; i++) {
-		world->dimension->chunks[i] = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate columns
-		memset(world->dimension->chunks[i], 0, MAX_CHUNKS * sizeof(Chunk*));  // Initialize all pointers to NULL
-	}
+	// world->dimension->chunks = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate rows
+	// for (int i = 0; i < MAX_CHUNKS; i++) {
+	// 	world->dimension->chunks[i] = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate columns
+	// 	memset(world->dimension->chunks[i], 0, MAX_CHUNKS * sizeof(Chunk*));  // Initialize all pointers to NULL
+	// }
 
 	// // setups
 	// setup_player();
@@ -2778,79 +2811,14 @@ int entry(int argc, char **argv)
 	// view_zoom += 0.2;		// zoom out a bit
 
 
-
-
-
-	// ::CHEATS
-	// {	
-		// moved these into "setup_world()"
-		// // add item to inventory
-		// {
-		// 	// test adding items to inventory
-		// 	add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
-		// 	add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
-		// 	add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
-		// 	add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_torch, SPRITE_TOOL_torch, TOOL_torch, true);
-		// 	add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
-		// 	add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-		// 	add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
-		// 	add_item_to_inventory(ITEM_tree_sap, STR("Tree sap"), 25, ARCH_item, SPRITE_tree_sap, TOOL_nil, true);
-		// 	add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 100, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
-		// 	// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
-
-		// }
-		
-		// // test adding buildings to world
-		// {
-		// 	// FURNACE:
-		// 	{
-		// 		Entity* en = entity_create();
-		// 		setup_building(en, BUILDING_furnace);
-		// 		en->pos = v2(-15, 0);
-		// 		en->pos = round_v2_to_tile(en->pos);
-		// 	}
-
-
-		// 	// CHEST:
-		// 	{
-		// 		Entity* en = entity_create();
-		// 		setup_building(en, BUILDING_chest);
-		// 		en->pos = v2(-25, -10);
-		// 		en->pos = round_v2_to_tile(en->pos);
-		// 	}
-
-		// 	// workbench
-		// 	{
-		// 		Entity* en = entity_create();
-		// 		setup_building(en, BUILDING_workbench);
-		// 		en->pos = v2(-28, -20);
-		// 		en->pos = round_v2_to_tile(en->pos);
-		// 	}
-
-		// 	// parallax test
-		// 	{
-		// 		// Entity* en = entity_create();
-		// 		// setup_parallax(en);
-		// 		// en->pos = v2(0, 0);
-		// 	}
-
-
-		// }
-	// }
-
-	// ::TESTS
-	// {
-		held_torch_animation = setup_held_torch_animation();
-		ground_torch_animation = setup_ground_torch_animation();
-		crafting_animation = setup_crafting_animation();
-		smelting_animation = setup_smelting_animation();
-	// }
+	held_torch_animation = setup_held_torch_animation();
+	ground_torch_animation = setup_ground_torch_animation();
+	crafting_animation = setup_crafting_animation();
+	smelting_animation = setup_smelting_animation();
 
 
 	// world->ux_state = UX_mainmenu;
 	Gfx_Image* mainmenu_bg = load_image_from_disk(STR("res/title_screen.png"), get_heap_allocator());
-	// init_chunks_for_current_dim();
-	// int asdasd = 0;
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
 	while (!window.should_close) {
@@ -2919,14 +2887,11 @@ int entry(int argc, char **argv)
 		sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
 		// update_biome();
 
-		do_chunk_magic();
-		
-		
 
 		// :Frame :update
 		draw_frame.enable_z_sorting = true;
 		world_frame.world_projection = m4_make_orthographic_projection(window.width * -0.5, window.width * 0.5, window.height * -0.5, window.height * 0.5, -1, 10);
-
+		
 
 		// :camera
 		if (!animation_dim_change.active)
@@ -2951,6 +2916,7 @@ int entry(int argc, char **argv)
 
 
 
+		do_chunk_magic();
 
 
 
@@ -3635,6 +3601,7 @@ int entry(int argc, char **argv)
 		render_entities(world);
 
 
+
 		// update animations
 		update_animations(delta_t);
 
@@ -3670,11 +3637,11 @@ int entry(int argc, char **argv)
 			render_keybinding(world_frame.selected_entity, KEY_player_use);
 		}
 
-		if (render_fps){
-			set_screen_space();
-			draw_text(font, sprint(get_heap_allocator(), STR("%d"), fps), font_height, v2(0,screen_height-3), v2(0.1, 0.1), COLOR_WHITE);
-			set_world_space();
-		}
+		// if (render_fps){
+		// 	set_screen_space();
+		// 	draw_text(font, sprint(get_heap_allocator(), STR("%d"), fps), font_height, v2(0,screen_height-3), v2(0.1, 0.1), COLOR_WHITE);
+		// 	set_world_space();
+		// }
 
 
 

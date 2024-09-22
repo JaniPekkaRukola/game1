@@ -177,7 +177,6 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 	void set_screen_space() {
-		// draw_frame.view = m4_scalar(1.0);		// deprecated
 		draw_frame.camera_xform = m4_scalar(1.0);
 		draw_frame.projection = m4_make_orthographic_projection(0.0, screen_width, 0.0, screen_height, -1, 10);
 	}
@@ -185,7 +184,6 @@ DimensionData *get_dimensionData(DimensionID);
 	void set_world_space() {
 		// make the viewport (or whatever) to window size, instead of -1.7, 1.7, -1, 1
 		draw_frame.projection = world_frame.world_projection;
-		// draw_frame.view = world_frame.world_view; // deprecated
 		draw_frame.camera_xform = world_frame.world_view;
 	}
 
@@ -521,7 +519,8 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :DIMENSION --------------------->
 	DimensionData *get_dimensionData(DimensionID id){
-		return &dimensions[id];
+		// return &dimensions[id]; // dimensions moved into world struct
+		return world->dimensions[id];
 	}
 
 	// void add_biomes_to_dimension(DimensionID dim, BiomeID* biomes, int count){
@@ -868,7 +867,9 @@ DimensionData *get_dimensionData(DimensionID);
 
 	// :INVENTORY || :ITEM ------------>
 	void add_item_to_inventory(ItemID item, string name, int amount, EntityArchetype arch, SpriteID sprite_id, ToolID tool_id, bool valid) {
+
 		Player *player = world->player;
+		assert(player, "Player was a nullptr @ 'add_item_to_inventory'");
 
 		// printf("ADDED ITEM %d TO INVENTORY\n", item);
 
@@ -1363,9 +1364,26 @@ DimensionData *get_dimensionData(DimensionID);
 		player->entity_selection_radius = 5.0f;
 		player->item_pickup_radius = 15.0f;
 		player->selected_building = NULL;
+		player->inventory_items_count = 0;
 
 		// add player to world struct
 		world->player = player;
+
+		#if defined(DEV_TESTING)
+		{
+			// test adding items to inventory
+			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
+			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
+			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
+			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_torch, SPRITE_TOOL_torch, TOOL_torch, true);
+			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
+			add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
+			add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
+			add_item_to_inventory(ITEM_tree_sap, STR("Tree sap"), 25, ARCH_item, SPRITE_tree_sap, TOOL_nil, true);
+			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 100, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
+			// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
+		}
+		#endif
 	}
 
 
@@ -1600,6 +1618,12 @@ DimensionData *get_dimensionData(DimensionID);
 
 			default: log_error("Missing building_setup case entry"); break;
 		}
+	}
+
+	void setup_all_building_resources(){
+		buildings[BUILDING_furnace] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_furnace, .building_id=BUILDING_furnace};
+		buildings[BUILDING_workbench] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_workbench, .building_id=BUILDING_workbench};
+		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_chest, .building_id=BUILDING_chest};
 	}
 
 
@@ -1945,46 +1969,20 @@ DimensionData *get_dimensionData(DimensionID);
 		}
 	}
 
+	// void setup_dimension_chunks(DimensionData* dimension);
+	void initialize_chunks(DimensionData* dimension);
 
 	void setup_dimension(DimensionID id) {
 
 		DimensionData* dimension = 0;
 		dimension = alloc(get_heap_allocator(), sizeof(DimensionData));
 		dimension->id = id;
+
+		// setup_dimension_chunks(dimension);
+		initialize_chunks(dimension); // NOTE: this sets all chunk pointers to NULL. so any dimensional changes to chunks have to be made after this
+		dimension->chunk_size = 512;
 		dimension->chunk_count = 0;
-
-		// memset(world->dimension->chunks, 0, sizeof(world->dimension->chunks));
-
-		// #chunk
-		dimension->chunk_size = CHUNK_SIZE;
 		
-		// Allocate the chunk grid
-		dimension->chunks = (Chunk***)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
-		// dimension->chunks = (Chunk**)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
-		for (int i = 0; i < CHUNK_SIZE; i++) {
-			dimension->chunks[i] = (Chunk**)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
-			// dimension->chunks[i] = (Chunk*)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
-			for (int j = 0; j < CHUNK_SIZE; j++) {
-				dimension->chunks[i][j] = NULL;  // Initially, no chunks are loaded
-			}
-		}
-
-		// int max_chunks = 100;
-
-		// // Allocate memory for the chunk grid (1D array used as 2D)
-		// dimension->chunks = alloc(get_heap_allocator(), max_chunks * max_chunks * sizeof(Chunk*));
-		// assert(dimension->chunks != NULL);  // Ensure allocation succeeded
-
-		// // Initialize all pointers to NULL to indicate that chunks have not been loaded yet
-		// memset(dimension->chunks, 0, max_chunks * max_chunks * sizeof(Chunk*));
-
-		// Allocate memory for the 2D array of chunk pointers
-		// dimension->chunks = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk*));
-		// for (int x = 0; x < CHUNK_SIZE; x++) {
-		// 	dimension->chunks[x] = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk*));
-		// 	memset(dimension->chunks[x], 0, CHUNK_SIZE * sizeof(Chunk*)); // Initialize with NULLs
-		// }
-
 		switch (id){
 			case DIM_overworld:{
 				{
@@ -2080,71 +2078,17 @@ DimensionData *get_dimensionData(DimensionID);
 	}
 
 
-#define DEV_TESTING
 
 
 	// world setup ---->
 	void setup_world(){
 
-		setup_player();
 		
 		setup_all_biomes();
 		// world->dimension->current_biome_id = BIOME_forest;
 		// world->dimension->current_biome_id = BIOME_pine_forest;
-		world->dimension->current_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(0,0))); // do get_player_pos() here instead of 0,0 vector
-		world->player->inventory_items_count = 0;
 
-		// add item to inventory
-		#if defined(DEV_TESTING)
-		{
-			// test adding items to inventory
-			add_item_to_inventory(ITEM_TOOL_pickaxe, STR("Pickaxe"), 1, ARCH_tool, SPRITE_TOOL_pickaxe, TOOL_pickaxe, true);
-			add_item_to_inventory(ITEM_TOOL_axe, STR("Axe"), 1, ARCH_tool, SPRITE_TOOL_axe, TOOL_axe, true);
-			add_item_to_inventory(ITEM_TOOL_shovel, STR("Shovel"), 1, ARCH_tool, SPRITE_TOOL_shovel, TOOL_shovel, true);
-			add_item_to_inventory(ITEM_TOOL_torch, STR("Torch"), 1, ARCH_torch, SPRITE_TOOL_torch, TOOL_torch, true);
-			add_item_to_inventory(ITEM_ORE_iron, STR("iron ore"), 25, ARCH_ore, SPRITE_ORE_iron, TOOL_nil, true);
-			add_item_to_inventory(ITEM_rock, STR("Rock"), 15, ARCH_item, SPRITE_item_rock, TOOL_nil, true);
-			add_item_to_inventory(ITEM_twig, STR("Twig"), 25, ARCH_item, SPRITE_item_twig, TOOL_nil, true);
-			add_item_to_inventory(ITEM_tree_sap, STR("Tree sap"), 25, ARCH_item, SPRITE_tree_sap, TOOL_nil, true);
-			add_item_to_inventory(ITEM_pine_wood, STR("Pine wood"), 100, ARCH_item, SPRITE_item_pine_wood, TOOL_nil, true);
-			// add_item_to_inventory(ITEM_fossil2, STR("fossil"), 1, ARCH_item, SPRITE_item_fossil2, TOOL_nil, true);
-		}
-
-		// test adding buildings to world
-		{
-			// FURNACE:
-			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_furnace);
-				en->pos = v2(-15, 0);
-				en->pos = round_v2_to_tile(en->pos);
-			}
-
-
-			// CHEST:
-			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_chest);
-				en->pos = v2(-25, -10);
-				en->pos = round_v2_to_tile(en->pos);
-			}
-
-			// workbench
-			{
-				Entity* en = entity_create();
-				setup_building(en, BUILDING_workbench);
-				en->pos = v2(-28, -20);
-				en->pos = round_v2_to_tile(en->pos);
-			}
-
-			// parallax test
-			{
-				// Entity* en = entity_create();
-				// setup_parallax(en);
-				// en->pos = v2(0, 0);
-			}
-		}
-		#endif
+		
 
 
 

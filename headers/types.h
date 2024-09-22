@@ -1,12 +1,18 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#define DEV_TESTING
+
+
 // GLOBALS
     #define MAX_ENTITY_COUNT 2048
     #define MAX_PORTAL_COUNT 10
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
     #define MAX_RECIPE_ITEMS 8
+
+    #define WORLD_WIDTH 512
+    #define WORLD_HEIGHT 512
 
     const float screen_width = 240.0;
     const float screen_height = 135.0;
@@ -498,8 +504,9 @@
         string name;
         DimensionID id;
 
-        Chunk*** chunks; // 2d array of chunk pointers
+        // Chunk*** chunks; // 2d array of chunk pointers
         // Chunk** chunks; // 2d array of chunk pointers
+        Chunk* chunks[WORLD_WIDTH][WORLD_HEIGHT]; // 2D array of pointers to chunks
         int chunk_count;
         int chunk_size;
         WorldData map; // dimension biome map
