@@ -176,6 +176,20 @@ DimensionData *get_dimensionData(DimensionID);
  		return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
 	}
 
+	void set_screen_space() {
+		// draw_frame.view = m4_scalar(1.0);		// deprecated
+		draw_frame.camera_xform = m4_scalar(1.0);
+		draw_frame.projection = m4_make_orthographic_projection(0.0, screen_width, 0.0, screen_height, -1, 10);
+	}
+
+	void set_world_space() {
+		// make the viewport (or whatever) to window size, instead of -1.7, 1.7, -1, 1
+		draw_frame.projection = world_frame.world_projection;
+		// draw_frame.view = world_frame.world_view; // deprecated
+		draw_frame.camera_xform = world_frame.world_view;
+	}
+
+
 // 
 
 
@@ -196,7 +210,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 		string png;
 		// bool ok = os_read_entire_file("res/biometest.png", &png, get_heap_allocator());
-		bool ok = os_read_entire_file("res/world.png", &png, get_heap_allocator());
+		bool ok = os_read_entire_file("res/world2.png", &png, get_heap_allocator());
 		assert(ok);
 
 		int width, height, channels;
@@ -273,6 +287,8 @@ DimensionData *get_dimensionData(DimensionID);
 
 	BiomeID biome_at_tile(Tile tile) {
 		BiomeID biome = 0;
+		WorldData map = world->dimension->map;
+
 		int x_index = tile.x + floor((float)map.width * 0.5);
 		int y_index = tile.y + floor((float)map.height * 0.5);
 		if (x_index < map.width && x_index >= 0 && y_index < map.height && y_index >= 0) {
@@ -1631,25 +1647,25 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = true;
-					biome->spawn_pine_tree_weight = 400;
+					biome->pine_tree_weight = 400;
 					biome->spawn_spruce_trees = true;
-					biome->spawn_spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 400;
 					biome->spawn_magical_trees = false;
-					biome->spawn_magical_tree_weight = 300;
+					biome->magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
-					biome->spawn_birch_tree_weight = 0;
+					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
-					biome->spawn_palm_tree_weight = 0;
+					biome->palm_tree_weight = 0;
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->spawn_rocks_weight = 75;
+					biome->rocks_weight = 75;
 					biome->spawn_mushrooms = true;
-					biome->spawn_mushrooms_weight = 15;
+					biome->mushrooms_weight = 15;
 					biome->spawn_twigs = true;
-					biome->spawn_twigs_weight = 25;
+					biome->twigs_weight = 25;
 					biome->spawn_berries = true;
-					biome->spawn_berries_weight = 20;
+					biome->berries_weight = 20;
 
 					// fossils
 					biome->spawn_fossils = false;
@@ -1678,34 +1694,34 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = true;
-					biome->spawn_pine_tree_weight = 500;
+					biome->pine_tree_weight = 500;
 					biome->spawn_spruce_trees = false;
-					biome->spawn_spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 400;
 					biome->spawn_magical_trees = false;
-					biome->spawn_magical_tree_weight = 300;
+					biome->magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
-					biome->spawn_birch_tree_weight = 0;
+					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
-					biome->spawn_palm_tree_weight = 0;
+					biome->palm_tree_weight = 0;
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->spawn_rocks_weight = 85;
+					biome->rocks_weight = 85;
 					biome->spawn_mushrooms = true;
-					biome->spawn_mushrooms_weight = 35;
+					biome->mushrooms_weight = 35;
 					biome->spawn_twigs = true;
-					biome->spawn_twigs_weight = 15;
+					biome->twigs_weight = 15;
 					biome->spawn_berries = true;
-					biome->spawn_berries_weight = 20;
+					biome->berries_weight = 20;
 
 					// ores
 					biome->spawn_ores = false;
 					biome->spawn_ore_iron = false;
 					biome->spawn_ore_gold = false;
 					biome->spawn_ore_copper = false;
-					biome->spawn_ore_iron_weight = 0;
-					biome->spawn_ore_gold_weight = 0;
-					biome->spawn_ore_copper_weight = 0;
+					biome->ore_iron_weight = 0;
+					biome->ore_gold_weight = 0;
+					biome->ore_copper_weight = 0;
 
 					// fossils
 					biome->spawn_fossils = true;
@@ -1736,32 +1752,32 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = false;
-					biome->spawn_pine_tree_weight = 400;
+					biome->pine_tree_weight = 400;
 					biome->spawn_spruce_trees = false;
-					biome->spawn_spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 400;
 					biome->spawn_magical_trees = true;
-					biome->spawn_magical_tree_weight = 300;
+					biome->magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
-					biome->spawn_birch_tree_weight = 0;
+					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
-					biome->spawn_palm_tree_weight = 0;
+					biome->palm_tree_weight = 0;
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->spawn_rocks_weight = 85;
+					biome->rocks_weight = 85;
 					biome->spawn_mushrooms = true;
-					biome->spawn_mushrooms_weight = 45;
+					biome->mushrooms_weight = 45;
 					biome->spawn_twigs = true;
-					biome->spawn_twigs_weight = 15;
+					biome->twigs_weight = 15;
 
 					// ores
 					biome->spawn_ores = false;
 					biome->spawn_ore_iron = false;
 					biome->spawn_ore_gold = false;
 					biome->spawn_ore_copper = false;
-					biome->spawn_ore_iron_weight = 0;
-					biome->spawn_ore_gold_weight = 0;
-					biome->spawn_ore_copper_weight = 0;
+					biome->ore_iron_weight = 0;
+					biome->ore_gold_weight = 0;
+					biome->ore_copper_weight = 0;
 
 					// fossils
 					biome->spawn_fossils = true;
@@ -1788,32 +1804,32 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = false;
-					biome->spawn_pine_tree_weight = 0;
+					biome->pine_tree_weight = 0;
 					biome->spawn_spruce_trees = false;
-					biome->spawn_spruce_tree_weight = 0;
+					biome->spruce_tree_weight = 0;
 					biome->spawn_magical_trees = false;
-					biome->spawn_magical_tree_weight = 300;
+					biome->magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
-					biome->spawn_birch_tree_weight = 0;
+					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
-					biome->spawn_palm_tree_weight = 0;
+					biome->palm_tree_weight = 0;
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->spawn_rocks_weight = 85;
+					biome->rocks_weight = 85;
 					biome->spawn_mushrooms = false;
-					biome->spawn_mushrooms_weight = 35;
+					biome->mushrooms_weight = 35;
 					biome->spawn_twigs = true;
-					biome->spawn_twigs_weight = 15;
+					biome->twigs_weight = 15;
 
 					// ores
 					biome->spawn_ores = false;
 					biome->spawn_ore_iron = false;
 					biome->spawn_ore_gold = false;
 					biome->spawn_ore_copper = false;
-					biome->spawn_ore_iron_weight = 0;
-					biome->spawn_ore_gold_weight = 0;
-					biome->spawn_ore_copper_weight = 0;
+					biome->ore_iron_weight = 0;
+					biome->ore_gold_weight = 0;
+					biome->ore_copper_weight = 0;
 
 					// fossils
 					biome->spawn_fossils = true;
@@ -1839,32 +1855,32 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = true;
-					biome->spawn_pine_tree_weight = 400;
+					biome->pine_tree_weight = 400;
 					biome->spawn_spruce_trees = false;
-					biome->spawn_spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 400;
 					biome->spawn_magical_trees = false;
-					biome->spawn_magical_tree_weight = 300;
+					biome->magical_tree_weight = 300;
 					biome->spawn_birch_trees = false;
-					biome->spawn_birch_tree_weight = 0;
+					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
-					biome->spawn_palm_tree_weight = 0;
+					biome->palm_tree_weight = 0;
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->spawn_rocks_weight = 85;
+					biome->rocks_weight = 85;
 					biome->spawn_mushrooms = false;
-					biome->spawn_mushrooms_weight = 35;
+					biome->mushrooms_weight = 35;
 					biome->spawn_twigs = true;
-					biome->spawn_twigs_weight = 15;
+					biome->twigs_weight = 15;
 
 					// ores
 					biome->spawn_ores = false;
 					biome->spawn_ore_iron = false;
 					biome->spawn_ore_gold = false;
 					biome->spawn_ore_copper = false;
-					biome->spawn_ore_iron_weight = 0;
-					biome->spawn_ore_gold_weight = 0;
-					biome->spawn_ore_copper_weight = 0;
+					biome->ore_iron_weight = 0;
+					biome->ore_gold_weight = 0;
+					biome->ore_copper_weight = 0;
 
 					// fossils
 					biome->spawn_fossils = true;
@@ -1889,20 +1905,20 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->spawn_rocks_weight = 75;
+					biome->rocks_weight = 75;
 					biome->spawn_mushrooms = true;
-					biome->spawn_mushrooms_weight = 15;
+					biome->mushrooms_weight = 15;
 					// biome->spawn_twigs = false;
-					// biome->spawn_twigs_weight = 0;
+					// biome->twigs_weight = 0;
 
 					// ores
 					biome->spawn_ores = true;
 					biome->spawn_ore_iron = true;
 					biome->spawn_ore_gold = true;
 					biome->spawn_ore_copper = true;
-					biome->spawn_ore_iron_weight = 20;
-					biome->spawn_ore_gold_weight = 20;
-					biome->spawn_ore_copper_weight = 5;
+					biome->ore_iron_weight = 20;
+					biome->ore_gold_weight = 20;
+					biome->ore_copper_weight = 5;
 
 					// fossils
 					biome->spawn_fossils = true;
@@ -1935,7 +1951,39 @@ DimensionData *get_dimensionData(DimensionID);
 		DimensionData* dimension = 0;
 		dimension = alloc(get_heap_allocator(), sizeof(DimensionData));
 		dimension->id = id;
-		dimension->ground_color = v4(1, 1, 1, 1);
+		dimension->chunk_count = 0;
+
+		// memset(world->dimension->chunks, 0, sizeof(world->dimension->chunks));
+
+		// #chunk
+		dimension->chunk_size = CHUNK_SIZE;
+		
+		// Allocate the chunk grid
+		dimension->chunks = (Chunk***)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
+		// dimension->chunks = (Chunk**)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
+		for (int i = 0; i < CHUNK_SIZE; i++) {
+			dimension->chunks[i] = (Chunk**)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
+			// dimension->chunks[i] = (Chunk*)alloc(get_heap_allocator(), sizeof(Chunk**) * CHUNK_SIZE);
+			for (int j = 0; j < CHUNK_SIZE; j++) {
+				dimension->chunks[i][j] = NULL;  // Initially, no chunks are loaded
+			}
+		}
+
+		// int max_chunks = 100;
+
+		// // Allocate memory for the chunk grid (1D array used as 2D)
+		// dimension->chunks = alloc(get_heap_allocator(), max_chunks * max_chunks * sizeof(Chunk*));
+		// assert(dimension->chunks != NULL);  // Ensure allocation succeeded
+
+		// // Initialize all pointers to NULL to indicate that chunks have not been loaded yet
+		// memset(dimension->chunks, 0, max_chunks * max_chunks * sizeof(Chunk*));
+
+		// Allocate memory for the 2D array of chunk pointers
+		// dimension->chunks = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk*));
+		// for (int x = 0; x < CHUNK_SIZE; x++) {
+		// 	dimension->chunks[x] = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk*));
+		// 	memset(dimension->chunks[x], 0, CHUNK_SIZE * sizeof(Chunk*)); // Initialize with NULLs
+		// }
 
 		switch (id){
 			case DIM_overworld:{
@@ -1957,10 +2005,21 @@ DimensionData *get_dimensionData(DimensionID);
 					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
 				}
 			} break;
+			
+			case DIM_floating_islands:{
+				{
+					dimension->name = STR("Floating Islands (dim)");
+					dimension->portal_sprite_in = SPRITE_nil;
+					// dimension->ground_color = v4(30, 30, 30, 1);
+					// dimension->portal_sprite_out = SPRITE_portal1;
+					// add_biomes_to_dimension(id, (BiomeID[]){BIOME_cave}, 1);
+				}
+			} break;
 
 			default:{}break;
 		}
-		dimensions[id] = *dimension;
+		// dimensions[id] = *dimension;
+		world->dimensions[id] = dimension;
 	}
 
 
@@ -2032,7 +2091,7 @@ DimensionData *get_dimensionData(DimensionID);
 		setup_all_biomes();
 		// world->dimension->current_biome_id = BIOME_forest;
 		// world->dimension->current_biome_id = BIOME_pine_forest;
-		world->dimension->current_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(0,0)));
+		world->dimension->current_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(0,0))); // do get_player_pos() here instead of 0,0 vector
 		world->player->inventory_items_count = 0;
 
 		// add item to inventory

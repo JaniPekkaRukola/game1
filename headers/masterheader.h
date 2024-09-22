@@ -7,5 +7,6 @@
 #include "animations.h"
 // #include "worldgen.h"
 #include "savegame_handler.h"
+#include "chunks.h"
 
 #endif

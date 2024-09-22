@@ -8,6 +8,7 @@ bool IS_DEBUG = false;
 
 // bool print_fps = true;
 bool print_fps = false;
+bool render_fps = true;
 bool ENABLE_FRUSTRUM_CULLING = true;
 bool runtime_debug = false;
 
@@ -41,6 +42,7 @@ const s32 layer_world = 10;
 // Global app stuff
 float64 delta_t;
 float64 current_time;
+int fps = 0;
 
 // ----- engine changes (by: randy) ----------------------------------------------------------------|
 // maybe should move these into "functions.h"
@@ -269,18 +271,6 @@ void setup_audio_player(){
 // 
 
 
-void set_screen_space() {
-	// draw_frame.view = m4_scalar(1.0);		// deprecated
-	draw_frame.camera_xform = m4_scalar(1.0);
-	draw_frame.projection = m4_make_orthographic_projection(0.0, screen_width, 0.0, screen_height, -1, 10);
-}
-
-void set_world_space() {
-	// make the viewport (or whatever) to window size, instead of -1.7, 1.7, -1, 1
-	draw_frame.projection = world_frame.world_projection;
-	// draw_frame.view = world_frame.world_view; // deprecated
-	draw_frame.camera_xform = world_frame.world_view;
-}
 
 
 
@@ -365,6 +355,8 @@ void create_magical_trees(int amount, int range) {
 void create_rocks(int amount, int range) {
 	// Create rock entities
 	// for (int i = 0; i < amount; i++) {
+
+	//NOTE: the "range" is from old code. it basically says where to create the entity. this needs to get redone
 
 	int last_entity_index = world->dimension->entity_count;
 
@@ -1924,20 +1916,20 @@ void render_building_ui(UXState ux_state)
 
 // :SPAWN BIOME
 void spawn_biome(BiomeData* biome) {
-	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->spawn_pine_tree_weight, biome->size.x); }
-	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spawn_spruce_tree_weight, biome->size.x); }
-	if (biome->spawn_magical_trees) {create_magical_trees((int)biome->spawn_magical_tree_weight, biome->size.x); }
-	if (biome->spawn_rocks) {create_rocks((int)biome->spawn_rocks_weight, biome->size.x); }
-	if (biome->spawn_berries) {create_bushes((int)biome->spawn_berries_weight, biome->size.x); }
-	if (biome->spawn_twigs) {create_twigs((int)biome->spawn_twigs_weight, biome->size.x); }
-	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->spawn_mushrooms_weight, biome->size.x); }
+	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->pine_tree_weight, biome->size.x); }
+	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spruce_tree_weight, biome->size.x); }
+	if (biome->spawn_magical_trees) {create_magical_trees((int)biome->magical_tree_weight, biome->size.x); }
+	if (biome->spawn_rocks) {create_rocks((int)biome->rocks_weight, biome->size.x); }
+	if (biome->spawn_berries) {create_bushes((int)biome->berries_weight, biome->size.x); }
+	if (biome->spawn_twigs) {create_twigs((int)biome->twigs_weight, biome->size.x); }
+	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->mushrooms_weight, biome->size.x); }
 	if (biome->enable_parallax) {create_parallax_trees((int)biome->parallax_weight, biome->size.x); }
 
 	
 	if (biome->spawn_ores) {
-		if (biome->spawn_ore_iron) {create_ores((int)biome->spawn_ore_iron_weight, biome->size.x, ORE_iron); }
-		if (biome->spawn_ore_gold) {create_ores((int)biome->spawn_ore_gold_weight, biome->size.x, ORE_gold); }
-		if (biome->spawn_ore_copper) {create_ores((int)biome->spawn_ore_copper_weight, biome->size.x, ORE_copper); }
+		if (biome->spawn_ore_iron) {create_ores((int)biome->ore_iron_weight, biome->size.x, ORE_iron); }
+		if (biome->spawn_ore_gold) {create_ores((int)biome->ore_gold_weight, biome->size.x, ORE_gold); }
+		if (biome->spawn_ore_copper) {create_ores((int)biome->ore_copper_weight, biome->size.x, ORE_copper); }
 	}
 
 
@@ -2654,13 +2646,14 @@ int entry(int argc, char **argv)
 
 		// :Load textures
 			textures[0] = (Texture){ .image=load_image_from_disk(STR("res/textures/texture_nil.png"), get_heap_allocator())};
-			textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass_small.png"), get_heap_allocator())};
+			textures[TEXTURE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/grass.png"), get_heap_allocator())};
 			textures[TEXTURE_cave_floor] = (Texture){ .image=load_image_from_disk(STR("res/textures/cave_floor.png"), get_heap_allocator())};
 			textures[TEXTURE_vignette_no_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_no_torch.png"), get_heap_allocator())};
 			textures[TEXTURE_vignette_torch] = (Texture){ .image=load_image_from_disk(STR("res/textures/vignette_torch.png"), get_heap_allocator())};
 			textures[TEXTURE_torch_light] = (Texture){ .image=load_image_from_disk(STR("res/textures/torch_light.png"), get_heap_allocator())};
 			
-			textures[TEXTURE_TILE_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_forest.png"), get_heap_allocator())};
+			// textures[TEXTURE_TILE_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_forest.png"), get_heap_allocator())};
+			textures[TEXTURE_TILE_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_forest2.png"), get_heap_allocator())};
 			textures[TEXTURE_TILE_cave] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_cave.png"), get_heap_allocator())};
 			textures[TEXTURE_TILE_pine_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_pine_forest.png"), get_heap_allocator())};
 		// 
@@ -2702,7 +2695,7 @@ int entry(int argc, char **argv)
 	// 
 
 
-	init_WorldData(&map);
+	// init_WorldData(&map);
 
 
 
@@ -2712,8 +2705,10 @@ int entry(int argc, char **argv)
 
 	// set current dimension
 	world->dimension = get_dimensionData(DIM_overworld);
-	world->dimension->id = DIM_overworld;
+	// world->dimension->id = DIM_overworld;
 	world->dimension->entity_count = 0;
+
+	int asdasdasd2=0;
 
 
 
@@ -2731,6 +2726,25 @@ int entry(int argc, char **argv)
 	// ::INIT
 
 	setup_world();
+
+	// Set all chunk pointers to NULL (indicating unloaded chunks)
+	// Allocate the 2D array of Chunk pointers
+	// world->dimension->chunks = malloc(CHUNK_SIZE * sizeof(Chunk**));
+	// world->dimension->chunks = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk**));
+
+	// for (int x = 0; x < CHUNK_SIZE; x++) {
+	// 	// world->dimension->chunks[x] = malloc(CHUNK_SIZE * sizeof(Chunk*));
+	// 	world->dimension->chunks[x] = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk*));
+
+	// 	// Initialize each element in the 2D array to NULL
+	// 	memset(world->dimension->chunks[x], 0, CHUNK_SIZE * sizeof(Chunk*));
+	// }
+
+	world->dimension->chunks = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate rows
+	for (int i = 0; i < MAX_CHUNKS; i++) {
+		world->dimension->chunks[i] = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate columns
+		memset(world->dimension->chunks[i], 0, MAX_CHUNKS * sizeof(Chunk*));  // Initialize all pointers to NULL
+	}
 
 	// // setups
 	// setup_player();
@@ -2835,6 +2849,8 @@ int entry(int argc, char **argv)
 
 	// world->ux_state = UX_mainmenu;
 	Gfx_Image* mainmenu_bg = load_image_from_disk(STR("res/title_screen.png"), get_heap_allocator());
+	// init_chunks_for_current_dim();
+	// int asdasd = 0;
 
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
 	while (!window.should_close) {
@@ -2902,6 +2918,8 @@ int entry(int argc, char **argv)
 		world->player->en = get_player_en_from_current_dim();
 		sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
 		// update_biome();
+
+		do_chunk_magic();
 		
 		
 
@@ -3035,11 +3053,16 @@ int entry(int argc, char **argv)
 
 
 		// new way of rendering ground
+		render_ground_texture = false;
 		if (render_ground_texture)
 		{
 			// int radius = 10;
 			// int TILE_SIZE = tile_width;
-			int TILE_SIZE = 32;
+			// int TILE_SIZE = 32;
+			// int TILE_SIZE = 128;
+			Texture* test = get_texture(get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(0, 0)))).ground_texture);
+			int TILE_SIZE = test->image->width;
+
 
 			float player_pos_x = world->player->en->pos.x;
 			float player_pos_y = world->player->en->pos.y;
@@ -3057,15 +3080,34 @@ int entry(int argc, char **argv)
 
 					// Get the texture for the tile
 					Texture* texture = get_texture(tile_biome_data.ground_texture);
+			
+					// tests
+					float test_pos_x = get_player_pos().x * CHUNK_SIZE;
+					float test_pos_y = get_player_pos().y * CHUNK_SIZE;
+					printf("test_pos_x = %.1f\n", test_pos_x);
+					// Texture* texture_test = get_texture(get_biome_data_from_id(world->dimension->chunks[0][0]->biome_id).ground_texture);
 					
 					Vector4 color = COLOR_WHITE;
 					// color adj
 					if (tile_biome_data.grass_color.a != 0) {
 						color = tile_biome_data.grass_color;
+						color.r -= 0.2;
+						color.g -= 0.2;
+						color.b -= 0.2;
 					}
 
+					// Matrix4 xform = m4_identity;
+
+					// xform = m4_translate(xform, v3(tile_pos_x, tile_pos_y, 0));
+
+					// xform = m4_scale(xform, v3f32(0.5, 0.5, 0));
+					// xform = m4_scalar(0.5);
+					// xform = m4_make_scale(v3f32(1, 1, 1));
+
 					// draw the tile
-					draw_image(texture->image, v2(tile_pos_x, tile_pos_y), get_texture_size(*texture), color);
+					// draw_image(texture->image, v2(tile_pos_x, tile_pos_y), get_texture_size(*texture), color);
+					// draw_image(texture_test->image, v2(tile_pos_x, tile_pos_y), get_texture_size(*texture_test), color);
+					// draw_image_xform(texture->image, xform, get_texture_size(*texture), color);
 				}
 			}
 		}
@@ -3628,6 +3670,12 @@ int entry(int argc, char **argv)
 			render_keybinding(world_frame.selected_entity, KEY_player_use);
 		}
 
+		if (render_fps){
+			set_screen_space();
+			draw_text(font, sprint(get_heap_allocator(), STR("%d"), fps), font_height, v2(0,screen_height-3), v2(0.1, 0.1), COLOR_WHITE);
+			set_world_space();
+		}
+
 
 
 		// if (world->open_crafting_station) printf("Open crafting station = %.0f\n", world->open_crafting_station->pos.x);
@@ -3859,6 +3907,7 @@ int entry(int argc, char **argv)
 			if (print_fps){
 				log("fps: %i", frame_count);
 			}
+			fps = frame_count;
 			seconds_counter = 0.0;
 			frame_count = 0;
 		}

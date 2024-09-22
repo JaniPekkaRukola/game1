@@ -29,6 +29,22 @@
 // 
 
 
+// :Engine ------------------------------------------------------------------------------------------->
+
+    // Yoinked Range.c stuff
+    typedef struct Range1f {
+        float min;
+        float max;
+    } Range1f;
+
+    typedef struct Range2f {
+        Vector2 min;
+        Vector2 max;
+    } Range2f;
+
+    inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
+// 
+
 // :ENUMS -------------------------------------------------------------------------------------------->
 
     typedef enum EntityArchetype {
@@ -91,6 +107,7 @@
 
         DIM_overworld,
         DIM_cavern,
+        DIM_floating_islands,
 
         DIM_MAX
     } DimensionID;
@@ -409,6 +426,7 @@
         string name;
         BiomeID id;
         Vector2 size;
+        Range2f position;
         bool enabled;
 
         bool spawn_animals;
@@ -425,33 +443,33 @@
 
         // trees
         bool spawn_pine_trees;
-        float spawn_pine_tree_weight;
+        float pine_tree_weight;
         bool spawn_spruce_trees;
-        float spawn_spruce_tree_weight;
+        float spruce_tree_weight;
         bool spawn_magical_trees;
-        float spawn_magical_tree_weight;
+        float magical_tree_weight;
         bool spawn_birch_trees;
-        float spawn_birch_tree_weight;
+        float birch_tree_weight;
         bool spawn_palm_trees;
-        float spawn_palm_tree_weight;
+        float palm_tree_weight;
 
         bool spawn_rocks;
-        float spawn_rocks_weight;
+        float rocks_weight;
         bool spawn_mushrooms;
-        float spawn_mushrooms_weight;
+        float mushrooms_weight;
         bool spawn_twigs;
-        float spawn_twigs_weight;
+        float twigs_weight;
         bool spawn_berries;
-        float spawn_berries_weight;
+        float berries_weight;
 
         // ores
         bool spawn_ores;
         bool spawn_ore_iron;
-        float spawn_ore_iron_weight;
+        float ore_iron_weight;
         bool spawn_ore_gold;
-        float spawn_ore_gold_weight;
+        float ore_gold_weight;
         bool spawn_ore_copper;
-        float spawn_ore_copper_weight;
+        float ore_copper_weight;
 
         // fossils
         bool spawn_fossils;
@@ -465,22 +483,39 @@
         // PortalData portals[MAX_PORTAL_COUNT];
     } BiomeData;
 
+    typedef struct Chunk Chunk;
+
+    typedef struct WorldData { // map
+        int width;
+        int height;
+        BiomeID* tiles;
+        // WorldGenerationConfig config; // current worldgeneration config
+    } WorldData;
+    // WorldData map = {0};
+
     // :Dimension ----------------------->
     typedef struct DimensionData {
         string name;
         DimensionID id;
+
+        Chunk*** chunks; // 2d array of chunk pointers
+        // Chunk** chunks; // 2d array of chunk pointers
+        int chunk_count;
+        int chunk_size;
+        WorldData map; // dimension biome map
+
         int entity_count;
         Entity entities[MAX_ENTITY_COUNT];
+        
         // BiomeID biomes[BIOME_MAX];
         // BiomeData* biomes[BIOME_MAX];
+        // TODO: get rid of this
         BiomeID current_biome_id;
 
         SpriteID portal_sprite_in;
         SpriteID portal_sprite_out;
         // int portal_count;
 
-        Vector4 ground_color;
-        // enemies
     } DimensionData;
 
     // :Player -------------------------->
@@ -515,13 +550,7 @@
         // Entity* entity_at_tile;
     } TileData;
 
-    typedef struct WorldData { // map
-        int width;
-        int height;
-        BiomeID* tiles;
-        // WorldGenerationConfig config; // current worldgeneration config
-    } WorldData;
-    WorldData map = {0};
+
 
     // :World --------------------------->
     typedef struct World {
@@ -530,6 +559,9 @@
 
         // DimensionID dimension_id; // current dimension id
         DimensionData *dimension; // current dimension data
+        DimensionData* dimensions[DIM_MAX];
+        DimensionID current_dim;
+
         UXState ux_state; // move this into player struct !?
         
         // ui stuff
@@ -680,24 +712,14 @@
     LootTable *lootTable_rock;
     LootTable *lootTable_pine_tree;
 
+    // #CHUNK
+    #define CHUNK_SIZE 256
+    #define MAX_CHUNKS 100
+
+
 // 
 
 
-// :Engine ------------------------------------------------------------------------------------------->
-
-    // Yoinked Range.c stuff
-    typedef struct Range1f {
-        float min;
-        float max;
-    } Range1f;
-
-    typedef struct Range2f {
-        Vector2 min;
-        Vector2 max;
-    } Range2f;
-
-    inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
-// 
 
 
 #endif
