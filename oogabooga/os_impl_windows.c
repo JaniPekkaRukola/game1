@@ -1394,6 +1394,10 @@ bool os_grow_program_memory(u64 new_size) {
 	os_write_string_to_stdout(STR(size_str));
 	os_write_string_to_stdout(STR(" kb\n"));
 	os_unlock_mutex(program_memory_mutex); // #Sync
+	if (program_memory_capacity > 1048576000){
+		printf("memory at = %d\n", program_memory_capacity);
+		assert(1==0, "TOO MUCH MEMORY CONSUMPTION DAMN");
+	}
 	return true;
 }
 

@@ -1,542 +1,350 @@
-#ifndef CHUNKS_H
-#define CHUNKS_H
+#ifndef CHUNKS2_H
+#define CHUNKS2_H
 
-// #define CHUNK_SIZE 32
-#define MAX_CHUNKS 100
-#define MAX_LOADED_CHUNKS 9
-#define CHUNK_RENDER_DISTANCE 1
-#define MAX_CHUNK_ENTITIES 128
+
+#define CHUNK_RENDER_DISTANCE 1 // how many chunks are loaded into each direction from center. value of 2 is 25 chunks total (5x5). value of 1 is 9 chunks total (3x3) etc. NOTE: atleast with only 1 tree type rendering the total fps drop from values 1 to 2 is about -10%
+
+// chunk offsets. These must be used to store negative values. So now the (0.0) chunk is in the middle of the chunks array
+#define CHUNK_OFFSET_X WORLD_WIDTH / 2
+#define CHUNK_OFFSET_Y WORLD_HEIGHT / 2
+
+int total_entity_count = 0;
 
 typedef struct Chunk {
-    // Vector2 size; // this might be useless since "#define CHUNK_SIZE"
-    BiomeID* tiles;
-    Vector2 pos;
-    Entity* entities[MAX_CHUNK_ENTITIES];
-    int entity_count;
-    bool has_been_loaded; // true if chunk has been loaded before
     BiomeID biome_id;
+    Vector2 pos_in_world;
+    Vector2 pos_in_grid;
+    Vector2 size;
+    // Entity* entities[MAX_CHUNK_ENTITIES];
+    int entity_count;
+    Entity entities[MAX_CHUNK_ENTITIES];
+
+    bool has_been_loaded;
 } Chunk;
 
 
-// Generate entities in a chunk based on its biome
-void generate_chunk_entities(Chunk* chunk) {
-    int amount_of_rocks = 10;  // Example number of rocks
-    float spawn_range = 20.0f;  // Example range
+void initialize_chunks(DimensionData* dimension) {
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        for (int y = 0; y < WORLD_HEIGHT; y++) {
+            dimension->chunks[x][y] = NULL;
+        }
+    }
+    printf("Initialized chunks for DimensionID = %d\n", dimension->id);
+}
 
-    // Loop to generate entities based on the chunk's biome (e.g., trees in forest, rocks in rocky biome)
-    for (int i = 0; i < amount_of_rocks && chunk->entity_count < MAX_CHUNK_ENTITIES; i++) {
-        Entity* en = entity_create();
-        setup_rock(en);
-        en->pos = v2(get_random_float32_in_range(-spawn_range, spawn_range),
-                     get_random_float32_in_range(-spawn_range, spawn_range));
+Chunk* get_chunk(DimensionData* dimension, Vector2 pos) {
+    // pos is position in the chunks array
+    int x = (int)pos.x + CHUNK_OFFSET_X;
+    int y = (int)pos.y + CHUNK_OFFSET_Y;
+    return dimension->chunks[x][y];
+}
+
+Vector2 get_chunk_world_position(int x, int y) {
+    // Subtract the chunk offset and multiply by chunk size to get world coordinates
+    float world_x = (x - CHUNK_OFFSET_X) * CHUNK_SIZE;
+    float world_y = (y - CHUNK_OFFSET_Y) * CHUNK_SIZE;
+
+    // Return the world position as a Vector2
+    return v2(world_x, world_y);
+}
+
+
+Entity* entity_create_to_chunk(Chunk* chunk) {
+    Entity* entity_found = 0;
+
+    int asd_x = chunk->pos_in_grid.x + CHUNK_OFFSET_X;
+    int asd_y = chunk->pos_in_grid.y + CHUNK_OFFSET_Y;
+
+    for (int i = 0; i < MAX_CHUNK_ENTITIES; i++){
+        Entity* existing_entity = &chunk->entities[i];
+
+        // if (existing_entity == NULL){
+        //     // printf("EXISTING ENTITY = NULL! Allocating memory...\n");
+        //     existing_entity = alloc(get_heap_allocator(), sizeof(Entity));
+        // }
+
+        if (!existing_entity->is_valid){
+            chunk->entity_count++;
+            total_entity_count++;
+            chunk->has_been_loaded = true;
+            entity_found = existing_entity;
+            break;
+        }
+    }
+
+    assert(entity_found, "No more free entities!");
+    entity_found->is_valid = true;
+
+    return entity_found;
+}
+
+void create_tree_to_chunk(Chunk* chunk, int amount, Range2f range){
+    Vector2 positions[amount];
+
+    for (int i = 0; i < amount; i++){
+        float x = get_random_float32_in_range(range.min.x, range.max.x);
+        float y = get_random_float32_in_range(range.min.y, range.max.y);
+        positions[i] = v2(x,y);
+    }
+
+    for (int i = 0; i < amount; i++){
+        Entity* en = entity_create_to_chunk(chunk);
+        // setup tree
+        setup_pine_tree(en);
+        // en->pos = v2(positions[i].x, positions[i].y);
+        en->pos = v2(positions[i].x + chunk->pos_in_world.x, positions[i].y + chunk->pos_in_world.y);
         en->pos = round_v2_to_tile(en->pos);
+    }
 
-        chunk->entities[chunk->entity_count++] = en;
+
+    // free the list of positions
+	memset(positions, 0, sizeof(positions));
+    // dealloc(get_heap_allocator(), (Vector2*)&positions);
+
+    int res_x = chunk->pos_in_grid.x + CHUNK_OFFSET_X;
+    int res_y = chunk->pos_in_grid.y + CHUNK_OFFSET_Y;
+
+    printf("Created %d trees to chunk[%d][%d]\n", amount, res_x, res_y);
+}
+
+
+void spawn_chunk_entities(Chunk* chunk){
+
+    // chunks pos in worldspace
+    Vector2 chunk_pos_in_world;
+    chunk_pos_in_world.x = (chunk->pos_in_grid.x - CHUNK_OFFSET_X) / CHUNK_SIZE;
+    chunk_pos_in_world.y = (chunk->pos_in_grid.y - CHUNK_OFFSET_Y) / CHUNK_SIZE;
+    // chunk_pos_in_world = get_chunk_world_position(chunk->pos_in_grid.x, chunk->pos_in_grid.y);
+
+    // chunk boundaries in worldspace
+    Range2f chunk_boundaries;
+    chunk_boundaries.min.x = chunk_pos_in_world.x;
+    chunk_boundaries.min.y = chunk_pos_in_world.y;
+    chunk_boundaries.max.x = chunk_pos_in_world.x + CHUNK_SIZE;
+    chunk_boundaries.max.y = chunk_pos_in_world.y + CHUNK_SIZE;
+
+    BiomeData biomedata = get_biome_data_from_id(chunk->biome_id);
+
+    if (biomedata.spawn_pine_trees) create_tree_to_chunk(chunk, biomedata.pine_tree_weight, chunk_boundaries);
+
+}
+
+void load_chunk(DimensionData* dimension, Vector2 pos) {
+    int x = (int)pos.x + CHUNK_OFFSET_X;
+    int y = (int)pos.y + CHUNK_OFFSET_Y;
+
+    // if (x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT) {
+    if (x < WORLD_WIDTH && y < WORLD_HEIGHT) {
+        Chunk* chunk = dimension->chunks[x][y];
+        if (chunk == NULL) {
+            chunk = alloc(get_heap_allocator(), sizeof(Chunk));
+            chunk->pos_in_grid = pos;
+            chunk->entity_count = 0;
+            chunk->biome_id = BIOME_forest;
+            // dimension->chunks[x][y]->pos_in_grid = v2(x,y);
+            chunk->pos_in_world = get_chunk_world_position(x, y);
+            world->dimension->chunk_count++;
+            printf("Loaded new chunk\n");
+            world->dimension->chunks[x][y] = chunk;
+
+            spawn_chunk_entities(dimension->chunks[x][y]);
+        }
+    }
+}
+
+void unload_chunk(DimensionData* dimension, Vector2 pos) {
+    int x = (int)pos.x + CHUNK_OFFSET_X;
+    int y = (int)pos.y + CHUNK_OFFSET_Y;
+
+    // TODO: does the entities list also need to be freed???
+
+    if (x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT) {
+        if (dimension->chunks[x][y] != NULL) {
+            total_entity_count -= dimension->chunks[x][y]->entity_count;
+            dealloc(get_heap_allocator(), dimension->chunks[x][y]);
+            dimension->chunks[x][y] = NULL;
+            world->dimension->chunk_count--;
+            printf("UN-Loaded chunk\n");
+        }
     }
 }
 
 
-Chunk* create_chunk(int chunk_x, int chunk_y, WorldData* world_data) {
-    Chunk* chunk = alloc(get_heap_allocator(), sizeof(Chunk));
-    assert(chunk != NULL);
+void load_chunks_renderdistance() {
 
-    chunk->entity_count = 0;
-    chunk->has_been_loaded = false;  // First time loading this chunk
-    chunk->pos = v2(chunk_x, chunk_y);
+    DimensionData* dimension = world->dimension;
 
-    // test
-    chunk->biome_id = BIOME_forest;
+    int render_distance = CHUNK_RENDER_DISTANCE;
 
-    // Allocate memory for the tiles
-    // chunk->tiles = alloc(get_heap_allocator(), CHUNK_SIZE * CHUNK_SIZE * sizeof(BiomeID));
-    // assert(chunk->tiles != NULL);
-
-    // // Generate or load biome tiles for this chunk
-    // for (int y = 0; y < CHUNK_SIZE; y++) {
-    //     for (int x = 0; x < CHUNK_SIZE; x++) {
-    //         int world_x = chunk_x * CHUNK_SIZE + x;
-    //         int world_y = chunk_y * CHUNK_SIZE + y;
-
-    //         // Ensure that world_x and world_y are within bounds
-    //         if (world_x >= 0 && world_x < world_data->width && world_y >= 0 && world_y < world_data->height) {
-    //             // Retrieve the biome at the global world position (using the world_data tiles)
-    //             chunk->tiles[y * CHUNK_SIZE + x] = world_data->tiles[world_y * world_data->width + world_x];
-    //         } else {
-    //             // If out of bounds, default to a biome, e.g., BIOME_nil or some other fallback
-    //             chunk->tiles[y * CHUNK_SIZE + x] = BIOME_nil; // Fallback biome if out of bounds
-    //         }
-    //     }
-    // }
-
-    // Populate the chunk with entities (if this is the first time it's loaded)
-    if (!chunk->has_been_loaded) {
-        // generate_chunk_entities(chunk);
-        chunk->has_been_loaded = true;
-    }
-
-    // printf("Created a chunk\n");
-    world->dimension->chunk_count++;
-    return chunk;
-}
-
-
-void save_chunk(Chunk* chunk) {
-    // Save chunk data (e.g., entities and tile state)
-    // This could involve writing to a file or an in-memory structure
-}
-
-void free_chunk(Chunk* chunk) {
-    // Free the chunk's memory
-    // free(chunk->tiles);
-    // dealloc(get_heap_allocator(), chunk->tiles);
-    for (int i = 0; i < chunk->entity_count; i++) {
-        // free(chunk->entities[i]);
-        dealloc(get_heap_allocator(), chunk->entities[i]);
-    }
-    // free(chunk);
-    dealloc(get_heap_allocator(), chunk);
-    world->dimension->chunk_count--;
-    // printf("Deleted chunk\n");
-}
-
-#define CHUNK_OFFSET (MAX_CHUNKS / 2)  // Offset to handle negative chunk indices
-void load_chunks_around_player(World* world) {
     Vector2 player_pos = get_player_pos();
 
-    // Determine which chunks are within the player's view distance
-    int start_chunk_x = player_pos.x / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-    int end_chunk_x = player_pos.x / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
-    int start_chunk_y = player_pos.y / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-    int end_chunk_y = player_pos.y / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
+    int chunk_size = dimension->chunk_size;
 
-    // printf("%d  %d  %d  %d  \n", start_chunk_x, end_chunk_x, start_chunk_y, end_chunk_y);
+    // Convert player world position to chunk coordinates
+    int player_chunk_x = (int)(player_pos.x / chunk_size);
+    int player_chunk_y = (int)(player_pos.y / chunk_size);
 
     // Iterate over the chunks within the render distance
-    for (int chunk_x = start_chunk_x; chunk_x <= end_chunk_x; chunk_x++) {
-        for (int chunk_y = start_chunk_y; chunk_y <= end_chunk_y; chunk_y++) {
-            // Apply CHUNK_OFFSET to handle negative indices
-            int chunk_x_offset = chunk_x + CHUNK_OFFSET;
-            int chunk_y_offset = chunk_y + CHUNK_OFFSET;
+    for (int dx = -render_distance; dx <= render_distance; dx++) {
+        for (int dy = -render_distance; dy <= render_distance; dy++) {
+            int chunk_x = player_chunk_x + dx;
+            int chunk_y = player_chunk_y + dy;
 
-            // printf("Chunk offsets xy = %d  %d\n", chunk_x_offset, chunk_y_offset);
-
-            // Check bounds to avoid out-of-bounds errors
-            if (chunk_x_offset >= 0 && chunk_x_offset < MAX_CHUNKS && chunk_y_offset >= 0 && chunk_y_offset < MAX_CHUNKS) {
-                if (world->dimension->chunks[chunk_x_offset] == NULL) {
-                    // Allocate the row if it's NULL
-                    world->dimension->chunks[chunk_x_offset] = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));
-                    memset(world->dimension->chunks[chunk_x_offset], 0, MAX_CHUNKS * sizeof(Chunk*));
-                }
-
-                if (world->dimension->chunks[chunk_x_offset][chunk_y_offset] == NULL) {
-                    // Allocate the chunk if it is NULL
-                    world->dimension->chunks[chunk_x_offset][chunk_y_offset] = create_chunk(chunk_x, chunk_y, &world->dimension->map);
-                }
+            // Ensure chunk coordinates are within world bounds
+            if (chunk_x < WORLD_WIDTH && chunk_y < WORLD_HEIGHT) {
+                Vector2 chunk_pos = v2(chunk_x, chunk_y);
+                load_chunk(dimension, chunk_pos);  // Load chunk if not already loaded
+                // printf("LOADED CHUNK AT (grid pos) = %d, %d\n", chunk_x, chunk_y);
             }
         }
     }
 }
 
+void unload_chunks_renderdistance() {
 
-
-// void load_chunks_around_player(World* world) {
-//     Vector2 player_pos = get_player_pos();
-
-//     // Determine which chunks are within the player's view distance
-//     int start_chunk_x = player_pos.x / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-//     int end_chunk_x = player_pos.x / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
-//     int start_chunk_y = player_pos.y / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-//     int end_chunk_y = player_pos.y / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
-
-//     // Clamp the chunk bounds to avoid out-of-bounds errors
-//     if (start_chunk_x < 0) start_chunk_x = 0;
-//     if (end_chunk_x >= MAX_CHUNKS) end_chunk_x = MAX_CHUNKS - 1;
-//     if (start_chunk_y < 0) start_chunk_y = 0;
-//     if (end_chunk_y >= MAX_CHUNKS) end_chunk_y = MAX_CHUNKS - 1;
-
-//     // Iterate over the chunks within the render distance
-//     for (int chunk_x = start_chunk_x; chunk_x <= end_chunk_x; chunk_x++) {
-//         for (int chunk_y = start_chunk_y; chunk_y <= end_chunk_y; chunk_y++) {
-//             if (world->dimension->chunks == NULL) {
-//                 printf("Error: Chunks array is NULL!\n");
-//             }
-//             else if (world->dimension->chunks[chunk_x] == NULL) {
-//                 // Allocate the row if it's NULL
-//                 world->dimension->chunks[chunk_x] = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));
-//                 memset(world->dimension->chunks[chunk_x], 0, MAX_CHUNKS * sizeof(Chunk*));
-//             }
-
-//             if (world->dimension->chunks[chunk_x][chunk_y] == NULL) {
-//                 // Allocate the chunk if it is NULL
-//                 world->dimension->chunks[chunk_x][chunk_y] = create_chunk(chunk_x, chunk_y, &world->dimension->map);
-//             }
-
-//             // printf("chunk[%d][%d] pos in world = %.0f, %.0f\n", chunk_x, chunk_y, world->dimension->chunks[chunk_x][chunk_y]->pos);
-//             // printf("Chunk xy = %d, %d\n", chunk_x * CHUNK_SIZE, chunk_y * CHUNK_SIZE);
-//             // printf("Chunk xy = %d, %d\n", chunk_x, chunk_y);
-
-//             // Matrix4 xform = m4_identity;
-//             // xform = m4_translate(xform, v3(chunk_x * 10, chunk_y * 10, 0));
-//             // xform = m4_translate(xform, v3(0, +250, 0));
-//             // draw_rect_with_border(xform, v2(10, 10), 2, COLOR_RED, COLOR_BLACK);
-//         }
-//     }
-
-//     // old
-//         // // Get the total number of chunks in the world (calculated from world dimensions)
-//         // int chunk_grid_width = world->dimension->map.width / CHUNK_SIZE;
-//         // int chunk_grid_height = world->dimension->map.height / CHUNK_SIZE;
-
-//         // // Iterate over the chunks within the render distance
-//         // for (int chunk_x = start_chunk_x; chunk_x <= end_chunk_x; chunk_x++) {
-//         //     for (int chunk_y = start_chunk_y; chunk_y <= end_chunk_y; chunk_y++) {
-//         //         // Check if chunk indices are within bounds of the world's chunk grid
-//         //         if (chunk_x >= 0 && chunk_x < chunk_grid_width && chunk_y >= 0 && chunk_y < chunk_grid_height) {
-//         //             if (world->dimension->chunks == NULL) {
-//         //                 printf("Error: Chunks array is NULL!\n");
-//         //             } else if (world->dimension->chunks[chunk_x] == NULL) {
-//         //                 // Allocate the row if it's NULL
-//         //                 // world->dimension->chunks[chunk_x] = malloc(chunk_grid_height * sizeof(Chunk*));
-//         //                 world->dimension->chunks[chunk_x] = alloc(get_heap_allocator(), chunk_grid_height * sizeof(Chunk*));
-//         //                 memset(world->dimension->chunks[chunk_x], 0, chunk_grid_height * sizeof(Chunk*));
-//         //             }
-
-//         //             if (world->dimension->chunks[chunk_x][chunk_y] == NULL) {
-//         //                 // Allocate the chunk if it is NULL
-//         //                 world->dimension->chunks[chunk_x][chunk_y] = create_chunk(chunk_x, chunk_y, &world->dimension->map);
-//         //             }
-//         //         } else {
-//         //             printf("Error: Chunk indices out of bounds! chunk_x = %d, chunk_y = %d\n", chunk_x, chunk_y);
-//         //         }
-//         //     }
-//         // }
-//     // 
-// }
-
-// NOTE: fuck all this shit. sorry i mean fuck all this fuckshit
-/*
-    void load_chunks_around_player(World* world) {
-
-        Vector2 player_pos = get_player_pos();
-
-        // Determine which chunks are within the player's view distance
-        int start_chunk_x = player_pos.x / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-        int end_chunk_x = player_pos.x / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
-        int start_chunk_y = player_pos.y / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-        int end_chunk_y = player_pos.y / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
-
-        for (int chunk_x = start_chunk_x; chunk_x <= end_chunk_x; chunk_x++) {
-            for (int chunk_y = start_chunk_y; chunk_y <= end_chunk_y; chunk_y++) {
-                if (chunk_x >= 0 && chunk_x < CHUNK_SIZE && chunk_y >= 0 && chunk_y < CHUNK_SIZE) {
-                    if (world->dimension->chunks == NULL) {
-                        printf("Error: Chunks array is NULL!\n");
-                    } else if (world->dimension->chunks[chunk_x] == NULL) {
-                        printf("Error: Row %d is NULL!\n", chunk_x);
-                    } else if (world->dimension->chunks[chunk_x][chunk_y] == NULL) {
-                        // Allocate the chunk if it is NULL
-                        world->dimension->chunks[chunk_x][chunk_y] = create_chunk(chunk_x, chunk_y, &world->dimension->map);
-                    }
-                } else {
-                    printf("Error: Chunk indices out of bounds! chunk_x = %d, chunk_y = %d\n", chunk_x, chunk_y);
-                }
-            }
-        }
-
-        // Load or create chunks within this range
-        // for (int chunk_x = start_chunk_x; chunk_x <= end_chunk_x; chunk_x++) {
-        //     for (int chunk_y = start_chunk_y; chunk_y <= end_chunk_y; chunk_y++) {
-        //         if (world->dimension->chunks[chunk_x][chunk_y] == NULL) {
-        //             // Create a new chunk if it doesn't exist
-        //             // world->dimension->chunks[chunk_x][chunk_y] = create_chunk(chunk_x, chunk_y, &map, CHUNK_SIZE, CHUNK_SIZE);
-        //             world->dimension->chunks[chunk_x][chunk_y] = create_chunk(chunk_x, chunk_y, &world->dimension->map);
-        //         }
-        //     }
-        // }
-}*/
-
-void unload_chunks_outside_view() {
-
-    // int MAX_CHUNKS_X = world->dimension->map.width;
-    // int MAX_CHUNKS_Y = world->dimension->map.height;
-    int MAX_CHUNKS_X = 100;
-    int MAX_CHUNKS_Y = 100;
+    DimensionData* dimension = world->dimension;
 
     Vector2 player_pos = get_player_pos();
+    int render_distance = CHUNK_RENDER_DISTANCE;
 
-    // Iterate over all chunks and check if they are outside the view distance
-    for (int chunk_x = 0; chunk_x < MAX_CHUNKS_X; chunk_x++) {
-        for (int chunk_y = 0; chunk_y < MAX_CHUNKS_Y; chunk_y++) {
+    int chunk_size = dimension->chunk_size;
 
-            if (world->dimension->chunks[chunk_x][chunk_y] != NULL) {
-                int dist_x = fabsf(chunk_x * CHUNK_SIZE - player_pos.x);
-                int dist_y = fabsf(chunk_y * CHUNK_SIZE - player_pos.y);
+    // Convert player world position to chunk coordinates
+    int player_chunk_x = (int)(player_pos.x / chunk_size) + CHUNK_OFFSET_X;
+    int player_chunk_y = (int)(player_pos.y / chunk_size) + CHUNK_OFFSET_Y;
 
-                if (dist_x > CHUNK_RENDER_DISTANCE * CHUNK_SIZE || dist_y > CHUNK_RENDER_DISTANCE * CHUNK_SIZE) {
-                    // Save the chunk state (e.g., entity state) before unloading
-                    save_chunk(world->dimension->chunks[chunk_x][chunk_y]);
+    // Iterate over all chunks in the world
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        for (int y = 0; y < WORLD_HEIGHT; y++) {
+            Chunk* chunk = dimension->chunks[x][y];
 
-                    // Free the chunk memory
-                    free_chunk(world->dimension->chunks[chunk_x][chunk_y]);
-                    world->dimension->chunks[chunk_x][chunk_y] = NULL;
-                }
-            }
-        }
-    }
-}
-
-
-void update_active_chunks(World* world) {
-    int MAX_CHUNKS_X = world->dimension->map.width;
-    int MAX_CHUNKS_Y = world->dimension->map.height;
-    
-    for (int chunk_x = 0; chunk_x < MAX_CHUNKS_X; chunk_x++) {
-        for (int chunk_y = 0; chunk_y < MAX_CHUNKS_Y; chunk_y++) {
-            Chunk* chunk = world->dimension->chunks[chunk_x][chunk_y];
             if (chunk != NULL) {
-                // Update each entity in the chunk
-                for (int i = 0; i < chunk->entity_count; i++) {
-                    // update_entity(chunk->entities[i]);
+                // Check the chunk's position relative to the player
+                // int chunk_x = (int)chunk->pos_in_grid.x + CHUNK_OFFSET_X;
+                // int chunk_y = (int)chunk->pos_in_grid.y + CHUNK_OFFSET_Y;
+                // int chunk_x = (int)chunk->pos_in_grid.x;
+                // int chunk_y = (int)chunk->pos_in_grid.y;
+                int chunk_x = x;
+                int chunk_y = y;
+
+                int dx = abs(chunk_x - player_chunk_x);
+                int dy = abs(chunk_y - player_chunk_y);
+
+                // If the chunk is outside the render distance, unload it
+                if (dx > render_distance || dy > render_distance) {
+                    // unload_chunk(dimension, chunk->pos_in_grid);
+                    unload_chunk(dimension, chunk->pos_in_grid);
                 }
             }
         }
     }
 }
 
-void show_active_chunks() {
-    Vector2 player_pos = get_player_pos();
+void render_chunk_ground(){
+    // render chunk ground texture
+    for (int x = 0; x < WORLD_WIDTH; x++){
+        for (int y = 0; y < WORLD_HEIGHT; y++){
+            Chunk* chunk = world->dimension->chunks[x][y];
+            if (chunk != NULL){
+                Texture* texture = get_texture(get_biome_data_from_id(chunk->biome_id).ground_texture);
+                Vector4 ground_color = get_biome_data_from_id(chunk->biome_id).grass_color;
 
-    int start_chunk_x = player_pos.x / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-    int end_chunk_x = player_pos.x / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
-    int start_chunk_y = player_pos.y / CHUNK_SIZE - CHUNK_RENDER_DISTANCE;
-    int end_chunk_y = player_pos.y / CHUNK_SIZE + CHUNK_RENDER_DISTANCE;
+                Vector2 chunk_pos_world = get_chunk_world_position(x,y);
 
-    // Clamp the chunk bounds
-    if (start_chunk_x < 0) start_chunk_x = 0;
-    if (end_chunk_x >= MAX_CHUNKS) end_chunk_x = MAX_CHUNKS - 1;
-    if (start_chunk_y < 0) start_chunk_y = 0;
-    if (end_chunk_y >= MAX_CHUNKS) end_chunk_y = MAX_CHUNKS - 1;
+                Vector2 assurance;
+                assurance.x = (x - CHUNK_OFFSET_X) * CHUNK_SIZE;
+                assurance.y = (y - CHUNK_OFFSET_Y) * CHUNK_SIZE;
 
-    // Iterate over the visible chunks
-    for (int chunk_x = start_chunk_x; chunk_x <= end_chunk_x; chunk_x++) {
-        for (int chunk_y = start_chunk_y; chunk_y <= end_chunk_y; chunk_y++) {
-            // Check if the chunk is active
-            if (world->dimension->chunks[chunk_x] != NULL && world->dimension->chunks[chunk_x][chunk_y] != NULL) {
-                // Calculate the chunk's world position
+                if (chunk_pos_world.x != assurance.x && chunk_pos_world.y != assurance.y){
+                    assert(1==0, "PERKELE\n");
+                }
 
-                // printf("Chunk pos = %.0f, %.0f\n", world->dimension->chunks[chunk_x][chunk_y]->pos.x, world->dimension->chunks[chunk_x][chunk_y]->pos.y);
-
-                float chunk_world_x = chunk_x * CHUNK_SIZE;
-                float chunk_world_y = chunk_y * CHUNK_SIZE;
-
-                // Set up a rectangle's dimensions
-                // Vector2 rect_pos = { chunk_world_x, chunk_world_y };
-                // Vector2 rect_size = { CHUNK_SIZE, CHUNK_SIZE };
                 Matrix4 xform = m4_identity;
-                
-                // Transform the rect into screen coordinates (adjust based on your camera system)
-                // Matrix3x2 transform = calculate_screen_transform(rect_pos);
-                xform = m4_translate(xform, v3(chunk_world_x, chunk_world_y, 0));
-
-                // Render the red rectangle for the active chunk
-                // draw_rect_xform(rect_pos, rect_size, transform, v4(255, 0, 0, 128)); // Red with some transparency
-                // printf("chunk_world_x = %d\n", chunk_world_x);
-                // set_world_space();
-                draw_rect_xform(xform, v2(CHUNK_SIZE, CHUNK_SIZE), COLOR_RED);
+                xform = m4_translate(xform, v3(chunk_pos_world.x, chunk_pos_world.y, 0));
+                draw_image_xform(texture->image, xform, v2(CHUNK_SIZE, CHUNK_SIZE), ground_color);
             }
         }
     }
 }
 
-void do_chunk_magic() {
-    load_chunks_around_player(world);
 
-    // show_active_chunks();
+void render_chunk_entities(){
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        for (int y = 0; y < WORLD_HEIGHT; y++) {
+            Chunk* chunk = world->dimension->chunks[x][y];
+
+            if (chunk != NULL) {
+
+                // printf("Chunk pos in grid = %d, %d\n", x, y);
+
+                // render chunk ground texture
+                // float chunk_pos_world_x = (x - CHUNK_OFFSET_X) * CHUNK_SIZE;
+                // float chunk_pos_world_y = (y - CHUNK_OFFSET_Y) * CHUNK_SIZE;
+                // // float chunk_pos_world_x = x * CHUNK_SIZE;
+                // // float chunk_pos_world_y = y * CHUNK_SIZE;
+
+                // Texture* texture = get_texture(get_biome_data_from_id(chunk->biome_id).ground_texture);
+                // Vector4 ground_color = get_biome_data_from_id(chunk->biome_id).grass_color;
+
+                // Matrix4 xform = m4_identity;
+                // xform = m4_translate(xform, v3(chunk_pos_world_x, chunk_pos_world_y, 0));
+
+                // draw_image_xform(texture->image, xform, v2(CHUNK_SIZE, CHUNK_SIZE), ground_color);
+                // if (x == 255 && y == 255){
+                //     draw_rect_with_border(xform, v2(CHUNK_SIZE-1, CHUNK_SIZE-1), 2, COLOR_BLUE, COLOR_BLACK);
+                // }
+                // else{
+                //     draw_rect_with_border(xform, v2(CHUNK_SIZE-1, CHUNK_SIZE-1), 2, COLOR_RED, COLOR_BLACK);
+                // }
 
 
-    unload_chunks_outside_view();
+                // render chunk entities
+                for (int i = 0; i < chunk->entity_count; i++){
+                    Entity* en = &chunk->entities[i];
+                    if (en != NULL){
+                        switch (en->arch){
+                            default:{
+                                {
+                                    Sprite* sprite = get_sprite(en->sprite_id);
 
-    // update_active_chunks(world);
+                                    Matrix4 xform = m4_identity;
+                                    xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+                                    draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
+void print_chunk_count(){
+    set_screen_space();
+    Matrix4 xform = m4_identity;
+    xform = m4_translate(xform, v3(0, screen_height - 10, 0));
+    draw_text_xform(font, sprint(get_heap_allocator(), STR("chunk count = %d"), world->dimension->chunk_count), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+
+    xform = m4_translate(xform, v3(0, -5, 0));
+    draw_text_xform(font, sprint(get_heap_allocator(), STR("Chunks entity count = %d"), total_entity_count), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+
+    set_world_space();
+}
+
+void do_chunk_magic(){
+
+    load_chunks_renderdistance();
+
+    unload_chunks_renderdistance();
+
+    render_chunk_ground();
+
+    render_chunk_entities();
 
     // printf("Chunk count = %d\n", world->dimension->chunk_count);
+    print_chunk_count();
+
 }
 
-
-
-
-
-
-// stuff here (old)
-/*
-    typedef struct Chunk {
-        Vector2 pos;
-        Vector2 slot; // position in map
-        Vector2 size; // ????
-        BiomeID biome_id;
-        // DimensionID dimension_id; // ???
-        Entity* entities[MAX_CHUNK_ENTITIES];
-        int entity_count;
-        bool has_been_loaded; // true if chunk has been loaded before
-
-    } Chunk;
-
-
-
-
-    // Chunk* chunks[MAX_CHUNKS];
-    // Chunk loaded_chunks[MAX_LOADED_CHUNKS];
-
-    // void init_chunks(){
-    //     int index = 0;
-    //     for(int x = 0; x < map.width; x++){
-    //         for (int y = 0; y < map.height; y++){
-    //             chunks[index]->biome_id = BIOME_nil;
-    //             chunks[index]->slot = v2(x, y);
-    //             chunks[index]->size = v2(CHUNK_SIZE, CHUNK_SIZE);
-    //             // chunks[index].entities = NULL;
-    //         }
-    //     }
-    // }
-
-
-    // void init_chunks_for_current_dim(){
-    //     // NOTE: if i want to init chunks for a different dim, i have to make a pointer to the chunks for that dim somehow: // Chunk* chunks = &world->dimension->chunks;
-
-    //     int index = 0;
-    //     for(int x = 0; x < map.width; x++){
-    //         for (int y = 0; y < map.height; y++){
-    //             world->dimension->chunks[index] = alloc(get_heap_allocator(), sizeof(Chunk));
-    //             world->dimension->chunks[index]->biome_id = BIOME_nil;
-    //             world->dimension->chunks[index]->slot = v2(x, y);
-    //             world->dimension->chunks[index]->size = v2(CHUNK_SIZE, CHUNK_SIZE);
-    //             // chunks[index].entities = NULL;
-    //             index++;
-    //             // if (index >= 100) break; break;
-    //             if (index >= 100) return;
-    //         }
-    //         // print("index = %d\t x = %d\n", index, x);
-    //     }
-    //     print("INITED %d CHUNKS\n", index);
-    // }
-
-    // Chunk* get_chunk(Vector2 pos){
-    //     for (int i = 0; i < MAX_CHUNKS; i++){
-    //         Chunk* chunk = chunks[i];
-    //         Range2f chunk_range;
-    //         chunk_range.min = chunk->pos;
-    //         chunk_range.max = chunk->pos;
-    //         chunk_range.max.x += chunk->size.x;
-    //         chunk_range.max.y += chunk->size.y;
-
-    //         if (range2f_contains(chunk_range, pos)){
-    //             return chunk;
-    //         }
-    //     }
-    //     assert(1==0, "Failed to get chunk @ 'get_chunk'")
-    // }
-
-    // Chunk* get_chunk_from_dim(DimensionID id, Vector2 pos){
-    //     // this is disgusting. so scuffed
-
-    //     bool for_else = false;
-    //     Chunk* (*chunks)[100] = NULL;
-    //     for (int j = 0; j < DIM_MAX; j++){
-    //         if (dimensions[j].id == id){
-    //             Chunk* (*chunks)[100] = &dimensions[j].chunks;
-    //             for_else = true;
-    //         }
-    //     }
-
-    //     if (for_else == false) return 0;
-        
-    //     for (int i = 0; i < MAX_CHUNKS; i++){
-    //         Chunk* chunk = *chunks[i];
-    //         Range2f chunk_range;
-    //         chunk_range.min = chunk->pos;
-    //         chunk_range.max = chunk->pos;
-    //         chunk_range.max.x += chunk->size.x;
-    //         chunk_range.max.y += chunk->size.y;
-
-    //         if (range2f_contains(chunk_range, pos)){
-    //             return chunk;
-    //         }
-    //     }
-
-    //     assert(1==0, "Failed to get chunk @ 'get_chunk'")
-    // }
-
-    void load_chunk(Vector2 pos){
-        //  ________________________________________________________________________________________________________________________________________
-        // | LOGIC:
-        // | - get world pos (as parameter?)
-        // | - calculate the chunk pos in MAP??
-        // | - add the chunk to loaded chunks list ( add the pointer?)
-        // | - 
-        // |________________________________________________________________________________________________________________________________________
-    }
-
-    void load_chunks(){
-        Vector2 player_pos = get_player_pos();
-        // load chunks around the player. call load_chunk func from here
-
-    }
-
-    void unload_chunks(){
-        Vector2 player_pos = get_player_pos();
-        //  ________________________________________________________________________________________________________________________________________
-        // | LOGIC:
-        // | - check chunks around player. if chunks are found that are not around the player, remove them from loaded chunks list
-        // | - 
-        // |________________________________________________________________________________________________________________________________________
-    }
-
-    void spawn_from_chunk(chunk identifier or sum here??!){
-        // Chunk* chunk = world->dimension->chunks[i]
-        // Chunk* chunk;
-        // BiomeData biome_data = get_biome_data_from_id(chunk->biome_id);
-        // biome_data.
-    }
-
-    // entity renderer based on chunks test
-    #define ACTIVE_CHUNKS 9
-    void render_entities_from_loaded_chunks(){
-        for (int i = 0; i < ACTIVE_CHUNKS; i++){
-            Chunk chunk = loaded_chunks[i];
-            for (int j = 0; j < chunk.entity_count; j++){
-                Entity* en = chunk.entities[i];
-
-                if (en->is_valid){
-
-                    switch (en->arch){
-
-                        case ARCH_item:{
-                            {
-                                Sprite* sprite = get_sprite(en->sprite_id);
-                                Matrix4 xform = m4_identity;
-                                xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-                                draw_circle_xform(xform, v2(get_sprite_size(sprite).x, get_sprite_size(sprite).y * 0.7), v4(0,0,0,0.5));
-                                draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-                            }
-                        }break;
-
-                        default:{
-                            {
-                                Sprite* sprite = get_sprite(en->sprite_id);
-                                Matrix4 xform = m4_identity;
-                                xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-                                draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-                            }
-                        }break;
-                    }
-
-
-                }
-
-
-
-
-            }
-        }
-    }
-*/
 #endif

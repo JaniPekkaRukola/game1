@@ -497,7 +497,6 @@
         BiomeID* tiles;
         // WorldGenerationConfig config; // current worldgeneration config
     } WorldData;
-    // WorldData map = {0};
 
     // :Dimension ----------------------->
     typedef struct DimensionData {
@@ -719,9 +718,13 @@
     LootTable *lootTable_rock;
     LootTable *lootTable_pine_tree;
 
+    WorldData map = {0};
+
     // #CHUNK
-    #define CHUNK_SIZE 256
+    #define CHUNK_SIZE 512
     #define MAX_CHUNKS 100
+    #define MAX_CHUNK_ENTITIES 100
+
 
 
 // 

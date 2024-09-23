@@ -199,12 +199,12 @@ DimensionData *get_dimensionData(DimensionID);
 	// :WORLD ------------------------->
 	void init_WorldData(WorldData* map) {
 
-	Vector4 forest = v4(0, 200, 0, 1);
-	Vector4 pine_forest = v4(86, 163, 108, 1);
-	Vector4 magical_forest = v4(97, 0, 194, 1);
-	Vector4 desert = v4(194, 158, 0, 1);
-	Vector4 polar = v4(255, 255, 255, 1);
-	Vector4 NIL = v4(255, 0, 0, 1);
+		Vector4 forest = v4(0, 200, 0, 1);
+		Vector4 pine_forest = v4(86, 163, 108, 1);
+		Vector4 magical_forest = v4(97, 0, 194, 1);
+		Vector4 desert = v4(194, 158, 0, 1);
+		Vector4 polar = v4(255, 255, 255, 1);
+		Vector4 NIL = v4(255, 0, 0, 1);
 
 		string png;
 		// bool ok = os_read_entire_file("res/biometest.png", &png, get_heap_allocator());
@@ -1641,7 +1641,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 
 	void setup_biome(BiomeID id){
-		// spawn weigth = spawn amount
+		// spawn weigth = spawn amount per chunk
 		// drop chace = drop chance in %
 
 		BiomeData* biome = 0;
@@ -1671,11 +1671,11 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = true;
-					biome->pine_tree_weight = 400;
+					biome->pine_tree_weight = 50;
 					biome->spawn_spruce_trees = true;
-					biome->spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 40;
 					biome->spawn_magical_trees = false;
-					biome->magical_tree_weight = 300;
+					biome->magical_tree_weight = 0;
 					biome->spawn_birch_trees = false;
 					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1683,7 +1683,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->rocks_weight = 75;
+					biome->rocks_weight = 40;
 					biome->spawn_mushrooms = true;
 					biome->mushrooms_weight = 15;
 					biome->spawn_twigs = true;
@@ -2022,7 +2022,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 
 	void setup_all_dimensions() {
-		for (DimensionID i = 0; i < DIM_MAX; i++){
+		for (DimensionID i = 1; i < DIM_MAX; i++){
 			setup_dimension(i);
 		}
 	}

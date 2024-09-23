@@ -277,15 +277,16 @@ void setup_audio_player(){
 // ----- ::Create entities -----------------------------------------------------------------------------|
 // maybe should move these into "create_entities.h" ???
 
-void create_pine_trees(int amount, int range) {
+// void create_pine_trees(int amount, int range) {
+void create_pine_trees(int amount, Range2f range) {
 	// Creates trees
 	// Wont allow multiple trees to spawn in the same tile
 
 	Vector2 tree_positions[amount];
 
 	for (int i = 0; i < amount; i++){
-		float x = get_random_float32_in_range(-range, range);
-		float y = get_random_float32_in_range(-range, range);
+		float x = get_random_float32_in_range(range.min.x, range.max.x);
+		float y = get_random_float32_in_range(range.min.y, range.max.y);
 		tree_positions[i] = v2(x,y);
 	}
 
@@ -1916,7 +1917,7 @@ void render_building_ui(UXState ux_state)
 
 // :SPAWN BIOME
 void spawn_biome(BiomeData* biome) {
-	if (biome->spawn_pine_trees) {create_pine_trees((int)biome->pine_tree_weight, biome->size.x); }
+	// if (biome->spawn_pine_trees) {create_pine_trees((int)biome->pine_tree_weight, biome->size.x); }
 	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spruce_tree_weight, biome->size.x); }
 	if (biome->spawn_magical_trees) {create_magical_trees((int)biome->magical_tree_weight, biome->size.x); }
 	if (biome->spawn_rocks) {create_rocks((int)biome->rocks_weight, biome->size.x); }
@@ -2697,7 +2698,7 @@ int entry(int argc, char **argv)
 
 	// ::INIT
 
-	// init_WorldData(&map);
+	init_WorldData(&map);
 
 	setup_world();
 
@@ -2756,36 +2757,6 @@ int entry(int argc, char **argv)
 	// crafting & smelting recipes setup
 	setup_all_recipes();
 
-
-
-	// setup_world();
-
-	// Set all chunk pointers to NULL (indicating unloaded chunks)
-	// Allocate the 2D array of Chunk pointers
-	// world->dimension->chunks = malloc(CHUNK_SIZE * sizeof(Chunk**));
-	// world->dimension->chunks = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk**));
-
-	// for (int x = 0; x < CHUNK_SIZE; x++) {
-	// 	// world->dimension->chunks[x] = malloc(CHUNK_SIZE * sizeof(Chunk*));
-	// 	world->dimension->chunks[x] = alloc(get_heap_allocator(), CHUNK_SIZE * sizeof(Chunk*));
-
-	// 	// Initialize each element in the 2D array to NULL
-	// 	memset(world->dimension->chunks[x], 0, CHUNK_SIZE * sizeof(Chunk*));
-	// }
-
-	// world->dimension->chunks = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate rows
-	// for (int i = 0; i < MAX_CHUNKS; i++) {
-	// 	world->dimension->chunks[i] = alloc(get_heap_allocator(), MAX_CHUNKS * sizeof(Chunk*));  // Allocate columns
-	// 	memset(world->dimension->chunks[i], 0, MAX_CHUNKS * sizeof(Chunk*));  // Initialize all pointers to NULL
-	// }
-
-	// // setups
-	// setup_player();
-	// setup_all_biomes();
-
-	// world->dimension->current_biome_id = BIOME_forest;
-	// world->player->inventory_items_count = 0;
-	
 	// setup audio
 	setup_audio_player();
 	Audio_Playback_Config audio_config = {0};
@@ -3637,11 +3608,11 @@ int entry(int argc, char **argv)
 			render_keybinding(world_frame.selected_entity, KEY_player_use);
 		}
 
-		// if (render_fps){
-		// 	set_screen_space();
-		// 	draw_text(font, sprint(get_heap_allocator(), STR("%d"), fps), font_height, v2(0,screen_height-3), v2(0.1, 0.1), COLOR_WHITE);
-		// 	set_world_space();
-		// }
+		if (render_fps){
+			set_screen_space();
+			draw_text(font, sprint(get_heap_allocator(), STR("%d"), fps), font_height, v2(0,screen_height-3), v2(0.1, 0.1), COLOR_WHITE);
+			set_world_space();
+		}
 
 
 
