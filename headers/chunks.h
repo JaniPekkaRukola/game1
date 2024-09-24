@@ -78,34 +78,96 @@ Entity* entity_create_to_chunk(Chunk* chunk) {
     return entity_found;
 }
 
-void create_tree_to_chunk(Chunk* chunk, int amount, Range2f range){
-    Vector2 positions[amount];
+// void create_tree_to_chunk(Chunk* chunk, int amount, Range2f range){
+    //     Vector2 positions[amount];
 
-    for (int i = 0; i < amount; i++){
+    //     for (int i = 0; i < amount; i++){
+    //         float x = get_random_float32_in_range(range.min.x, range.max.x);
+    //         float y = get_random_float32_in_range(range.min.y, range.max.y);
+    //         positions[i] = v2(x,y);
+    //     }
+
+    //     for (int i = 0; i < amount; i++){
+    //         Entity* en = entity_create_to_chunk(chunk);
+    //         // setup tree
+    //         setup_pine_tree(en);
+    //         // en->pos = v2(positions[i].x, positions[i].y);
+    //         en->pos = v2(positions[i].x + chunk->pos_in_world.x, positions[i].y + chunk->pos_in_world.y);
+    //         en->pos = round_v2_to_tile(en->pos);
+    //     }
+
+
+    //     // free the list of positions
+    // 	memset(positions, 0, sizeof(positions));
+    //     // dealloc(get_heap_allocator(), (Vector2*)&positions);
+
+    //     int res_x = chunk->pos_in_grid.x + CHUNK_OFFSET_X;
+    //     int res_y = chunk->pos_in_grid.y + CHUNK_OFFSET_Y;
+
+    //     printf("Created %d trees to chunk[%d][%d]\n", amount, res_x, res_y);
+// }
+
+
+void create_chunk_entities(Chunk* chunk, EntityArchetype arch, int amount, Range2f range){
+    Vector2 entity_positions[amount];
+
+    // printf("CREATING %d ENTITITES '%d' to chunk\n", amount, arch);
+    // printf("Chunk boundaries = (%.0f, %.0f) (%.0f,%.0f)\n\n", range.min.x, range.min.y, range.max.x, range.max.y);
+
+    BiomeData biome = get_biome_data_from_id(chunk->biome_id);
+
+    // Generate random positions for entities
+    for (int i = 0; i < amount; i++) {
         float x = get_random_float32_in_range(range.min.x, range.max.x);
         float y = get_random_float32_in_range(range.min.y, range.max.y);
-        positions[i] = v2(x,y);
+        entity_positions[i] = v2(x, y);
     }
 
-    for (int i = 0; i < amount; i++){
+    // Create entities and set them up based on the archetype
+    for (int i = 0; i < amount; i++) {
         Entity* en = entity_create_to_chunk(chunk);
-        // setup tree
-        setup_pine_tree(en);
-        // en->pos = v2(positions[i].x, positions[i].y);
-        en->pos = v2(positions[i].x + chunk->pos_in_world.x, positions[i].y + chunk->pos_in_world.y);
+        switch (arch) {
+            case ARCH_rock:
+                setup_rock(en);
+                break;
+            case ARCH_tree:
+                if (biome.spawn_pine_trees) setup_pine_tree(en);
+                else if (biome.spawn_spruce_trees) setup_spruce_tree(en);
+                // more tree types here? or separate?
+                break;
+            case ARCH_bush:
+                setup_bush(en);
+                break;
+            case ARCH_twig:
+                setup_twig(en);
+                break;
+            case ARCH_ore:
+                // setup_ore(en, biome); // Adjust this for ore-specific setups
+                break;
+            case ARCH_mushroom:
+                setup_mushroom(en);
+                break;
+
+            // more cases pls :)
+
+            default:
+                break;
+        }
+
+        en->pos = v2(entity_positions[i].x + chunk->pos_in_world.x, entity_positions[i].y + chunk->pos_in_world.y);
         en->pos = round_v2_to_tile(en->pos);
+
+        // Avoid spawning multiple entities in the same position
+        for (int j = 0; j < i; j++) {
+            if (entity_positions[i].x == entity_positions[j].x && entity_positions[i].y == entity_positions[j].y) {
+                // Handle collision and reposition entity if needed
+            }
+        }
     }
 
-
-    // free the list of positions
-	memset(positions, 0, sizeof(positions));
-    // dealloc(get_heap_allocator(), (Vector2*)&positions);
-
-    int res_x = chunk->pos_in_grid.x + CHUNK_OFFSET_X;
-    int res_y = chunk->pos_in_grid.y + CHUNK_OFFSET_Y;
-
-    printf("Created %d trees to chunk[%d][%d]\n", amount, res_x, res_y);
+    memset(entity_positions, 0, sizeof(entity_positions));
 }
+
 
 
 void spawn_chunk_entities(Chunk* chunk){
@@ -114,7 +176,6 @@ void spawn_chunk_entities(Chunk* chunk){
     Vector2 chunk_pos_in_world;
     chunk_pos_in_world.x = (chunk->pos_in_grid.x - CHUNK_OFFSET_X) / CHUNK_SIZE;
     chunk_pos_in_world.y = (chunk->pos_in_grid.y - CHUNK_OFFSET_Y) / CHUNK_SIZE;
-    // chunk_pos_in_world = get_chunk_world_position(chunk->pos_in_grid.x, chunk->pos_in_grid.y);
 
     // chunk boundaries in worldspace
     Range2f chunk_boundaries;
@@ -125,7 +186,27 @@ void spawn_chunk_entities(Chunk* chunk){
 
     BiomeData biomedata = get_biome_data_from_id(chunk->biome_id);
 
-    if (biomedata.spawn_pine_trees) create_tree_to_chunk(chunk, biomedata.pine_tree_weight, chunk_boundaries);
+    // if (biomedata->spawn_pine_trees || biomedata->spawn_spruce_trees) {
+    //     spawn_entities(chunk, ARCH_tree, (int)(biomedata->pine_tree_weight + biomedata->spruce_tree_weight), biomedata->size);
+    // }
+    if (biomedata.spawn_pine_trees) {
+        create_chunk_entities(chunk, ARCH_tree, (int)biomedata.pine_tree_weight, chunk_boundaries);
+    }
+    if (biomedata.spawn_rocks) {
+        create_chunk_entities(chunk, ARCH_rock, (int)biomedata.rocks_weight, chunk_boundaries);
+    }
+    if (biomedata.spawn_berries) {
+        create_chunk_entities(chunk, ARCH_bush, (int)biomedata.berries_weight, chunk_boundaries);
+    }
+    if (biomedata.spawn_twigs) {
+        create_chunk_entities(chunk, ARCH_twig, (int)biomedata.twigs_weight, chunk_boundaries);
+    }
+    if (biomedata.spawn_mushrooms) {
+        create_chunk_entities(chunk, ARCH_mushroom, (int)biomedata.mushrooms_weight, chunk_boundaries);
+    }
+    if (biomedata.spawn_ores) {
+        create_chunk_entities(chunk, ARCH_ore, (int)(biomedata.ore_iron_weight + biomedata.ore_gold_weight + biomedata.ore_copper_weight), chunk_boundaries);
+    }
 
 }
 
@@ -268,6 +349,7 @@ void render_chunk_ground(){
 }
 
 
+
 void render_chunk_entities(){
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
@@ -275,41 +357,26 @@ void render_chunk_entities(){
 
             if (chunk != NULL) {
 
-                // printf("Chunk pos in grid = %d, %d\n", x, y);
-
-                // render chunk ground texture
-                // float chunk_pos_world_x = (x - CHUNK_OFFSET_X) * CHUNK_SIZE;
-                // float chunk_pos_world_y = (y - CHUNK_OFFSET_Y) * CHUNK_SIZE;
-                // // float chunk_pos_world_x = x * CHUNK_SIZE;
-                // // float chunk_pos_world_y = y * CHUNK_SIZE;
-
-                // Texture* texture = get_texture(get_biome_data_from_id(chunk->biome_id).ground_texture);
-                // Vector4 ground_color = get_biome_data_from_id(chunk->biome_id).grass_color;
-
-                // Matrix4 xform = m4_identity;
-                // xform = m4_translate(xform, v3(chunk_pos_world_x, chunk_pos_world_y, 0));
-
-                // draw_image_xform(texture->image, xform, v2(CHUNK_SIZE, CHUNK_SIZE), ground_color);
-                // if (x == 255 && y == 255){
-                //     draw_rect_with_border(xform, v2(CHUNK_SIZE-1, CHUNK_SIZE-1), 2, COLOR_BLUE, COLOR_BLACK);
-                // }
-                // else{
-                //     draw_rect_with_border(xform, v2(CHUNK_SIZE-1, CHUNK_SIZE-1), 2, COLOR_RED, COLOR_BLACK);
-                // }
-
-
                 // render chunk entities
                 for (int i = 0; i < chunk->entity_count; i++){
                     Entity* en = &chunk->entities[i];
-                    if (en != NULL){
-                        switch (en->arch){
-                            default:{
-                                {
-                                    Sprite* sprite = get_sprite(en->sprite_id);
+                    if (en != NULL && en->is_valid){
 
-                                    Matrix4 xform = m4_identity;
-                                    xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-                                    draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+                        // frustrum culling
+                        float entity_dist_from_player = fabsf(v2_dist(en->pos, get_player_pos()));
+
+                        if (entity_dist_from_player <= entity_render_distance){
+
+                            switch (en->arch){
+
+                                default:{
+                                    {
+                                        Sprite* sprite = get_sprite(en->sprite_id);
+
+                                        Matrix4 xform = m4_identity;
+                                        xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+                                        draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+                                    }
                                 }
                             }
                         }
@@ -320,7 +387,7 @@ void render_chunk_entities(){
     }
 }
 
-void print_chunk_count(){
+void chunk_debug_print(){
     set_screen_space();
     Matrix4 xform = m4_identity;
     xform = m4_translate(xform, v3(0, screen_height - 10, 0));
@@ -343,7 +410,7 @@ void do_chunk_magic(){
     render_chunk_entities();
 
     // printf("Chunk count = %d\n", world->dimension->chunk_count);
-    print_chunk_count();
+    chunk_debug_print();
 
 }
 

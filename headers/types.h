@@ -5,7 +5,7 @@
 
 
 // GLOBALS
-    #define MAX_ENTITY_COUNT 2048
+    #define MAX_ENTITY_COUNT 4096 * 2
     #define MAX_PORTAL_COUNT 10
     #define MAX_PORTAL_PAIRS MAX_PORTAL_COUNT
     #define MAX_PICKUP_TEXTS 10
@@ -53,28 +53,48 @@
 
 // :ENUMS -------------------------------------------------------------------------------------------->
 
-    typedef enum EntityArchetype {
-        // TODO: un-number these
-        ARCH_nil = 0,
-        ARCH_rock = 1,
-        ARCH_tree = 2,
-        ARCH_bush = 3,
-        ARCH_twig = 4,
-        ARCH_player = 5,
+    // old way
+    // typedef enum EntityArchetype {
+    //     // TODO: un-number these
+    //     ARCH_nil = 0,
+    //     ARCH_rock = 1,
+    //     ARCH_tree = 2,
+    //     ARCH_bush = 3,
+    //     ARCH_twig = 4,
+    //     ARCH_player = 5,
 
-        ARCH_item = 6,
-        ARCH_tool = 7,
-        ARCH_building = 8,
+    //     ARCH_item = 6,
+    //     ARCH_tool = 7,
+    //     ARCH_building = 8,
 
-        ARCH_ore = 9,
+    //     ARCH_ore = 9,
 
-        ARCH_mushroom = 10,
+    //     ARCH_mushroom = 10,
 
-        ARCH_portal = 11,
+    //     ARCH_portal = 11,
 
-        ARCH_torch = 12,
+    //     ARCH_torch = 12,
         
-        ARCH_parallax = 13,
+    //     ARCH_parallax = 13,
+
+    //     ARCH_MAX,
+    // } EntityArchetype;
+
+    typedef enum EntityArchetype {
+        ARCH_nil,
+        ARCH_rock,
+        ARCH_tree,
+        ARCH_bush,
+        ARCH_twig,
+        ARCH_player,
+        ARCH_item,
+        ARCH_tool,
+        ARCH_building,
+        ARCH_ore,
+        ARCH_mushroom,
+        ARCH_portal,
+        ARCH_torch,
+        ARCH_parallax,
 
         ARCH_MAX,
     } EntityArchetype;
@@ -723,7 +743,10 @@
     // #CHUNK
     #define CHUNK_SIZE 512
     #define MAX_CHUNKS 100
-    #define MAX_CHUNK_ENTITIES 100
+    #define MAX_CHUNK_ENTITIES 64 * 4
+    
+    float entity_render_distance = 230; // used with rendering entities from chunks (chunks.h)
+
 
 
 

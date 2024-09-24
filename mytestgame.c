@@ -17,7 +17,7 @@ bool enable_vignette = true;
 bool enable_tooltip = true;
 bool enable_chest_tooltip = false;
 bool render_hotbar = true;
-bool render_player = true;
+bool render_player_sprite = true;
 bool render_other_entities = true;
 bool draw_grid = false;
 bool render_ground_texture = true;
@@ -86,10 +86,7 @@ int compare_strings(string str, const char* cstr) {
     return 1;
 }
 
-// randy: is this something that's usually standard in math libraries or am I tripping?
-inline float v2_dist(Vector2 a, Vector2 b) {
-    return v2_length(v2_sub(a, b));
-}
+
 
 Vector2 range2f_get_center(Range2f range) {
 	return (Vector2) {(range.max.x - range.min.x) * 0.5 + range.min.x, (range.max.y - range.min.y) * 0.5 + range.min.y};
@@ -282,6 +279,8 @@ void create_pine_trees(int amount, Range2f range) {
 	// Creates trees
 	// Wont allow multiple trees to spawn in the same tile
 
+	assert(1==0);
+
 	Vector2 tree_positions[amount];
 
 	for (int i = 0; i < amount; i++){
@@ -306,6 +305,9 @@ void create_pine_trees(int amount, Range2f range) {
 void create_spruce_trees(int amount, int range) {
 	// Creates trees
 	// Wont allow multiple trees to spawn in the same tile
+
+	assert(1==0);
+
 
 	Vector2 tree_positions[amount];
 
@@ -2179,6 +2181,51 @@ void sort_entity_indices_by_prio_and_y(int* indices, Entity* entities, int count
 	// }
 */
 
+// ::render player
+void render_player() {
+	
+	Entity* en = world->player->en;
+	
+	Vector2 pos = get_player_pos();
+	Sprite* sprite = get_sprite(SPRITE_player);
+
+	Matrix4 xform = m4_identity;
+	xform = m4_translate(xform, v3(pos.x, pos.y, 0));
+	xform = m4_translate(xform, v3(sprite->image->width * -0.5, sprite->image->height * -0.5, 0)); // center sprite
+
+	// draw shadow
+	if (en->enable_shadow){
+		Vector2 shadow_pos = en->pos;
+		shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
+		shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
+		draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
+	}
+
+	draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+	// :Render held item
+	if (item_in_hand != NULL && item_in_hand->valid){
+
+		// TODO: here check if item has an animation
+		if (item_in_hand->item_id == ITEM_TOOL_torch){
+			// held_torch_animation->active = true;
+			update_player_torch_animation(get_player_pos());
+
+		}
+		else{
+			// held_torch_animation->active = false;
+			stop_player_torch_animation();
+			Sprite* sprite_held_item = get_sprite(item_in_hand->sprite_id);
+			Matrix4 xform_held_item = m4_identity;
+			xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
+			xform_held_item = m4_translate(xform_held_item, v3(2, -3, 0));
+
+			// held_torch_animation->active = false;
+			// if (torch_animation->active) kill_animation_now(torch_animation);
+			draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
+		}
+	}
+}
 
 // ::Render entities || ::Entity render
 void render_entities(World* world) {
@@ -2250,54 +2297,14 @@ void render_entities(World* world) {
 
 				// :Render player
 				case ARCH_player: {
-					if (render_player)
+					if (render_player_sprite)
 					{
-						// render player
-						Sprite* sprite = get_sprite(en->sprite_id);
-						Matrix4 xform = m4_identity;
-
-						xform = m4_translate(xform, v3(0, tile_width * -0.5, 0));
-						// xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-						xform = m4_translate(xform, v3(get_player_pos().x, get_player_pos().y, 0)); // NOTE: have to use get_player_pos() here because of shit coding. too lazy to rewrite stuff
-						xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
-
-						// draw shadow
-						if (en->enable_shadow){
-							Vector2 shadow_pos = en->pos;
-							shadow_pos.x = shadow_pos.x - (0.5 * get_sprite_size(sprite).x);
-							shadow_pos.y = shadow_pos.y - (0.75 * get_sprite_size(sprite).y);
-							draw_circle(shadow_pos, v2(get_sprite_size(sprite).x, 4.0), entity_shadow_color);
-						}
-
-						// draw sprite
-						draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-
-						// :Render held item
-						if (item_in_hand != NULL && item_in_hand->valid){
-
-							// TODO: here check if item has an animation
-							if (item_in_hand->item_id == ITEM_TOOL_torch){
-								// held_torch_animation->active = true;
-								update_player_torch_animation(get_player_pos());
-
-							}
-							else{
-								// held_torch_animation->active = false;
-								stop_player_torch_animation();
-								Sprite* sprite_held_item = get_sprite(item_in_hand->sprite_id);
-								Matrix4 xform_held_item = m4_scalar(1.0);
-								xform_held_item = m4_translate(xform_held_item, v3(en->pos.x, en->pos.y, 0));
-								xform_held_item = m4_translate(xform_held_item, v3(0, -3, 0));
-
-								// held_torch_animation->active = false;
-								// if (torch_animation->active) kill_animation_now(torch_animation);
-								draw_image_xform(sprite_held_item->image, xform_held_item, v2(5, 5), COLOR_WHITE);
-							}
-
-						}
+						render_player();
 
 						// draw debug text
 						if (IS_DEBUG){
+							Matrix4 xform = m4_identity;
+							xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
 							xform = m4_translate(xform, v3(-3.5, -3, 0));
 							draw_text_xform(font, STR("DEBUG"), font_height, xform, v2(0.1, 0.1), COLOR_RED);
 							draw_text_xform(font, sprint(temp_allocator, STR("%.0f,%.0f"), get_player_pos().x, get_player_pos().y), font_height, m4_translate(xform, v3(0, -5, 0)), v2(0.1, 0.1), COLOR_WHITE);
@@ -2766,9 +2773,9 @@ int entry(int argc, char **argv)
 	audio_config.position_ndc          = v3(0, 0, 0);
 
 	// spawning
-	BiomeData temp_data = get_biome_data_from_id(world->dimension->current_biome_id);
-	spawn_biome(&temp_data);
-	memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
+	// BiomeData temp_data = get_biome_data_from_id(world->dimension->current_biome_id);
+	// spawn_biome(&temp_data);
+	// memset(&temp_data, 0, sizeof(temp_data)); // i dont know what im doing
 
 	// setup loot-tables
 	setup_all_loot_tables();
@@ -3570,6 +3577,7 @@ int entry(int argc, char **argv)
 
 		// Render entities
 		render_entities(world);
+		// render_player();
 
 
 
@@ -3766,7 +3774,7 @@ int entry(int argc, char **argv)
 				case (INPUT_EVENT_SCROLL):
 				{
 					if (e.yscroll > 0){
-						if (IS_DEBUG){view_zoom -= 0.01;}
+						if (IS_DEBUG){view_zoom -= 0.03;}
 						else{
 							selected_slot_index -= 1;
 							if (selected_slot_index < 0){
@@ -3775,7 +3783,7 @@ int entry(int argc, char **argv)
 						}
 					}
 					else{
-						if (IS_DEBUG){view_zoom += 0.01;}
+						if (IS_DEBUG){view_zoom += 0.03;}
 						else{
 							selected_slot_index += 1;
 							if (selected_slot_index > 8){

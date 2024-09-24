@@ -186,7 +186,10 @@ DimensionData *get_dimensionData(DimensionID);
 		draw_frame.projection = world_frame.world_projection;
 		draw_frame.camera_xform = world_frame.world_view;
 	}
-
+	// randy: is this something that's usually standard in math libraries or am I tripping?
+	inline float v2_dist(Vector2 a, Vector2 b) {
+		return v2_length(v2_sub(a, b));
+	}
 
 // 
 
@@ -208,8 +211,8 @@ DimensionData *get_dimensionData(DimensionID);
 
 		string png;
 		// bool ok = os_read_entire_file("res/biometest.png", &png, get_heap_allocator());
-		bool ok = os_read_entire_file("res/world2.png", &png, get_heap_allocator());
-		assert(ok);
+		bool ok = os_read_entire_file("res/world.png", &png, get_heap_allocator());
+		assert(ok, "Failed to read world.png");
 
 		int width, height, channels;
 		stbi_set_flip_vertically_on_load(1);
