@@ -2,7 +2,7 @@
 #define CHUNKS2_H
 
 
-#define CHUNK_RENDER_DISTANCE 1 // how many chunks are loaded into each direction from center. value of 2 is 25 chunks total (5x5). value of 1 is 9 chunks total (3x3) etc. NOTE: atleast with only 1 tree type rendering the total fps drop from values 1 to 2 is about -10%
+#define CHUNK_RENDER_DISTANCE 2 // how many chunks are loaded into each direction from center. value of 2 is 25 chunks total (5x5). value of 1 is 9 chunks total (3x3) etc. NOTE: atleast with only 1 tree type rendering the total fps drop from values 1 to 2 is about -10%
 
 // chunk offsets. These must be used to store negative values. So now the (0.0) chunk is in the middle of the chunks array
 #define CHUNK_OFFSET_X WORLD_WIDTH / 2
@@ -72,6 +72,7 @@ Entity* entity_create_to_chunk(Chunk* chunk) {
         }
     }
 
+    // printf("chunk entity count = %d, biomeid = %d\n", chunk->entity_count, chunk->biome_id);
     assert(entity_found, "No more free entities!");
     entity_found->is_valid = true;
 
@@ -132,7 +133,8 @@ void create_chunk_entities(Chunk* chunk, EntityArchetype arch, int amount, Range
                 break;
             case ARCH_tree:
                 if (biome.spawn_pine_trees) setup_pine_tree(en);
-                else if (biome.spawn_spruce_trees) setup_spruce_tree(en);
+                if (biome.spawn_spruce_trees) setup_spruce_tree(en);
+                if (biome.spawn_magical_trees) setup_magical_tree(en);
                 // more tree types here? or separate?
                 break;
             case ARCH_bush:
@@ -172,6 +174,8 @@ void create_chunk_entities(Chunk* chunk, EntityArchetype arch, int amount, Range
 
 void spawn_chunk_entities(Chunk* chunk){
 
+    if (chunk->biome_id == BIOME_nil) return;
+
     // chunks pos in worldspace
     Vector2 chunk_pos_in_world;
     chunk_pos_in_world.x = (chunk->pos_in_grid.x - CHUNK_OFFSET_X) / CHUNK_SIZE;
@@ -189,7 +193,8 @@ void spawn_chunk_entities(Chunk* chunk){
     // if (biomedata->spawn_pine_trees || biomedata->spawn_spruce_trees) {
     //     spawn_entities(chunk, ARCH_tree, (int)(biomedata->pine_tree_weight + biomedata->spruce_tree_weight), biomedata->size);
     // }
-    if (biomedata.spawn_pine_trees) {
+    if (biomedata.spawn_pine_trees || biomedata.spawn_spruce_trees || biomedata.spawn_magical_trees) {
+        // FIX: using pine_tree_weight here btw fix it
         create_chunk_entities(chunk, ARCH_tree, (int)biomedata.pine_tree_weight, chunk_boundaries);
     }
     if (biomedata.spawn_rocks) {
@@ -221,14 +226,20 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
             chunk = alloc(get_heap_allocator(), sizeof(Chunk));
             chunk->pos_in_grid = pos;
             chunk->entity_count = 0;
-            chunk->biome_id = BIOME_forest;
+            // chunk->biome_id = BIOME_forest;
+            chunk->biome_id = biome_at_position(x,y);
             // dimension->chunks[x][y]->pos_in_grid = v2(x,y);
             chunk->pos_in_world = get_chunk_world_position(x, y);
             world->dimension->chunk_count++;
             printf("Loaded new chunk\n");
             world->dimension->chunks[x][y] = chunk;
 
-            spawn_chunk_entities(dimension->chunks[x][y]);
+            if (chunk->biome_id != BIOME_nil){
+                spawn_chunk_entities(dimension->chunks[x][y]);
+            }
+            else{
+                printf("Failed to spawn chunk entities. chunk biomeID = NULL\n");
+            }
         }
     }
 }
@@ -250,12 +261,12 @@ void unload_chunk(DimensionData* dimension, Vector2 pos) {
     }
 }
 
-
 void load_chunks_renderdistance() {
 
     DimensionData* dimension = world->dimension;
 
     int render_distance = CHUNK_RENDER_DISTANCE;
+    // render_distance = CHUNK_RENDER_DISTANCE2;
 
     Vector2 player_pos = get_player_pos();
 
@@ -348,8 +359,6 @@ void render_chunk_ground(){
     }
 }
 
-
-
 void render_chunk_entities(){
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
@@ -394,7 +403,21 @@ void chunk_debug_print(){
     draw_text_xform(font, sprint(get_heap_allocator(), STR("chunk count = %d"), world->dimension->chunk_count), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
 
     xform = m4_translate(xform, v3(0, -5, 0));
-    draw_text_xform(font, sprint(get_heap_allocator(), STR("Chunks entity count = %d"), total_entity_count), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+    draw_text_xform(font, sprint(get_heap_allocator(), STR("Total Chunks entity count = %d"), total_entity_count), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+
+    xform = m4_translate(xform, v3(0, -5, 0));
+    Vector2 pos = get_player_pos();
+    pos.x = (pos.x / CHUNK_SIZE) + CHUNK_OFFSET_X;
+    pos.y = (pos.y / CHUNK_SIZE) + CHUNK_OFFSET_Y;
+    int x = (int)pos.x;
+    int y = (int)pos.y;
+    if (world->dimension->chunks[x][y]){
+        draw_text_xform(font, sprint(get_heap_allocator(), STR("current chunk[%d][%d] = %d"), x, y, world->dimension->chunks[x][y]->biome_id), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+    }
+    else{
+        draw_text_xform(font, sprint(get_heap_allocator(), STR("current chunk[%d][%d] = NULL\n"), x, y), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+    }
+
 
     set_world_space();
 }

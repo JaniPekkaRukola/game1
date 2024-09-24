@@ -104,11 +104,11 @@
         BIOME_nil,
 
         // Overworld biomes
-        BIOME_forest,
-        BIOME_pine_forest,
-        BIOME_magical_forest,
-        BIOME_desert,
-        BIOME_polar,
+        BIOME_forest,           // 1
+        BIOME_pine_forest,      // 2
+        BIOME_magical_forest,   // 3
+        BIOME_desert,           // 4
+        BIOME_polar,            // 5
 
         // Cavern biomes
         BIOME_cave,
@@ -738,7 +738,7 @@
     LootTable *lootTable_rock;
     LootTable *lootTable_pine_tree;
 
-    WorldData map = {0};
+    // WorldData map = {0};
 
     // #CHUNK
     #define CHUNK_SIZE 512

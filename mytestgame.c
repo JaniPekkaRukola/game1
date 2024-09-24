@@ -2591,7 +2591,8 @@ int entry(int argc, char **argv)
 		// ::Load sprites
 			// :Load entity sprites
 			sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
-			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
+			// sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
+			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player_new.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_magical0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical0.png"), get_heap_allocator())};
@@ -2705,7 +2706,8 @@ int entry(int argc, char **argv)
 
 	// ::INIT
 
-	init_WorldData(&map);
+	// init_WorldData(&map);
+	init_worldmap();
 
 	setup_world();
 
@@ -3724,10 +3726,18 @@ int entry(int argc, char **argv)
 		// }
 
 
-		if (is_key_just_pressed('G')) {
-			trigger_animation(held_torch_animation, v2(0,0), 2.0f);
+		// if (is_key_just_pressed('Y')){
+		// 	CHUNK_RENDER_DISTANCE2 += 1;
+		// }
+		// if (is_key_just_pressed('U')){
+		// 	CHUNK_RENDER_DISTANCE2 -= 1;
+		// }
 
-		}
+
+		// if (is_key_just_pressed('G')) {
+		// 	trigger_animation(held_torch_animation, v2(0,0), 2.0f);
+
+		// }
 			// update_animations(delta_t);
 
 		// if (is_key_just_pressed('N')) {
@@ -3834,7 +3844,7 @@ int entry(int argc, char **argv)
 
 		// @ship del this
 		if (IS_DEBUG){
-			world->player->running_speed_amount = 500;
+			world->player->running_speed_amount = 1000;
 		}
 		else{
 			world->player->running_speed_amount = 100;

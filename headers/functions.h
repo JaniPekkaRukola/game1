@@ -298,6 +298,80 @@ DimensionData *get_dimensionData(DimensionID);
 		return biome;
 	}
 
+	typedef struct WorldMap{
+		int width;
+		int height;
+		BiomeID biomes[WORLD_WIDTH][WORLD_HEIGHT];
+	} WorldMap;
+
+	WorldMap* map = 0;
+
+	void init_worldmap(){
+
+		map = alloc(get_heap_allocator(), sizeof(WorldMap));
+		assert(map, "Failed to allocate memory for map");
+
+		// temp colors
+		Vector4 forest = v4(0, 200, 0, 1);
+		Vector4 pine_forest = v4(86, 163, 108, 1);
+		Vector4 magical_forest = v4(97, 0, 194, 1);
+		Vector4 desert = v4(194, 158, 0, 1);
+		Vector4 polar = v4(255, 255, 255, 1);
+		Vector4 NIL = v4(255, 0, 0, 1);
+
+		string png;
+		bool ok = os_read_entire_file("res/world.png", &png, get_heap_allocator());
+		assert(ok, "Failed to read world.png");
+
+		int width, height, channels;
+		stbi_set_flip_vertically_on_load(1);
+		third_party_allocator = get_heap_allocator();
+		u8* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
+		assert(stb_data);
+		// assert(channels == 4);
+		third_party_allocator = ZERO(Allocator);
+
+		map->width = width;
+		map->height = height;
+		// map->biomes = alloc(get_heap_allocator(), width * height * sizeof(BiomeID));
+		// assert(map->biomes && "Failed to allocate memory for tiles");
+
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int index = y * width + x;
+				u8* pixel = stb_data + index * 4;  // Access RGBA pixel
+
+				// printf("index = %d\n", index);
+
+				u8 r = pixel[0];
+				u8 g = pixel[1];
+				u8 b = pixel[2];
+
+				// Map color to biome and store in biome_map
+				if (v4_equals(v4(r, g, b, 1), forest)) {
+					// map->tiles[index] = BIOME_forest;
+					map->biomes[x][y] = BIOME_forest;
+				}
+				else if (v4_equals(v4(r, g, b, 1), pine_forest)) {
+					map->biomes[x][y] = BIOME_pine_forest;
+				}
+				else if (v4_equals(v4(r, g, b, 1), magical_forest)) {
+					map->biomes[x][y] = BIOME_magical_forest;
+				}
+				else if (v4_equals(v4(r, g, b, 1), desert)) {
+					map->biomes[x][y] = BIOME_desert;
+				}
+				else{
+					map->biomes[x][y] = BIOME_nil;
+				}
+			}
+		}
+	}
+
+	BiomeID biome_at_position(int x, int y){
+		return map->biomes[x][y];
+	}
+
 
 	// :ENTITY ------------------------>
 	Entity* entity_create() {
@@ -1721,11 +1795,11 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = true;
-					biome->pine_tree_weight = 500;
+					biome->pine_tree_weight = 10;
 					biome->spawn_spruce_trees = false;
-					biome->spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 0;
 					biome->spawn_magical_trees = false;
-					biome->magical_tree_weight = 300;
+					biome->magical_tree_weight = 0;
 					biome->spawn_birch_trees = false;
 					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1733,13 +1807,13 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->rocks_weight = 85;
+					biome->rocks_weight = 45;
 					biome->spawn_mushrooms = true;
 					biome->mushrooms_weight = 35;
 					biome->spawn_twigs = true;
 					biome->twigs_weight = 15;
 					biome->spawn_berries = true;
-					biome->berries_weight = 20;
+					biome->berries_weight = 25;
 
 					// ores
 					biome->spawn_ores = false;
@@ -1779,11 +1853,11 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = false;
-					biome->pine_tree_weight = 400;
+					biome->pine_tree_weight = 0;
 					biome->spawn_spruce_trees = false;
-					biome->spruce_tree_weight = 400;
+					biome->spruce_tree_weight = 0;
 					biome->spawn_magical_trees = true;
-					biome->magical_tree_weight = 300;
+					biome->magical_tree_weight = 60;
 					biome->spawn_birch_trees = false;
 					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1791,7 +1865,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->rocks_weight = 85;
+					biome->rocks_weight = 20;
 					biome->spawn_mushrooms = true;
 					biome->mushrooms_weight = 45;
 					biome->spawn_twigs = true;
@@ -1835,7 +1909,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_spruce_trees = false;
 					biome->spruce_tree_weight = 0;
 					biome->spawn_magical_trees = false;
-					biome->magical_tree_weight = 300;
+					biome->magical_tree_weight = 0;
 					biome->spawn_birch_trees = false;
 					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1845,7 +1919,7 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_rocks = true;
 					biome->rocks_weight = 85;
 					biome->spawn_mushrooms = false;
-					biome->mushrooms_weight = 35;
+					biome->mushrooms_weight = 0;
 					biome->spawn_twigs = true;
 					biome->twigs_weight = 15;
 
@@ -1882,11 +1956,11 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// trees
 					biome->spawn_pine_trees = true;
-					biome->pine_tree_weight = 400;
-					biome->spawn_spruce_trees = false;
-					biome->spruce_tree_weight = 400;
+					biome->pine_tree_weight = 15;
+					biome->spawn_spruce_trees = true;
+					biome->spruce_tree_weight = 15;
 					biome->spawn_magical_trees = false;
-					biome->magical_tree_weight = 300;
+					biome->magical_tree_weight = 0;
 					biome->spawn_birch_trees = false;
 					biome->birch_tree_weight = 0;
 					biome->spawn_palm_trees = false;
@@ -1894,11 +1968,11 @@ DimensionData *get_dimensionData(DimensionID);
 
 					// entities
 					biome->spawn_rocks = true;
-					biome->rocks_weight = 85;
+					biome->rocks_weight = 40;
 					biome->spawn_mushrooms = false;
-					biome->mushrooms_weight = 35;
+					biome->mushrooms_weight = 0;
 					biome->spawn_twigs = true;
-					biome->twigs_weight = 15;
+					biome->twigs_weight = 25;
 
 					// ores
 					biome->spawn_ores = false;
@@ -1983,7 +2057,7 @@ DimensionData *get_dimensionData(DimensionID);
 
 		// setup_dimension_chunks(dimension);
 		initialize_chunks(dimension); // NOTE: this sets all chunk pointers to NULL. so any dimensional changes to chunks have to be made after this
-		dimension->chunk_size = 512;
+		dimension->chunk_size = WORLD_WIDTH;
 		dimension->chunk_count = 0;
 		
 		switch (id){
