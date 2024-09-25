@@ -275,131 +275,131 @@ void setup_audio_player(){
 // maybe should move these into "create_entities.h" ???
 
 // void create_pine_trees(int amount, int range) {
-void create_pine_trees(int amount, Range2f range) {
-	// Creates trees
-	// Wont allow multiple trees to spawn in the same tile
+// void create_pine_trees(int amount, Range2f range) {
+// 	// Creates trees
+// 	// Wont allow multiple trees to spawn in the same tile
 
-	assert(1==0);
+// 	assert(1==0);
 
-	Vector2 tree_positions[amount];
+// 	Vector2 tree_positions[amount];
 
-	for (int i = 0; i < amount; i++){
-		float x = get_random_float32_in_range(range.min.x, range.max.x);
-		float y = get_random_float32_in_range(range.min.y, range.max.y);
-		tree_positions[i] = v2(x,y);
-	}
+// 	for (int i = 0; i < amount; i++){
+// 		float x = get_random_float32_in_range(range.min.x, range.max.x);
+// 		float y = get_random_float32_in_range(range.min.y, range.max.y);
+// 		tree_positions[i] = v2(x,y);
+// 	}
 
-	for (int i = 0; i < amount; i++){
-		Entity* en = entity_create();
-		setup_pine_tree(en);
-		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
-		en->pos = round_v2_to_tile(en->pos);
-		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
-	}
-
-
-	// free the list of positions
-	memset(tree_positions, 0, sizeof(tree_positions));
-}
-
-void create_spruce_trees(int amount, int range) {
-	// Creates trees
-	// Wont allow multiple trees to spawn in the same tile
-
-	assert(1==0);
+// 	for (int i = 0; i < amount; i++){
+// 		Entity* en = entity_create();
+// 		setup_pine_tree(en);
+// 		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
+// 		en->pos = round_v2_to_tile(en->pos);
+// 		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+// 	}
 
 
-	Vector2 tree_positions[amount];
+// 	// free the list of positions
+// 	memset(tree_positions, 0, sizeof(tree_positions));
+// }
 
-	for (int i = 0; i < amount; i++){
-		float x = get_random_float32_in_range(-range, range);
-		float y = get_random_float32_in_range(-range, range);
-		tree_positions[i] = v2(x,y);
-	}
+// void create_spruce_trees(int amount, int range) {
+// 	// Creates trees
+// 	// Wont allow multiple trees to spawn in the same tile
 
-	for (int i = 0; i < amount; i++){
-		Entity* en = entity_create();
-		setup_spruce_tree(en);
-		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
-		en->pos = round_v2_to_tile(en->pos);
-		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
-	}
+// 	assert(1==0);
 
 
-	// free the list of positions
-	memset(tree_positions, 0, sizeof(tree_positions));
-}
+// 	Vector2 tree_positions[amount];
 
-void create_magical_trees(int amount, int range) {
-	// Creates trees
-	// Wont allow multiple trees to spawn in the same tile
+// 	for (int i = 0; i < amount; i++){
+// 		float x = get_random_float32_in_range(-range, range);
+// 		float y = get_random_float32_in_range(-range, range);
+// 		tree_positions[i] = v2(x,y);
+// 	}
 
-	Vector2 tree_positions[amount];
-
-	for (int i = 0; i < amount; i++){
-		float x = get_random_float32_in_range(-range, range);
-		float y = get_random_float32_in_range(-range, range);
-		tree_positions[i] = v2(x,y);
-	}
-
-	for (int i = 0; i < amount; i++){
-		Entity* en = entity_create();
-		setup_magical_tree(en);
-		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
-		en->pos = round_v2_to_tile(en->pos);
-		en->enable_shadow = false;
-	}
+// 	for (int i = 0; i < amount; i++){
+// 		Entity* en = entity_create();
+// 		setup_spruce_tree(en);
+// 		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
+// 		en->pos = round_v2_to_tile(en->pos);
+// 		// printf("Created a tree at '%.0f     %.0f'\n", tree_positions[i].x, tree_positions[i].y);
+// 	}
 
 
-	// free the list of positions
-	memset(tree_positions, 0, sizeof(tree_positions));
-}
+// 	// free the list of positions
+// 	memset(tree_positions, 0, sizeof(tree_positions));
+// }
 
-void create_rocks(int amount, int range) {
-	// Create rock entities
-	// for (int i = 0; i < amount; i++) {
+// void create_magical_trees(int amount, int range) {
+// 	// Creates trees
+// 	// Wont allow multiple trees to spawn in the same tile
 
-	//NOTE: the "range" is from old code. it basically says where to create the entity. this needs to get redone
+// 	Vector2 tree_positions[amount];
 
-	int last_entity_index = world->dimension->entity_count;
+// 	for (int i = 0; i < amount; i++){
+// 		float x = get_random_float32_in_range(-range, range);
+// 		float y = get_random_float32_in_range(-range, range);
+// 		tree_positions[i] = v2(x,y);
+// 	}
 
-	for (int i = last_entity_index; i < last_entity_index + amount; i++) {
-		Entity* en = entity_create();
-		setup_rock(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}	
-}
+// 	for (int i = 0; i < amount; i++){
+// 		Entity* en = entity_create();
+// 		setup_magical_tree(en);
+// 		en->pos = v2(tree_positions[i].x, tree_positions[i].y);
+// 		en->pos = round_v2_to_tile(en->pos);
+// 		en->enable_shadow = false;
+// 	}
 
-void create_bushes(int amount, int range) {
-	// Create bush entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_bush(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
 
-void create_twigs(int amount, int range) {
-	// Create twig entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_twig(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
+// 	// free the list of positions
+// 	memset(tree_positions, 0, sizeof(tree_positions));
+// }
 
-void create_mushrooms(int amount, int range) {
-	// Create mushroom entities
-	for (int i = 0; i < amount; i++) {
-		Entity* en = entity_create();
-		setup_mushroom(en);
-		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
-		en->pos = round_v2_to_tile(en->pos);
-	}
-}
+// void create_rocks(int amount, int range) {
+// 	// Create rock entities
+// 	// for (int i = 0; i < amount; i++) {
+
+// 	//NOTE: the "range" is from old code. it basically says where to create the entity. this needs to get redone
+
+// 	int last_entity_index = world->dimension->entity_count;
+
+// 	for (int i = last_entity_index; i < last_entity_index + amount; i++) {
+// 		Entity* en = entity_create();
+// 		setup_rock(en, ROCK_normal_medium);
+// 		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+// 		en->pos = round_v2_to_tile(en->pos);
+// 	}	
+// }
+
+// void create_bushes(int amount, int range) {
+// 	// Create bush entities
+// 	for (int i = 0; i < amount; i++) {
+// 		Entity* en = entity_create();
+// 		setup_bush(en);
+// 		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+// 		en->pos = round_v2_to_tile(en->pos);
+// 	}
+// }
+
+// void create_twigs(int amount, int range) {
+// 	// Create twig entities
+// 	for (int i = 0; i < amount; i++) {
+// 		Entity* en = entity_create();
+// 		setup_twig(en);
+// 		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+// 		en->pos = round_v2_to_tile(en->pos);
+// 	}
+// }
+
+// void create_mushrooms(int amount, int range) {
+// 	// Create mushroom entities
+// 	for (int i = 0; i < amount; i++) {
+// 		Entity* en = entity_create();
+// 		setup_mushroom(en);
+// 		en->pos = v2(get_random_float32_in_range(-range, range), get_random_float32_in_range(-range, range));
+// 		en->pos = round_v2_to_tile(en->pos);
+// 	}
+// }
 
 void create_ores(int amount, int range, OreID id) {
 	// create ore entities
@@ -1916,86 +1916,86 @@ void render_building_ui(UXState ux_state)
 }
 
 
+// not in use
+	// :SPAWN BIOME
+	// void spawn_biome(BiomeData* biome) {
+	// 	// if (biome->spawn_pine_trees) {create_pine_trees((int)biome->pine_tree_weight, biome->size.x); }
+	// 	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spruce_tree_weight, biome->size.x); }
+	// 	if (biome->spawn_magical_trees) {create_magical_trees((int)biome->magical_tree_weight, biome->size.x); }
+	// 	if (biome->spawn_rocks) {create_rocks((int)biome->rocks_weight, biome->size.x); }
+	// 	if (biome->spawn_berries) {create_bushes((int)biome->berries_weight, biome->size.x); }
+	// 	if (biome->spawn_twigs) {create_twigs((int)biome->twigs_weight, biome->size.x); }
+	// 	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->mushrooms_weight, biome->size.x); }
+	// 	if (biome->enable_parallax) {create_parallax_trees((int)biome->parallax_weight, biome->size.x); }
 
-// :SPAWN BIOME
-void spawn_biome(BiomeData* biome) {
-	// if (biome->spawn_pine_trees) {create_pine_trees((int)biome->pine_tree_weight, biome->size.x); }
-	if (biome->spawn_spruce_trees) {create_spruce_trees((int)biome->spruce_tree_weight, biome->size.x); }
-	if (biome->spawn_magical_trees) {create_magical_trees((int)biome->magical_tree_weight, biome->size.x); }
-	if (biome->spawn_rocks) {create_rocks((int)biome->rocks_weight, biome->size.x); }
-	if (biome->spawn_berries) {create_bushes((int)biome->berries_weight, biome->size.x); }
-	if (biome->spawn_twigs) {create_twigs((int)biome->twigs_weight, biome->size.x); }
-	if (biome->spawn_mushrooms) {create_mushrooms((int)biome->mushrooms_weight, biome->size.x); }
-	if (biome->enable_parallax) {create_parallax_trees((int)biome->parallax_weight, biome->size.x); }
-
-	
-	if (biome->spawn_ores) {
-		if (biome->spawn_ore_iron) {create_ores((int)biome->ore_iron_weight, biome->size.x, ORE_iron); }
-		if (biome->spawn_ore_gold) {create_ores((int)biome->ore_gold_weight, biome->size.x, ORE_gold); }
-		if (biome->spawn_ore_copper) {create_ores((int)biome->ore_copper_weight, biome->size.x, ORE_copper); }
-	}
-
-
-	// if (biome->has_portals) {
-	// 	for (int i = 0; i < biome->portal_count; i++){
-	// 		PortalData* portal = &biome->portals;
-	// 		if (portal->enabled){
-	// 			// continue 2
-	// 			// create_portal_to(biome->portals[i].destination, true);
-	// 		}
+		
+	// 	if (biome->spawn_ores) {
+	// 		if (biome->spawn_ore_iron) {create_ores((int)biome->ore_iron_weight, biome->size.x, ORE_iron); }
+	// 		if (biome->spawn_ore_gold) {create_ores((int)biome->ore_gold_weight, biome->size.x, ORE_gold); }
+	// 		if (biome->spawn_ore_copper) {create_ores((int)biome->ore_copper_weight, biome->size.x, ORE_copper); }
 	// 	}
+
+
+	// 	// if (biome->has_portals) {
+	// 	// 	for (int i = 0; i < biome->portal_count; i++){
+	// 	// 		PortalData* portal = &biome->portals;
+	// 	// 		if (portal->enabled){
+	// 	// 			// continue 2
+	// 	// 			// create_portal_to(biome->portals[i].destination, true);
+	// 	// 		}
+	// 	// 	}
+	// 	// }
+
+	// }
+// 
+
+// not in use
+	// void unload_biome_entities(BiomeID id){
+	// 	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
+	// 		Entity* en = &world->dimension->entities[i];
+	// 		if (en){
+	// 			for (int j = 0; j < BIOME_MAX; j++) {
+	// 				BiomeID tempid = en->biome_ids[j];
+	// 				if (tempid == id){
+	// 					memset(en, 0, sizeof(Entity));
+	// 					continue;
+	// 				}
+	// 			}
+	// 		}
+	// 	} 
 	// }
 
-}
+	// void update_biome(){
 
-void unload_biome_entities(BiomeID id){
-	for (int i = 0; i < MAX_ENTITY_COUNT; i++){
-		Entity* en = &world->dimension->entities[i];
-		if (en){
-			for (int j = 0; j < BIOME_MAX; j++) {
-				BiomeID tempid = en->biome_ids[j];
-				if (tempid == id){
-					memset(en, 0, sizeof(Entity));
-					continue;
-				}
-			}
-		}
-	} 
-}
+	// 	int TILE_SIZE = 8;
+	// 	// int player_tile_x = (int)(get_player_pos().x / TILE_SIZE);
+	// 	// int player_tile_y = (int)(get_player_pos().y / TILE_SIZE);
 
-void update_biome(){
+	// 	// float tile_pos_x = (player_tile_x + 0) * TILE_SIZE;
+	// 	// float tile_pos_y = (player_tile_y + 0) * TILE_SIZE;
 
-	int TILE_SIZE = 8;
-	// int player_tile_x = (int)(get_player_pos().x / TILE_SIZE);
-	// int player_tile_y = (int)(get_player_pos().y / TILE_SIZE);
+	// 	Matrix4 xform = m4_identity;
 
-	// float tile_pos_x = (player_tile_x + 0) * TILE_SIZE;
-	// float tile_pos_y = (player_tile_y + 0) * TILE_SIZE;
+	// 	float tile_pos_x = get_player_pos().x;
+	// 	float tile_pos_y = get_player_pos().y;
 
-	Matrix4 xform = m4_identity;
-
-	float tile_pos_x = get_player_pos().x;
-	float tile_pos_y = get_player_pos().y;
-
-	BiomeID current_biome_id = world->dimension->current_biome_id;
-	BiomeID new_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(tile_pos_x, tile_pos_y)));
+	// 	BiomeID current_biome_id = world->dimension->current_biome_id;
+	// 	BiomeID new_biome_id = biome_at_tile(v2_world_pos_to_tile_pos(v2(tile_pos_x, tile_pos_y)));
 
 
-	if (current_biome_id != new_biome_id){
-		world->dimension->current_biome_id = new_biome_id;
+	// 	if (current_biome_id != new_biome_id){
+	// 		world->dimension->current_biome_id = new_biome_id;
 
-		BiomeData biomedata = get_biome_data_from_id(new_biome_id);
+	// 		BiomeData biomedata = get_biome_data_from_id(new_biome_id);
 
-		unload_biome_entities(current_biome_id);
-		spawn_biome(&biomedata);
-		printf("Spawned new biome\n");
-	}
+	// 		unload_biome_entities(current_biome_id);
+	// 		spawn_biome(&biomedata);
+	// 		printf("Spawned new biome\n");
+	// 	}
 
-
-
-
-	// printf("world->dimension->current_biome_id = %d\n", world->dimension->current_biome_id);
-}
+	// 	// printf("world->dimension->current_biome_id = %d\n", world->dimension->current_biome_id);
+	// }
+// 
 
 
 
@@ -2011,7 +2011,7 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 		case DIM_overworld:
 		{
 			if (get_dimensionData(id)->entity_count < min_entity_count){ 
-				spawn_biome(&biomes[biome_id]);
+				// spawn_biome(&biomes[biome_id]);
 				// printf("Spawned overworld entities\n");
 			}
 		} break;
@@ -2019,7 +2019,7 @@ void load_dimension_entities(DimensionID id, Vector2 dest_pos){
 		case DIM_cavern:
 		{
 			if (get_dimensionData(id)->entity_count < min_entity_count){
-				spawn_biome(&biomes[biome_id]);
+				// spawn_biome(&biomes[biome_id]);
 				// printf("Spawned cavern entities\n");
 			}
 		} break;
@@ -2102,6 +2102,12 @@ void change_dimensions(DimensionID new_dim, Vector2 dest_pos){
 	//         }
 	//     }
 
+	// }
+// 
+
+// not in use
+	// float distanceSquared(Vector2 v1, Vector2 v2) {
+	//     return (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y);
 	// }
 // 
 
@@ -2527,24 +2533,8 @@ void render_keybinding(Entity* en, char keybind) {
 }
 
 
-float distanceSquared(Vector2 v1, Vector2 v2) {
-    return (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y);
-}
 
 
-// // should rename biome_size to biome location. AND add separate biome size vector2
-// void update_biome(){
-// 	Vector2 player_pos = get_player_pos();
-// 	Vector2 biome_position = get_biome_data_from_id(world->dimension->current_biome_id).size;
-	
-
-// 	if (player_pos.x >= -biome_position.x && player_pos.x <= biome_position.x &&
-//         player_pos.y >= -biome_position.y && player_pos.y <= biome_position.y) {
-//         printf("player is in biome\n");
-//     } else {
-//         printf("Player is NOT in biome\n");
-//     }
-// }
 
 
 // ----- SETUP -----------------------------------------------------------------------------------------|
@@ -2593,26 +2583,37 @@ int entry(int argc, char **argv)
 			sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
 			// sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
 			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player_new.png"), get_heap_allocator())};
+
+			// trees
 			sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_magical0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical0.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_magical1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical1.png"), get_heap_allocator())};
-			sprites[SPRITE_rock0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock0.png"), get_heap_allocator())};
-			sprites[SPRITE_rock1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock1.png"), get_heap_allocator())};
-			sprites[SPRITE_rock2] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock2.png"), get_heap_allocator())};
-			sprites[SPRITE_rock3] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock3.png"), get_heap_allocator())};
-			sprites[SPRITE_bush0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush0.png"), get_heap_allocator())};
-			sprites[SPRITE_bush1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush1.png"), get_heap_allocator())};
-			sprites[SPRITE_tall_grass0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass0.png"), get_heap_allocator())};
-			sprites[SPRITE_tall_grass1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass1.png"), get_heap_allocator())};
+
+			// rocks
+			sprites[SPRITE_rock_normal_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_normal_medium] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_normal_medium.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_normal_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_normal_large.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_mossy_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_mossy_small.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_mossy_medium] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_mossy_medium.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_mossy_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+
+			// foliage
+			sprites[SPRITE_bush_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush_small.png"), get_heap_allocator())};
+			sprites[SPRITE_bush_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush_berry.png"), get_heap_allocator())};
+			sprites[SPRITE_short_grass] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/short_grass.png"), get_heap_allocator())};
+			sprites[SPRITE_tall_grass] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass.png"), get_heap_allocator())};
+			sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
+
+			// portals
 			sprites[SPRITE_portal0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal0.png"), get_heap_allocator())};
 			sprites[SPRITE_portal1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/portal1.png"), get_heap_allocator())};
+
+			// ores
 			sprites[SPRITE_ORE_iron] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_iron.png"), get_heap_allocator())};
 			sprites[SPRITE_ORE_gold] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_gold.png"), get_heap_allocator())};
 			sprites[SPRITE_ORE_copper] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/ore_copper.png"), get_heap_allocator())};
 
-			// :Load item/entity sprites (these sprites are the same for their entities and items (for now))
-			sprites[SPRITE_mushroom0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/mushroom0.png"), get_heap_allocator())};
 
 			// :Load item sprites
 			sprites[SPRITE_item_rock] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/item_rock.png"), get_heap_allocator())};
@@ -2682,7 +2683,12 @@ int entry(int argc, char **argv)
 			// crash when image fails to be setup properly (by: randy)
 			for (SpriteID i = 0; i < SPRITE_MAX; i++) {
 				Sprite* sprite = &sprites[i];
-				assert(sprite->image, "Sprite was not setup correctly");
+				if (!sprite->image){
+					log_error("\n\nSPRITE '%d' was not setup correctly!", i);
+					printf("Might be because SpriteID for the sprite exists, but the sprite doesn't exist in 'sprites[]' or the image.png is missing!");
+					assert(sprite->image);
+				}
+				// assert(sprite->image, STR("%d Sprite was not setup correctly", i));
 			}
 		}
 		
@@ -2690,7 +2696,12 @@ int entry(int argc, char **argv)
 		{
 			for (TextureID i = 1; i < TEXTURE_MAX; i++) {
 				Texture* texture = &textures[i];
-				assert(texture->image, "Texture was not setup correctly");
+				if (!texture->image){
+					log_error("\n\nTEXTURE '%d' was not setup correctly!", i);
+					printf("Might be because TextureID for the texture exists, but the texture doesn't exist in 'textures[]' or the image.png is missing!");
+					assert(texture->image);
+				}
+				// assert(texture->image, "Texture was not setup correctly");
 			}
 		}
 		
@@ -2698,8 +2709,15 @@ int entry(int argc, char **argv)
 		{
 			for (AudioID i = 1; i < AUDIO_MAX; i++) {
 				Audio* audio = &audioFiles[i];
-				assert(audio->ok, "Audio was not setup correctly: '%s'", audio->name);
-				log_verbose("Audio file set up '%s'", audio->name);
+				if (!audio->ok){
+					log_error("\n\nAUDIO '%d' was not setup correctly!", i);
+					printf("Might be because AudioID for the audio exists, but the audio doesn't exist in 'audioFiles[]' or the audio.wav is missing!");
+					assert(audio->ok);
+				}
+				else{
+					log_verbose("Audio file set up '%s'", audio->name);
+				}
+				// assert(audio->ok, "Audio was not setup correctly: '%s'", audio->name);
 			}
 		}
 	// 
@@ -2727,27 +2745,29 @@ int entry(int argc, char **argv)
 	{
 		// FURNACE:
 		{
-			Entity* en = entity_create();
-			setup_building(en, BUILDING_furnace);
-			en->pos = v2(-15, 0);
-			en->pos = round_v2_to_tile(en->pos);
+			// Entity* en = entity_create();
+			// load_chunk(world->dimension, v2(0, 0));
+			// Entity* en = entity_create_to_chunk(world->dimension->chunks[256][256]);
+			// setup_building(en, BUILDING_furnace);
+			// en->pos = v2(-15, 0);
+			// en->pos = round_v2_to_tile(en->pos);
 		}
 
 
 		// CHEST:
 		{
-			Entity* en = entity_create();
-			setup_building(en, BUILDING_chest);
-			en->pos = v2(-25, -10);
-			en->pos = round_v2_to_tile(en->pos);
+			// Entity* en = entity_create();
+			// setup_building(en, BUILDING_chest);
+			// en->pos = v2(-25, -10);
+			// en->pos = round_v2_to_tile(en->pos);
 		}
 
 		// workbench
 		{
-			Entity* en = entity_create();
-			setup_building(en, BUILDING_workbench);
-			en->pos = v2(-28, -20);
-			en->pos = round_v2_to_tile(en->pos);
+			// Entity* en = entity_create();
+			// setup_building(en, BUILDING_workbench);
+			// en->pos = v2(-28, -20);
+			// en->pos = round_v2_to_tile(en->pos);
 		}
 
 		// parallax test
@@ -2891,12 +2911,12 @@ int entry(int argc, char **argv)
 		push_z_layer(layer_world);
 
 		Vector2 mouse_pos_world = get_mouse_pos_in_world_space();
-		int mouse_tile_x = world_pos_to_tile_pos(mouse_pos_world.x);
-		int mouse_tile_y = world_pos_to_tile_pos(mouse_pos_world.y);
+		// int mouse_tile_x = world_pos_to_tile_pos(mouse_pos_world.x);
+		// int mouse_tile_y = world_pos_to_tile_pos(mouse_pos_world.y);
 
 
 
-		do_chunk_magic();
+		chunk_manager();
 
 
 
@@ -2996,8 +3016,6 @@ int entry(int argc, char **argv)
 
 
 
-
-
 		// new way of rendering ground
 		render_ground_texture = false;
 		if (render_ground_texture)
@@ -3035,8 +3053,8 @@ int entry(int argc, char **argv)
 					
 					Vector4 color = COLOR_WHITE;
 					// color adj
-					if (tile_biome_data.grass_color.a != 0) {
-						color = tile_biome_data.grass_color;
+					if (tile_biome_data.ground_color.a != 0) {
+						color = tile_biome_data.ground_color;
 						color.r -= 0.2;
 						color.g -= 0.2;
 						color.b -= 0.2;
@@ -3057,9 +3075,6 @@ int entry(int argc, char **argv)
 				}
 			}
 		}
-
-
-
 
 
 
@@ -3578,8 +3593,9 @@ int entry(int argc, char **argv)
 		}
 
 		// Render entities
-		render_entities(world);
-		// render_player();
+		// render_entities(world);
+    	render_chunk_entities();
+		render_player();
 
 
 
@@ -3622,6 +3638,15 @@ int entry(int argc, char **argv)
 			set_screen_space();
 			draw_text(font, sprint(get_heap_allocator(), STR("%d"), fps), font_height, v2(0,screen_height-3), v2(0.1, 0.1), COLOR_WHITE);
 			set_world_space();
+		}
+
+
+		if (IS_DEBUG){
+			set_screen_space();
+			draw_text(font, STR("DEBUG"), font_height, v2(screen_width/2-15,screen_height-10), v2(0.2, 0.2), COLOR_RED);
+			set_world_space();
+
+		    chunk_debug_print();
 		}
 
 

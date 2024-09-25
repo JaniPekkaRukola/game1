@@ -82,19 +82,24 @@
 
     typedef enum EntityArchetype {
         ARCH_nil,
+
+        ARCH_player,
+
         ARCH_rock,
         ARCH_tree,
-        ARCH_bush,
-        ARCH_twig,
-        ARCH_player,
         ARCH_item,
         ARCH_tool,
         ARCH_building,
         ARCH_ore,
-        ARCH_mushroom,
         ARCH_portal,
         ARCH_torch,
         ARCH_parallax,
+
+        ARCH_foliage,
+        // move these into foliage?
+        ARCH_bush,
+        ARCH_twig,
+        ARCH_mushroom,
 
         ARCH_MAX,
     } EntityArchetype;
@@ -148,14 +153,19 @@
         SPRITE_tree_spruce,
         SPRITE_tree_magical0,
         SPRITE_tree_magical1,
-        SPRITE_rock0,
-        SPRITE_rock1,
-        SPRITE_rock2,
-        SPRITE_rock3,
-        SPRITE_bush0,
-        SPRITE_bush1,
-        SPRITE_tall_grass0,
-        SPRITE_tall_grass1,
+
+        SPRITE_rock_normal_small,
+        SPRITE_rock_normal_medium,
+        SPRITE_rock_normal_large,
+        SPRITE_rock_mossy_small,
+        SPRITE_rock_mossy_medium,
+        SPRITE_rock_mossy_large,
+
+        // foliage
+        SPRITE_bush_small,
+        SPRITE_bush_berry,
+        SPRITE_short_grass,
+        SPRITE_tall_grass,
         SPRITE_mushroom0,
 
         // Items
@@ -329,6 +339,89 @@
         // UX_map,
         // UX_settings,
     } UXState;
+
+    // Entity
+    typedef enum TreeType {
+        TREE_NIL,
+
+        TREE_pine,
+        TREE_spruce,
+        TREE_magical,
+        TREE_birch,
+        TREE_palm,
+
+        TREE_MAX
+    } TreeType;
+
+    typedef enum RockType {
+        ROCK_nil,
+
+        ROCK_normal_small,
+        ROCK_normal_medium,
+        ROCK_normal_large,
+
+        ROCK_mossy_small,
+        ROCK_mossy_medium,
+        ROCK_mossy_large,
+
+        ROCK_sandy_small,
+        ROCK_sandy_medium,
+        ROCK_sandy_large,
+
+        ROCK_snowy_small,
+        ROCK_snowy_medium,
+        ROCK_snowy_large,
+
+        // cave rocks? here?
+
+        ROCK_MAX
+    } RockType;
+
+    typedef enum FoliageType{
+        FOLIAGE_nil,
+
+        // grass
+        FOLIAGE_short_grass,
+        FOLIAGE_tall_grass,
+
+        // bushes
+        FOLIAGE_bush_small,
+        FOLIAGE_bush_normal,
+        FOLIAGE_berry_bush,
+
+        // flowers
+
+        // ferns
+
+        // mushrooms
+        FOLIAGE_mushroom_red,
+        FOLIAGE_mushroom_brown,
+        FOLIAGE_mushroom_glowing,
+
+        // roots & twigs
+        FOLIAGE_twig_small,
+        // FOLIAGE_twig_medium,
+        FOLIAGE_root_small,
+        FOLIAGE_root_medium,
+
+
+        // plants
+
+        // other
+
+        // water stuff??
+        // lilypad
+        // cattail
+
+        // patches
+        FOLIAGE_patch_clover,
+        FOLIAGE_patch_flower,
+        FOLIAGE_patch_short_grass,
+        FOLIAGE_patch_tall_grass,
+
+
+        FOLIAGE_MAX
+    } FoliageType;
 // 
 
 
@@ -448,7 +541,7 @@
         // Entity* player;
     } WorldFrame;
 
-    typedef struct BiomeData {
+    typedef struct BiomeDataOLD {
         string name;
         BiomeID id;
         Vector2 size;
@@ -507,6 +600,55 @@
         // portal
         bool has_portals;
         // PortalData portals[MAX_PORTAL_COUNT];
+    } BiomeDataOLD;
+
+    typedef struct Spawnable {
+        EntityArchetype arch;
+
+        // types
+        TreeType tree_type;
+        RockType rock_type;
+        FoliageType foliage_type;
+
+        int weight;
+        bool enabled;
+    } Spawnable;
+
+    typedef struct BiomeSpawnTable {
+        Spawnable entities[ARCH_MAX];
+        int entity_count;
+    } BiomeSpawnTable;
+
+    typedef struct BiomeData{
+
+        string name;
+        BiomeID id;
+        bool enabled;
+
+        BiomeSpawnTable spawn_table;
+
+        bool spawn_trees;
+        bool spawn_rocks;
+        bool spawn_foliage; // grass, twigs, berries and bushes etc
+        bool spawn_ores;
+        // parallax
+
+        bool enable_portals;
+        bool enable_fossils;
+
+        Vector4 leaves_color;
+        Vector4 ground_color;
+        TextureID ground_texture;
+
+
+        // shader
+
+
+        // old stuff to test this new struct
+        float fossil0_drop_chance;
+        float fossil1_drop_chance;
+        float fossil2_drop_chance;
+
     } BiomeData;
 
     typedef struct Chunk Chunk;

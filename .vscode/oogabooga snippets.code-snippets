@@ -77,5 +77,19 @@
 			"};"
 		],
 		"description": "Blank crafting recipe template"
-	}
+	},
+	"spawntable setup":{
+		"scope": "c,cpp",
+		"prefix": "#spawntable",
+		"body": [
+			"biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)",
+			"{",
+			"\t.arch = ARCH_$1,",
+			"\t.$2,",
+			"\t.weight = $3,",
+			"\t.enabled = true,",
+			"};"
+		],
+		"description": "Blank crafting recipe template"
+	},
 }

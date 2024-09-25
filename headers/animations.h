@@ -9,6 +9,8 @@ unsigned long id_counter = 0;
 typedef enum AnimationID {
     ANIM_nil,
 
+    ANIM_player,
+
     ANIM_held_torch,
     ANIM_ground_torch,
     ANIM_crafting,

@@ -15,7 +15,6 @@ typedef struct Chunk {
     Vector2 pos_in_world;
     Vector2 pos_in_grid;
     Vector2 size;
-    // Entity* entities[MAX_CHUNK_ENTITIES];
     int entity_count;
     Entity entities[MAX_CHUNK_ENTITIES];
 
@@ -50,6 +49,11 @@ Vector2 get_chunk_world_position(int x, int y) {
 
 
 Entity* entity_create_to_chunk(Chunk* chunk) {
+
+    // This function is basically the same as "entity_create"
+
+    assert(chunk, "Failed to create entity to chunk, Chunk is NULL");
+
     Entity* entity_found = 0;
 
     int asd_x = chunk->pos_in_grid.x + CHUNK_OFFSET_X;
@@ -109,67 +113,66 @@ Entity* entity_create_to_chunk(Chunk* chunk) {
 // }
 
 
-void create_chunk_entities(Chunk* chunk, EntityArchetype arch, int amount, Range2f range){
-    Vector2 entity_positions[amount];
+// void create_chunk_entities(Chunk* chunk, EntityArchetype arch, int amount, Range2f range){
+    //     Vector2 entity_positions[amount];
 
-    // printf("CREATING %d ENTITITES '%d' to chunk\n", amount, arch);
-    // printf("Chunk boundaries = (%.0f, %.0f) (%.0f,%.0f)\n\n", range.min.x, range.min.y, range.max.x, range.max.y);
+    //     // printf("CREATING %d ENTITITES '%d' to chunk\n", amount, arch);
+    //     // printf("Chunk boundaries = (%.0f, %.0f) (%.0f,%.0f)\n\n", range.min.x, range.min.y, range.max.x, range.max.y);
 
-    BiomeData biome = get_biome_data_from_id(chunk->biome_id);
+    //     BiomeData biome = get_biome_data_from_id(chunk->biome_id);
 
-    // Generate random positions for entities
-    for (int i = 0; i < amount; i++) {
-        float x = get_random_float32_in_range(range.min.x, range.max.x);
-        float y = get_random_float32_in_range(range.min.y, range.max.y);
-        entity_positions[i] = v2(x, y);
-    }
+    //     // Generate random positions for entities
+    //     for (int i = 0; i < amount; i++) {
+    //         float x = get_random_float32_in_range(range.min.x, range.max.x);
+    //         float y = get_random_float32_in_range(range.min.y, range.max.y);
+    //         entity_positions[i] = v2(x, y);
+    //     }
 
-    // Create entities and set them up based on the archetype
-    for (int i = 0; i < amount; i++) {
-        Entity* en = entity_create_to_chunk(chunk);
-        switch (arch) {
-            case ARCH_rock:
-                setup_rock(en);
-                break;
-            case ARCH_tree:
-                if (biome.spawn_pine_trees) setup_pine_tree(en);
-                if (biome.spawn_spruce_trees) setup_spruce_tree(en);
-                if (biome.spawn_magical_trees) setup_magical_tree(en);
-                // more tree types here? or separate?
-                break;
-            case ARCH_bush:
-                setup_bush(en);
-                break;
-            case ARCH_twig:
-                setup_twig(en);
-                break;
-            case ARCH_ore:
-                // setup_ore(en, biome); // Adjust this for ore-specific setups
-                break;
-            case ARCH_mushroom:
-                setup_mushroom(en);
-                break;
+    //     // Create entities and set them up based on the archetype
+    //     for (int i = 0; i < amount; i++) {
+    //         Entity* en = entity_create_to_chunk(chunk);
+    //         switch (arch) {
+    //             case ARCH_rock:
+    //                 setup_rock(en, ROCK_normal_medium);
+    //                 break;
+    //             case ARCH_tree:
+    //                 // if (biome.spawn_pine_trees) setup_pine_tree(en);
+    //                 // if (biome.spawn_spruce_trees) setup_spruce_tree(en);
+    //                 // if (biome.spawn_magical_trees) setup_magical_tree(en);
+    //                 // more tree types here? or separate?
+    //                 break;
+    //             case ARCH_bush:
+    //                 setup_bush(en);
+    //                 break;
+    //             case ARCH_twig:
+    //                 setup_twig(en);
+    //                 break;
+    //             case ARCH_ore:
+    //                 // setup_ore(en, biome); // Adjust this for ore-specific setups
+    //                 break;
+    //             case ARCH_mushroom:
+    //                 setup_mushroom(en);
+    //                 break;
 
-            // more cases pls :)
+    //             // more cases pls :)
 
-            default:
-                break;
-        }
+    //             default:
+    //                 break;
+    //         }
 
-        en->pos = v2(entity_positions[i].x + chunk->pos_in_world.x, entity_positions[i].y + chunk->pos_in_world.y);
-        en->pos = round_v2_to_tile(en->pos);
+    //         en->pos = v2(entity_positions[i].x + chunk->pos_in_world.x, entity_positions[i].y + chunk->pos_in_world.y);
+    //         en->pos = round_v2_to_tile(en->pos);
 
-        // Avoid spawning multiple entities in the same position
-        for (int j = 0; j < i; j++) {
-            if (entity_positions[i].x == entity_positions[j].x && entity_positions[i].y == entity_positions[j].y) {
-                // Handle collision and reposition entity if needed
-            }
-        }
-    }
+    //         // Avoid spawning multiple entities in the same position
+    //         for (int j = 0; j < i; j++) {
+    //             if (entity_positions[i].x == entity_positions[j].x && entity_positions[i].y == entity_positions[j].y) {
+    //                 // Handle collision and reposition entity if needed
+    //             }
+    //         }
+    //     }
 
-    memset(entity_positions, 0, sizeof(entity_positions));
-}
-
+    //     memset(entity_positions, 0, sizeof(entity_positions));
+// }
 
 
 void spawn_chunk_entities(Chunk* chunk){
@@ -188,31 +191,45 @@ void spawn_chunk_entities(Chunk* chunk){
     chunk_boundaries.max.x = chunk_pos_in_world.x + CHUNK_SIZE;
     chunk_boundaries.max.y = chunk_pos_in_world.y + CHUNK_SIZE;
 
-    BiomeData biomedata = get_biome_data_from_id(chunk->biome_id);
+    BiomeData d = get_biome_data_from_id(chunk->biome_id);
 
-    // if (biomedata->spawn_pine_trees || biomedata->spawn_spruce_trees) {
-    //     spawn_entities(chunk, ARCH_tree, (int)(biomedata->pine_tree_weight + biomedata->spruce_tree_weight), biomedata->size);
-    // }
-    if (biomedata.spawn_pine_trees || biomedata.spawn_spruce_trees || biomedata.spawn_magical_trees) {
-        // FIX: using pine_tree_weight here btw fix it
-        create_chunk_entities(chunk, ARCH_tree, (int)biomedata.pine_tree_weight, chunk_boundaries);
-    }
-    if (biomedata.spawn_rocks) {
-        create_chunk_entities(chunk, ARCH_rock, (int)biomedata.rocks_weight, chunk_boundaries);
-    }
-    if (biomedata.spawn_berries) {
-        create_chunk_entities(chunk, ARCH_bush, (int)biomedata.berries_weight, chunk_boundaries);
-    }
-    if (biomedata.spawn_twigs) {
-        create_chunk_entities(chunk, ARCH_twig, (int)biomedata.twigs_weight, chunk_boundaries);
-    }
-    if (biomedata.spawn_mushrooms) {
-        create_chunk_entities(chunk, ARCH_mushroom, (int)biomedata.mushrooms_weight, chunk_boundaries);
-    }
-    if (biomedata.spawn_ores) {
-        create_chunk_entities(chunk, ARCH_ore, (int)(biomedata.ore_iron_weight + biomedata.ore_gold_weight + biomedata.ore_copper_weight), chunk_boundaries);
+    // Generate random positions for entities
+    int entity_count = 0;
+
+    for (int k = 0; k < d.spawn_table.entity_count; k++) {
+        entity_count += d.spawn_table.entities[k].weight;
     }
 
+    Vector2 entity_positions[entity_count];
+    for (int i = 0; i < entity_count; i++) {
+        float x = get_random_float32_in_range(chunk_boundaries.min.x, chunk_boundaries.max.x);
+        float y = get_random_float32_in_range(chunk_boundaries.min.y, chunk_boundaries.max.y);
+        entity_positions[i] = v2(x, y);
+    }
+
+    int entity_pos_index = 0;
+
+    for (int i = 0; i < d.spawn_table.entity_count; i++){
+        Spawnable spawnable = d.spawn_table.entities[i];
+        if (spawnable.arch == ARCH_nil) continue;
+        
+        for (int weight = 0; weight < spawnable.weight; weight++){
+
+            Entity* en = entity_create_to_chunk(chunk);
+    
+            switch (spawnable.arch){
+                case ARCH_tree: setup_tree(en, spawnable.tree_type); break;
+                case ARCH_rock: setup_rock(en, spawnable.rock_type); break;
+                case ARCH_foliage: setup_foliage(en, spawnable.foliage_type); break;
+                default: log_error("Missing case @ 'spawn_chunk_entities'"); break;
+            }
+            en->pos = v2(entity_positions[entity_pos_index].x + chunk->pos_in_world.x, entity_positions[entity_pos_index].y + chunk->pos_in_world.y);
+            en->pos = round_v2_to_tile(en->pos);
+            entity_pos_index++;
+        }
+    }
+
+    memset(entity_positions, 0, sizeof(entity_positions));
 }
 
 void load_chunk(DimensionData* dimension, Vector2 pos) {
@@ -226,19 +243,18 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
             chunk = alloc(get_heap_allocator(), sizeof(Chunk));
             chunk->pos_in_grid = pos;
             chunk->entity_count = 0;
-            // chunk->biome_id = BIOME_forest;
             chunk->biome_id = biome_at_position(x,y);
-            // dimension->chunks[x][y]->pos_in_grid = v2(x,y);
             chunk->pos_in_world = get_chunk_world_position(x, y);
             world->dimension->chunk_count++;
-            printf("Loaded new chunk\n");
             world->dimension->chunks[x][y] = chunk;
+
+            printf("Loaded a new chunk\n");
 
             if (chunk->biome_id != BIOME_nil){
                 spawn_chunk_entities(dimension->chunks[x][y]);
             }
             else{
-                printf("Failed to spawn chunk entities. chunk biomeID = NULL\n");
+                printf("Failed to spawn chunk entities. chunk biomeID = BIOME_NIL\n");
             }
         }
     }
@@ -256,7 +272,8 @@ void unload_chunk(DimensionData* dimension, Vector2 pos) {
             dealloc(get_heap_allocator(), dimension->chunks[x][y]);
             dimension->chunks[x][y] = NULL;
             world->dimension->chunk_count--;
-            printf("UN-Loaded chunk\n");
+
+            printf(" UN-Loaded a chunk\n");
         }
     }
 }
@@ -266,7 +283,6 @@ void load_chunks_renderdistance() {
     DimensionData* dimension = world->dimension;
 
     int render_distance = CHUNK_RENDER_DISTANCE;
-    // render_distance = CHUNK_RENDER_DISTANCE2;
 
     Vector2 player_pos = get_player_pos();
 
@@ -282,7 +298,7 @@ void load_chunks_renderdistance() {
             int chunk_x = player_chunk_x + dx;
             int chunk_y = player_chunk_y + dy;
 
-            // Ensure chunk coordinates are within world bounds
+            // make sure chunk coordinates are within world bounds
             if (chunk_x < WORLD_WIDTH && chunk_y < WORLD_HEIGHT) {
                 Vector2 chunk_pos = v2(chunk_x, chunk_y);
                 load_chunk(dimension, chunk_pos);  // Load chunk if not already loaded
@@ -339,7 +355,7 @@ void render_chunk_ground(){
             Chunk* chunk = world->dimension->chunks[x][y];
             if (chunk != NULL){
                 Texture* texture = get_texture(get_biome_data_from_id(chunk->biome_id).ground_texture);
-                Vector4 ground_color = get_biome_data_from_id(chunk->biome_id).grass_color;
+                Vector4 ground_color = get_biome_data_from_id(chunk->biome_id).ground_color;
 
                 Vector2 chunk_pos_world = get_chunk_world_position(x,y);
 
@@ -412,7 +428,7 @@ void chunk_debug_print(){
     int x = (int)pos.x;
     int y = (int)pos.y;
     if (world->dimension->chunks[x][y]){
-        draw_text_xform(font, sprint(get_heap_allocator(), STR("current chunk[%d][%d] = %d"), x, y, world->dimension->chunks[x][y]->biome_id), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
+        draw_text_xform(font, sprint(get_heap_allocator(), STR("current chunk[%d][%d], biomeid = %d"), x, y, world->dimension->chunks[x][y]->biome_id), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
     }
     else{
         draw_text_xform(font, sprint(get_heap_allocator(), STR("current chunk[%d][%d] = NULL\n"), x, y), font_height, xform, v2(0.1, 0.1), COLOR_WHITE);
@@ -422,7 +438,7 @@ void chunk_debug_print(){
     set_world_space();
 }
 
-void do_chunk_magic(){
+void chunk_manager(){
 
     load_chunks_renderdistance();
 
@@ -430,11 +446,9 @@ void do_chunk_magic(){
 
     render_chunk_ground();
 
-    render_chunk_entities();
-
-    // printf("Chunk count = %d\n", world->dimension->chunk_count);
-    chunk_debug_print();
-
+    // moved these calls into main.c
+    // render_chunk_entities();
+    // chunk_debug_print();
 }
 
 #endif
