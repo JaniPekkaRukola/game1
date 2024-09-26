@@ -13,6 +13,10 @@ void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
 DimensionData *get_dimensionData(DimensionID);
 
+Chunk* get_player_chunk();
+Entity* entity_create_to_chunk(Chunk* chunk);
+typedef struct Chunk Chunk;
+
 // worldgen stuff
 // https://chatgpt.com/c/66dc8408-64f4-800a-82f0-7f65897ea243
 
@@ -426,23 +430,32 @@ DimensionData *get_dimensionData(DimensionID);
 		return entity_found;
 	}
 
-	void entity_destroy(Entity* entity) {
+	// void entity_destroy(Entity* entity) {
+	void entity_destroy(Entity* entity, Chunk* chunk) {
 
 		// printf("DESTROYED ENTITY %s\n", entity->name);
 
 		// render_list.needs_sorting = true;
-		int index = entity - world->dimension->entities;
+		// int index = entity - world->dimension->entities;
+		int index = entity - chunk->entities;
 
-		world->dimension->entity_count--;
+		// world->dimension->entity_count--;
+		chunk->entity_count--;
 
 		// move the last valid entity into the destroyed entity's place (fill the gap)
-		if (index < world->dimension->entity_count) {
-			world->dimension->entities[index] = world->dimension->entities[world->dimension->entity_count];
+		// if (index < world->dimension->entity_count) {
+		// 	world->dimension->entities[index] = world->dimension->entities[world->dimension->entity_count];
+		// }
+		if (index < chunk->entity_count) {
+			chunk->entities[index] = chunk->entities[chunk->entity_count];
 		}
 
 		// invalidate the last entity (which was moved to fill the gap)
-		memset(&world->dimension->entities[world->dimension->entity_count], 0, sizeof(Entity));
-		world->dimension->entities[world->dimension->entity_count].is_valid = false;
+		// memset(&world->dimension->entities[world->dimension->entity_count], 0, sizeof(Entity));
+		// world->dimension->entities[world->dimension->entity_count].is_valid = false;
+
+		memset(&chunk->entities[chunk->entity_count], 0, sizeof(Entity));
+		chunk->entities[chunk->entity_count].is_valid = false;
 	}
 
 	void entity_clear(Entity* entity) {
@@ -1206,7 +1219,8 @@ DimensionData *get_dimensionData(DimensionID);
 		while(item != NULL) {
 			float adjustedChance = item->baseDropChance * (1 + luckModifier);
 			if (get_random_float32() < (adjustedChance / 100.0)) {
-				Entity* en = entity_create();
+				// Entity* en = entity_create();
+				Entity* en = entity_create_to_chunk(get_player_chunk());
 				setup_item(en, item->id);
 				pos.x += x_shift;
 				en->pos = pos;
@@ -1368,6 +1382,13 @@ DimensionData *get_dimensionData(DimensionID);
 // SETUPS ------------------------------------------------------------------------------------------------>
 
 	void setup_item(Entity* en, ItemID item_id) {
+
+		if (item_id == ITEM_nil) {
+			log_error("Tried to setup item_nil @ 'setup_item'");
+			// assert(1==0);
+			return;
+		}
+
 		en->arch = ARCH_item;
 		en->name = STR("ITEM (placeholder)");
 		en->sprite_id = get_sprite_from_itemID(item_id);
@@ -1502,7 +1523,7 @@ DimensionData *get_dimensionData(DimensionID);
 				if (random == 1){en->sprite_id = SPRITE_tree_magical1;}
 				en->name = STR("Magical tree"); 
 			} break;
-			// case TREE_birch: en->sprite_id = SPRITE_tree_birch, en->name = STR("Birch tree"); break;
+			case TREE_birch: en->sprite_id = SPRITE_tree_birch, en->name = STR("Birch tree"); break;
 			// case TREE_palm: en->sprite_id = SPRITE_tree_palm, en->name = STR("Palm tree"); break;
 			default:{}break;
 		}
@@ -1525,14 +1546,14 @@ DimensionData *get_dimensionData(DimensionID);
 			} break;
 			
 			case FOLIAGE_bush_small:{
-				en->arch = ARCH_bush;
+				en->arch = ARCH_foliage;
 				en->sprite_id = SPRITE_bush_small;
 				// en->item_id = ITEM_sprout;
 				en->name = STR("Bush");
 			} break;
 
 			case FOLIAGE_berry_bush:{
-				en->arch = ARCH_bush;
+				en->arch = ARCH_foliage;
 				en->sprite_id = SPRITE_bush_berry;
 				en->item_id = ITEM_berry;
 				en->name = STR("Berry bush");
@@ -1563,47 +1584,6 @@ DimensionData *get_dimensionData(DimensionID);
 			default: assert(1==0, "Missing case @ 'setup_foliage'"); break;
 		}
 	}
-
-
-	// void setup_bush(Entity* en) {
-	// 	en->arch = ARCH_bush;
-	// 	en->name = STR("Bush");
-	// 	int random = get_random_int_in_range(0,1);
-	// 	if (random == 0){en->sprite_id = SPRITE_bush0;en->item_id = ITEM_berry;}
-	// 	if (random == 1){en->sprite_id = SPRITE_bush1;en->item_id = ITEM_sprout;}
-	// 	en->health = bush_health;
-	// 	en->destroyable = true;
-	// 	en->rendering_prio = 0;
-	// 	en->enable_shadow = true;
-	// 	add_biomeID_to_entity(en, BIOME_forest);
-	// }
-
-
-	// void setup_twig(Entity* en) {
-	// 	en->arch = ARCH_twig;
-	// 	en->name = STR("Twig");
-	// 	en->sprite_id = SPRITE_item_twig;
-	// 	en->health = 1;
-	// 	en->destroyable = true;
-	// 	en->item_id = ITEM_twig;
-	// 	en->rendering_prio = 0;
-	// 	en->enable_shadow = true;
-	// 	add_biomeID_to_entity(en, BIOME_forest);
-	// }
-
-
-	// void setup_mushroom(Entity* en) {
-	// 	en->arch = ARCH_mushroom;
-	// 	en->name = STR("Mushroom");
-	// 	en->sprite_id = SPRITE_mushroom0;
-	// 	en->health = 1;
-	// 	en->destroyable = true;
-	// 	en->item_id = ITEM_mushroom0;
-	// 	en->rendering_prio = 0;
-	// 	en->tool_id = TOOL_nil;
-	// 	add_biomeID_to_entity(en, BIOME_forest);
-	// 	add_biomeID_to_entity(en, BIOME_cave);
-	// }
 
 
 	void setup_torch(Entity* en){
@@ -2195,12 +2175,13 @@ DimensionData *get_dimensionData(DimensionID);
 		biome->spawn_table.entity_count = 0;
 
 		switch (id){
+		// ##### PINE FOREST #############################################
 			case BIOME_pine_forest:{
 				{
 					biome->name = STR("Pine Forest");
 					biome->id = BIOME_pine_forest;
 					biome->ground_texture = TEXTURE_TILE_forest;
-					biome->ground_color = v4(0,1,0.5,1);
+					biome->ground_color = v4(0.4, 0.7, 0.5, 1);
 					biome->enabled = true;
 
 					// Setup spawntable
@@ -2213,7 +2194,7 @@ DimensionData *get_dimensionData(DimensionID);
 						{
 							.arch = ARCH_tree, 
 							.tree_type=TREE_pine, 
-							.weight = 50, 
+							.weight = 70, 
 							.enabled = true
 						};
 						// SPRUCE TREE
@@ -2221,7 +2202,7 @@ DimensionData *get_dimensionData(DimensionID);
 						{
 							.arch = ARCH_tree, 
 							.tree_type=TREE_spruce, 
-							.weight = 50, 
+							.weight = 10, 
 							.enabled = true
 						};
 
@@ -2229,13 +2210,13 @@ DimensionData *get_dimensionData(DimensionID);
 					biome->spawn_rocks = true;
 
 						// SMALL ROCK
-						// biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
-						// {
-						// 	.arch = ARCH_rock,
-						// 	.rock_type = ROCK_normal_small,
-						// 	.weight = 20,
-						// 	.enabled = true
-						// };
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_small,
+							.weight = 20,
+							.enabled = true
+						};
 						// MEDIUM ROCK
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
@@ -2280,6 +2261,7 @@ DimensionData *get_dimensionData(DimensionID);
 							.weight = 25,
 							.enabled = true,
 						};
+						// BUSH SMALL
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
 							.arch = ARCH_foliage,
@@ -2287,6 +2269,123 @@ DimensionData *get_dimensionData(DimensionID);
 							.weight = 10,
 							.enabled = true,
 						};
+						// BUSH BERRY
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_berry_bush,
+							.weight = 9,
+							.enabled = true,
+						};
+
+				}
+			} break;
+
+
+
+		// ##### FOREST ##################################################
+			case BIOME_forest:{
+				{
+					biome->name = STR("Forest");
+					biome->id = BIOME_forest;
+					biome->ground_texture = TEXTURE_TILE_forest;
+					biome->ground_color = v4(0, 1, 0.5, 1);
+					biome->enabled = true;
+
+					// Setup spawntable
+					
+					// Trees --------------------------->
+					biome->spawn_trees = true;
+
+						// PINE TREE
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_tree, 
+							.tree_type = TREE_pine, 
+							.weight = 30, 
+							.enabled = true
+						};
+						// SPRUCE TREE
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_tree, 
+							.tree_type = TREE_spruce, 
+							.weight = 50, 
+							.enabled = true
+						};
+						// BIRCH TREE
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_tree,
+							.tree_type = TREE_birch,
+							.weight = 30,
+							.enabled = true,
+						};
+
+					// Rocks --------------------------->
+					biome->spawn_rocks = true;
+
+						// SMALL ROCK
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_small,
+							.weight = 20,
+							.enabled = true
+						};
+						// MEDIUM ROCK
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_medium,
+							.weight = 10,
+							.enabled = true
+						};
+						// LARGE ROCK
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_large,
+							.weight = 5,
+							.enabled = true
+						};
+
+					// Foliage ------------------------->
+					biome->spawn_foliage = true;
+
+						// SHORT GRASS
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_short_grass,
+							.weight = 20,
+							.enabled = true
+						};
+						// TALL GRASS
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_tall_grass,
+							.weight = 20,
+							.enabled = true,
+						};
+						// TWIG SMALL
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_twig_small,
+							.weight = 25,
+							.enabled = true,
+						};
+						// BUSH SMALL
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_bush_small,
+							.weight = 10,
+							.enabled = true,
+						};
+						// BUSH BERRY
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
 							.arch = ARCH_foliage,

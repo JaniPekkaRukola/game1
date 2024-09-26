@@ -21,6 +21,7 @@ bool render_player_sprite = true;
 bool render_other_entities = true;
 bool draw_grid = false;
 bool render_ground_texture = true;
+bool enable_entity_selection_by_player_position = false;
 
 float render_distance = 230;
 float render_distance_32 = 10; // for 32x32 tiles
@@ -2581,17 +2582,19 @@ int entry(int argc, char **argv)
 		// ::Load sprites
 			// :Load entity sprites
 			sprites[0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+			sprites[SPRITE_TEST] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/test.png"), get_heap_allocator())};
 			// sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player.png"), get_heap_allocator())};
 			sprites[SPRITE_player] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/player_new.png"), get_heap_allocator())};
 
 			// trees
 			sprites[SPRITE_tree_pine] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_pine.png"), get_heap_allocator())};
-			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_spruce] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_birch.png"), get_heap_allocator())};
+			sprites[SPRITE_tree_birch] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_spruce.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_magical0] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical0.png"), get_heap_allocator())};
 			sprites[SPRITE_tree_magical1] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tree_magical1.png"), get_heap_allocator())};
 
 			// rocks
-			sprites[SPRITE_rock_normal_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_normal_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_normal_small.png"), get_heap_allocator())};
 			sprites[SPRITE_rock_normal_medium] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_normal_medium.png"), get_heap_allocator())};
 			sprites[SPRITE_rock_normal_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_normal_large.png"), get_heap_allocator())};
 			sprites[SPRITE_rock_mossy_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_mossy_small.png"), get_heap_allocator())};
@@ -2820,6 +2823,7 @@ int entry(int argc, char **argv)
 	// world->ux_state = UX_mainmenu;
 	Gfx_Image* mainmenu_bg = load_image_from_disk(STR("res/title_screen.png"), get_heap_allocator());
 
+
 // ----- MAIN LOOP ----------------------------------------------------------------------------------------- 
 	while (!window.should_close) {
 
@@ -2883,8 +2887,8 @@ int entry(int argc, char **argv)
 
 
 		// player
-		world->player->en = get_player_en_from_current_dim();
-		sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
+		// world->player->en = get_player_en_from_current_dim();
+		// sync_player_pos_between_dims();	// NOTE: this has an impact of only about 1fps		// also could just sync the pos only when player moves!? 
 		// update_biome();
 
 
@@ -2915,8 +2919,11 @@ int entry(int argc, char **argv)
 		// int mouse_tile_y = world_pos_to_tile_pos(mouse_pos_world.y);
 
 
-
 		chunk_manager();
+
+		Chunk* player_chunk = get_player_chunk();
+
+		if (IS_DEBUG) draw_rect(player_chunk->pos_in_world, v2(CHUNK_SIZE, CHUNK_SIZE), v4(0, 0, 1, 0.5));
 
 
 
@@ -2925,69 +2932,116 @@ int entry(int argc, char **argv)
 		render_ui();
 
 		// :Entity selection by MOUSE
+		// if (!world_frame.hover_consumed)
+		// {
+		// 	// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
+		// 	// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
+
+		// 	if (world->ux_state == UX_nil){
+
+		// 		float smallest_dist = 9999999;
+
+		// 		// for (int i = 0; i < MAX_ENTITY_COUNT; i++){		// NOTE: actually faster to use MAX_ENTITY_COUNT here
+		// 		for (int i = 0; i < player_chunk->entity_count; i++){
+		// 			// Entity* en = &world->dimension->entities[i];
+		// 			Entity* en = &player_chunk->entities[i];
+
+		// 			if (!en){
+		// 				int asd = 0;
+		// 				continue;
+		// 			}
+
+		// 			if (IS_DEBUG){
+		// 				draw_rect(en->pos, get_sprite_size(get_sprite(en->sprite_id)), v4(1,1,0,0.5));
+		// 			}
+
+		// 			// if (IS_DEBUG){
+		// 			// 	// world_frame.selected_entity = en;
+		// 			// 	if (en->is_valid){
+		// 			// 		float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+		// 			// 		if (dist < world->player->entity_selection_radius){
+		// 			// 			if (!world_frame.selected_entity || (dist < smallest_dist)){
+		// 			// 				if (en->arch == ARCH_item){
+		// 			// 					printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+		// 			// 				}
+		// 			// 				else if (en->arch == ARCH_portal){
+		// 			// 					printf("selected portal = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
+		// 			// 				}
+		// 			// 			}
+		// 			// 		}
+		// 			// 	}
+		// 			// }
+
+		// 			if (en->is_valid && en->destroyable && en->arch != ARCH_portal){
+		// 				Sprite* sprite = get_sprite(en->sprite_id);
+
+		// 				// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
+		// 				// int entity_tile_y = world_pos_to_tile_pos(en->pos.y);
+
+		// 				Vector2 sprite_bottom_center = en->pos;
+		// 				sprite_bottom_center.x += get_sprite_size(sprite).x * 0.5;
+
+		// 				// float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
+		// 				float dist = fabsf(v2_dist(sprite_bottom_center, mouse_pos_world));
+
+		// 				if (is_key_just_pressed('K')){
+		// 					int asd = 0;
+		// 				} 
+
+		// 				// :select entity
+		// 				if (dist < world->player->entity_selection_radius) {
+		// 					if (!world_frame.selected_entity || (dist < smallest_dist)) {
+		// 						// this is selected entity by mouse. RENAME
+		// 						world_frame.selected_entity = en;
+
+		// 						Vector2 size = get_sprite_size(get_sprite(en->sprite_id));
+		// 						draw_rect(en->pos, v2(size.x, size.y), v4(1,0,0,0.5));
+
+		// 						printf("selected entity by mouse\n");
+
+		// 						// if (en->is_crafting_station){
+		// 						// 	world->open_crafting_station = en;
+		// 						// }
+
+		// 						if (en->arch == ARCH_building){
+		// 							// printf("UPDATED 'world->player->selected_building' to %d\n", en->arch);
+		// 							world->player->selected_building = &en->building_data;
+		// 							world->player->selected_building->en = en;
+		// 						}
+		// 						// smallest_dist = dist; // imo entity selection works better with this line commented
+		// 					}
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
+
+
+		// entity selection by mouse NEW
 		if (!world_frame.hover_consumed)
 		{
-			// log("%f, %f", input_frame.mouse_x, input_frame.mouse_y);
-			// draw_text(font, sprint(temp, STR("%.0f, %.0f"), pos.x, pos.y), font_height, pos, v2(0.1, 0.1), COLOR_RED);
+			for (int i = 0; i < player_chunk->entity_count; i++){
+				Entity* en = &player_chunk->entities[i];
+				Sprite* sprite = get_sprite(en->sprite_id);
 
-			if (world->ux_state == UX_nil){
+				Range2f en_range = range2f_make(en->pos, v2(en->pos.x + sprite->image->width, en->pos.y + sprite->image->height));
 
-				float smallest_dist = 9999999;
+				if (!world_frame.selected_entity && range2f_contains(en_range, get_mouse_pos_in_world_space())){
 
-				for (int i = 0; i < MAX_ENTITY_COUNT; i++){		// NOTE: actually faster to use MAX_ENTITY_COUNT here
-					Entity* en = &world->dimension->entities[i];
+					if (IS_DEBUG) draw_rect(en->pos, get_sprite_size(sprite), COLOR_RED);
 
-					if (IS_DEBUG){
-						// world_frame.selected_entity = en;
-						if (en->is_valid){
-							float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-							if (dist < world->player->entity_selection_radius){
-								if (!world_frame.selected_entity || (dist < smallest_dist)){
-									if (en->arch == ARCH_item){
-										printf("EN = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
-									}
-									else if (en->arch == ARCH_portal){
-										printf("selected portal = %s\t%.1f, %.1f\n", en->name, en->pos.x, en->pos.y);
-									}
-								}
-							}
-						}
-					}
-
-					else if (en->is_valid && en->destroyable && en->arch != ARCH_portal){
-						// Sprite* sprite = get_sprite(en->sprite_id);
-
-						// int entity_tile_x = world_pos_to_tile_pos(en->pos.x);
-						// int entity_tile_y = world_pos_to_tile_pos(en->pos.y);
-
-						float dist = fabsf(v2_dist(en->pos, mouse_pos_world));
-
-						// :select entity
-						if (dist < world->player->entity_selection_radius) {
-							if (!world_frame.selected_entity || (dist < smallest_dist)) {
-								// this is selected entity by mouse. RENAME
-								world_frame.selected_entity = en;
-
-								// if (en->is_crafting_station){
-								// 	world->open_crafting_station = en;
-								// }
-
-								if (en->arch == ARCH_building){
-									// printf("UPDATED 'world->player->selected_building' to %d\n", en->arch);
-									world->player->selected_building = &en->building_data;
-									world->player->selected_building->en = en;
-								}
-								// smallest_dist = dist; // imo entity selection works better with this line commented
-							}
-						}
-					}
+					world_frame.selected_entity = en;
 				}
+
+
+
 			}
 		}
 
 
 		// :Entity selection by player position
 		// @pin6
+		if (enable_entity_selection_by_player_position)
 		{
 			float smallest_dist = 9999999;
 			float entity_selection_radius = 10.0f;
@@ -3013,70 +3067,6 @@ int entry(int argc, char **argv)
 				}
 			}
 		}
-
-
-
-		// new way of rendering ground
-		render_ground_texture = false;
-		if (render_ground_texture)
-		{
-			// int radius = 10;
-			// int TILE_SIZE = tile_width;
-			// int TILE_SIZE = 32;
-			// int TILE_SIZE = 128;
-			Texture* test = get_texture(get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(0, 0)))).ground_texture);
-			int TILE_SIZE = test->image->width;
-
-
-			float player_pos_x = world->player->en->pos.x;
-			float player_pos_y = world->player->en->pos.y;
-
-			int player_tile_x = (int)(player_pos_x / TILE_SIZE);
-			int player_tile_y = (int)(player_pos_y / TILE_SIZE);
-
-			for (int y = -render_distance_32; y <= render_distance_32; y++) {
-				for (int x = -render_distance_32; x <= render_distance_32; x++) {
-
-					float tile_pos_x = (player_tile_x + x) * TILE_SIZE;
-					float tile_pos_y = (player_tile_y + y) * TILE_SIZE;
-
-					BiomeData tile_biome_data = get_biome_data_from_id(biome_at_tile(v2_world_pos_to_tile_pos(v2(tile_pos_x, tile_pos_y))));
-
-					// Get the texture for the tile
-					Texture* texture = get_texture(tile_biome_data.ground_texture);
-			
-					// tests
-					float test_pos_x = get_player_pos().x * CHUNK_SIZE;
-					float test_pos_y = get_player_pos().y * CHUNK_SIZE;
-					printf("test_pos_x = %.1f\n", test_pos_x);
-					// Texture* texture_test = get_texture(get_biome_data_from_id(world->dimension->chunks[0][0]->biome_id).ground_texture);
-					
-					Vector4 color = COLOR_WHITE;
-					// color adj
-					if (tile_biome_data.ground_color.a != 0) {
-						color = tile_biome_data.ground_color;
-						color.r -= 0.2;
-						color.g -= 0.2;
-						color.b -= 0.2;
-					}
-
-					// Matrix4 xform = m4_identity;
-
-					// xform = m4_translate(xform, v3(tile_pos_x, tile_pos_y, 0));
-
-					// xform = m4_scale(xform, v3f32(0.5, 0.5, 0));
-					// xform = m4_scalar(0.5);
-					// xform = m4_make_scale(v3f32(1, 1, 1));
-
-					// draw the tile
-					// draw_image(texture->image, v2(tile_pos_x, tile_pos_y), get_texture_size(*texture), color);
-					// draw_image(texture_test->image, v2(tile_pos_x, tile_pos_y), get_texture_size(*texture_test), color);
-					// draw_image_xform(texture->image, xform, get_texture_size(*texture), color);
-				}
-			}
-		}
-
-
 
 		// // :Render grid (:Grid)
 			// draw_grid = false;
@@ -3304,9 +3294,12 @@ int entry(int argc, char **argv)
 
 		// :Update entities || :Item pick up
 		{
-			for (int i = 0; i < MAX_ENTITY_COUNT; i++) { // NOTE: actually faster to use MAX_ENTITY_COUNT here
-				Entity* en = &world->dimension->entities[i];
-				if (en->is_valid) {
+			// Chunk* chunk = get_player_chunk();
+			// for (int i = 0; i < MAX_ENTITY_COUNT; i++) { // NOTE: actually faster to use MAX_ENTITY_COUNT here
+			for (int i = 0; i < player_chunk->entity_count; i++) { 
+				// Entity* en = &world->dimension->entities[i];
+				Entity* en = &player_chunk->entities[i];
+				if (en && en->is_valid) {
 
 					// item pick up
 					if (en->is_item) {
@@ -3318,13 +3311,14 @@ int entry(int argc, char **argv)
 							// render_pickup_text(en);
 							trigger_pickup_text(*en);
 
-							entity_destroy(en);
+							// entity_destroy(en);
+							entity_destroy(en, player_chunk);
 							
 						}
 					}
 
 					// :crafting
-					if (en->is_crafting_station){
+					else if (en->is_crafting_station){
 						if (en->building_data.selected_crafting_item){
 							float cooking_time = en->building_data.selected_crafting_item->cooking_time;
 							if (en->building_data.crafting_end_time == 0){
@@ -3362,6 +3356,7 @@ int entry(int argc, char **argv)
 
 		// :player use || :trigger building ui || MOUSE BUTTON RIGHT
 		{
+			// Chunk* chunk = get_player_chunk();
 			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
 				// open chest
 				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(KEY_player_use)) {
@@ -3516,10 +3511,22 @@ int entry(int argc, char **argv)
 							}
 						} break;
 
+						case ARCH_foliage: {
+							{
+								if (selected_en->item_id != ITEM_nil){
+									Entity* en = entity_create_to_chunk(player_chunk);
+									setup_item(en, selected_en->item_id);
+									en->pos = selected_en->pos;
+								}
+								allow_destroy = true;
+							}
+						} break;
+
 						default: { 	// |------- OTHERS -------|
 							{
 								printf("DEBUG OTHER ENTITY CREATED. ENTITY COUNT +1. ITEMID = %d\n", selected_en->item_id);
-								Entity* en = entity_create();
+								// Entity* en = entity_create();
+								Entity* en = entity_create_to_chunk(player_chunk);
 								setup_item(en, selected_en->item_id);
 								en->pos = selected_en->pos;
 								allow_destroy = true;
@@ -3548,7 +3555,8 @@ int entry(int argc, char **argv)
 
 
 				if (allow_destroy){
-					entity_destroy(selected_en);
+					// entity_destroy(selected_en);
+					entity_destroy(selected_en, player_chunk);
 					// entity_bin[entity_bin_size] = selected_en;
 					// entity_bin_size++;
 				}
@@ -3596,6 +3604,14 @@ int entry(int argc, char **argv)
 		// render_entities(world);
     	render_chunk_entities();
 		render_player();
+
+		{
+			// Matrix4 test = m4_identity;
+			// Sprite* test_sprite = get_sprite(SPRITE_TEST);
+			// Vector2 size = get_sprite_size(test_sprite);
+			// float amount = 0.15;
+			// draw_image_xform(test_sprite->image, test, v2(size.x*amount, size.y*amount), COLOR_WHITE);
+		}
 
 
 

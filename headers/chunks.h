@@ -10,16 +10,17 @@
 
 int total_entity_count = 0;
 
-typedef struct Chunk {
-    BiomeID biome_id;
-    Vector2 pos_in_world;
-    Vector2 pos_in_grid;
-    Vector2 size;
-    int entity_count;
-    Entity entities[MAX_CHUNK_ENTITIES];
+// moved this into types.h
+// typedef struct Chunk {
+//     BiomeID biome_id;
+//     Vector2 pos_in_world;
+//     Vector2 pos_in_grid;
+//     Vector2 size;
+//     int entity_count;
+//     Entity entities[MAX_CHUNK_ENTITIES];
 
-    bool has_been_loaded;
-} Chunk;
+//     bool has_been_loaded;
+// } Chunk;
 
 
 void initialize_chunks(DimensionData* dimension) {
@@ -36,6 +37,17 @@ Chunk* get_chunk(DimensionData* dimension, Vector2 pos) {
     int x = (int)pos.x + CHUNK_OFFSET_X;
     int y = (int)pos.y + CHUNK_OFFSET_Y;
     return dimension->chunks[x][y];
+}
+
+Chunk* get_player_chunk(){
+    Vector2 player_pos = get_player_pos();
+    // player_pos.x += CHUNK_OFFSET_X;
+    // player_pos.y += CHUNK_OFFSET_Y;
+
+    int x = (int)(player_pos.x / CHUNK_SIZE) + CHUNK_OFFSET_X;
+    int y = (int)(player_pos.y / CHUNK_SIZE) + CHUNK_OFFSET_Y;
+
+    return world->dimension->chunks[x][y];
 }
 
 Vector2 get_chunk_world_position(int x, int y) {
@@ -236,8 +248,8 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
     int x = (int)pos.x + CHUNK_OFFSET_X;
     int y = (int)pos.y + CHUNK_OFFSET_Y;
 
-    // if (x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT) {
-    if (x < WORLD_WIDTH && y < WORLD_HEIGHT) {
+    if (x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT) {
+    // if (x < WORLD_WIDTH && y < WORLD_HEIGHT) {
         Chunk* chunk = dimension->chunks[x][y];
         if (chunk == NULL) {
             chunk = alloc(get_heap_allocator(), sizeof(Chunk));
@@ -394,13 +406,47 @@ void render_chunk_entities(){
 
                             switch (en->arch){
 
-                                default:{
+                                case ARCH_item: {
                                     {
                                         Sprite* sprite = get_sprite(en->sprite_id);
+							            Matrix4 xform = m4_identity;
+
+                                        Vector4 item_shadow_color = {0, 0, 0, 0.2};
+							
+                                        xform = m4_translate(xform, v3(0, 2.0 * sin_breathe(os_get_elapsed_seconds(), 5.0), 0)); // bob item up and down
+                                        
+                                        // shadow position
+                                        Vector2 position = en->pos;
+                                        position.x = position.x - (0.5 * get_sprite_size(sprite).x);
+                                        position.y = position.y - (0.5 * get_sprite_size(sprite).y) - 1;
+                                        
+                                        // item shadow
+                                        draw_circle(position, v2(get_sprite_size(sprite).x, get_sprite_size(sprite).y * 0.5), item_shadow_color);
+
+                                        xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+            							xform = m4_translate(xform, v3(sprite->image->width * -0.5, 0.0, 0));
+
+            							draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+
+
+                                    }
+                                } break;
+
+                                default:{
+                                    {
+                                        if (en->arch == ARCH_item){
+                                            int asd = 0;
+                                        }
+                                        Sprite* sprite = get_sprite(en->sprite_id);
+
+                                        Vector4 col = COLOR_WHITE;
+                                        if (world_frame.selected_entity == en){
+                                            col = v4(0.7, 0.7, 0.7, 1.0);
+                                        }
 
                                         Matrix4 xform = m4_identity;
                                         xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-                                        draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
+                                        draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
                                     }
                                 }
                             }

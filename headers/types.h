@@ -14,6 +14,13 @@
     #define WORLD_WIDTH 512
     #define WORLD_HEIGHT 512
 
+    // #CHUNK
+    #define CHUNK_SIZE 512
+    #define MAX_CHUNKS 100
+    #define MAX_CHUNK_ENTITIES 64 * 4
+    
+    float entity_render_distance = 230; // used with rendering entities from chunks (chunks.h)
+
     const float screen_width = 240.0;
     const float screen_height = 135.0;
 
@@ -147,10 +154,13 @@
     typedef enum SpriteID {
         SPRITE_nil,
 
+        SPRITE_TEST,
+
         // Entities
         SPRITE_player,
         SPRITE_tree_pine,
         SPRITE_tree_spruce,
+        SPRITE_tree_birch,
         SPRITE_tree_magical0,
         SPRITE_tree_magical1,
 
@@ -532,6 +542,17 @@
 
     } Entity;
 
+    typedef struct Chunk {
+        BiomeID biome_id;
+        Vector2 pos_in_world;
+        Vector2 pos_in_grid;
+        Vector2 size;
+        int entity_count;
+        Entity entities[MAX_CHUNK_ENTITIES];
+
+        bool has_been_loaded;
+    } Chunk;
+
     // :WorldFrame ---------------------->
     typedef struct WorldFrame {
         Entity* selected_entity;
@@ -881,15 +902,6 @@
     LootTable *lootTable_pine_tree;
 
     // WorldData map = {0};
-
-    // #CHUNK
-    #define CHUNK_SIZE 512
-    #define MAX_CHUNKS 100
-    #define MAX_CHUNK_ENTITIES 64 * 4
-    
-    float entity_render_distance = 230; // used with rendering entities from chunks (chunks.h)
-
-
 
 
 // 

@@ -9,7 +9,10 @@ unsigned long id_counter = 0;
 typedef enum AnimationID {
     ANIM_nil,
 
-    ANIM_player,
+    ANIM_player_up,
+    ANIM_player_down,
+    ANIM_player_left,
+    ANIM_player_right,
 
     ANIM_held_torch,
     ANIM_ground_torch,
@@ -46,6 +49,8 @@ typedef struct Animation{
     float duration;
     float elapsed_time;
 
+    int direction;
+
 } Animation;
 
 Animation animations[MAX_ANIMATIONS];
@@ -55,6 +60,10 @@ Animation* crafting_animation;
 Animation* smelting_animation;
 Animation* held_torch_animation;
 Animation* ground_torch_animation;
+Animation* player_animation_up;
+Animation* player_animation_down;
+Animation* player_animation_left;
+Animation* player_animation_right;
 
 
 
@@ -108,6 +117,110 @@ void draw_animation(Animation* anim, float64 now){
     quad->uv.y1 = (float32)(anim_sheet_pos_y) / (float32)anim->anim_sheet->height;
     quad->uv.x2 = (float32)(anim_sheet_pos_x+anim->anim_frame_width) / (float32)anim->anim_sheet->width;
     quad->uv.y2 = (float32)(anim_sheet_pos_y+anim->anim_frame_height) / (float32)anim->anim_sheet->height;
+}
+
+Animation* setup_player_animation(){
+    Animation* anim_up = alloc(get_heap_allocator(), sizeof(Animation));
+    Animation* anim_down = alloc(get_heap_allocator(), sizeof(Animation));
+    Animation* anim_left = alloc(get_heap_allocator(), sizeof(Animation));
+    Animation* anim_right = alloc(get_heap_allocator(), sizeof(Animation));
+
+    anim_up->anim_id = ANIM_player_up;
+    anim_down->anim_id = ANIM_player_down;
+    anim_left->anim_id = ANIM_player_left;
+    anim_right->anim_id = ANIM_player_right;
+
+    anim_up->name    =  "Player animation up";
+    anim_down->name  =  "Player animation down";
+    anim_left->name  =  "Player animation left";
+    anim_right->name =  "Player animation right";
+
+    anim_up->anim_sheet = load_image_from_disk(STR("res/animations/player_walk_up.png"), get_heap_allocator());
+    anim_down->anim_sheet = load_image_from_disk(STR("res/animations/player_walk_down.png"), get_heap_allocator());
+    anim_left->anim_sheet = load_image_from_disk(STR("res/animations/player_walk_left.png"), get_heap_allocator());
+    anim_right->anim_sheet = load_image_from_disk(STR("res/animations/player_walk_right.png"), get_heap_allocator());
+
+    anim_up->number_of_columns = 4;
+    anim_down->number_of_columns = 4;
+    anim_left->number_of_columns = 4;
+    anim_right->number_of_columns = 4;
+
+    anim_up->number_of_rows = 1;
+    anim_down->number_of_rows = 1;
+    anim_left->number_of_rows = 1;
+    anim_right->number_of_rows = 1;
+
+
+    anim_up->total_number_of_frames = anim_up->number_of_rows * anim_up->number_of_columns;
+    anim_down->total_number_of_frames = anim_down->number_of_rows * anim_down->number_of_columns;
+    anim_left->total_number_of_frames = anim_left->number_of_rows * anim_left->number_of_columns;
+    anim_right->total_number_of_frames = anim_right->number_of_rows * anim_right->number_of_columns;
+    
+    anim_up->anim_frame_width  = anim_up->anim_sheet->width  / anim_up->number_of_columns;
+    anim_down->anim_frame_width  = anim_down->anim_sheet->width  / anim_down->number_of_columns;
+    anim_left->anim_frame_width  = anim_left->anim_sheet->width  / anim_left->number_of_columns;
+    anim_right->anim_frame_width  = anim_right->anim_sheet->width  / anim_right->number_of_columns;
+
+    anim_up->anim_frame_height = anim_up->anim_sheet->height / anim_up->number_of_rows;
+    anim_down->anim_frame_height = anim_down->anim_sheet->height / anim_down->number_of_rows;
+    anim_left->anim_frame_height = anim_left->anim_sheet->height / anim_left->number_of_rows;
+    anim_right->anim_frame_height = anim_right->anim_sheet->height / anim_right->number_of_rows;
+    
+    // anim->anim_start_frame_x = 0;
+    // anim->anim_start_frame_y = 0;
+    // anim->anim_end_frame_x = 3;
+    // anim->anim_end_frame_y = 0;
+    // anim->anim_start_index = anim->anim_start_frame_y * anim->number_of_columns + anim->anim_start_frame_x;
+    // anim->anim_end_index   = anim->anim_end_frame_y   * anim->number_of_columns + anim->anim_end_frame_x;
+    // anim->anim_number_of_frames = max(anim->anim_end_index, anim->anim_start_index)-min(anim->anim_end_index, anim->anim_start_index)+1;
+
+    // assert(anim->anim_end_index > anim->anim_start_index, "The last frame must come before the first frame");
+    // assert(anim->anim_start_frame_x < anim->number_of_columns, "anim_start_frame_x is out of bounds");
+    // assert(anim->anim_start_frame_y < anim->number_of_rows, "anim_start_frame_y is out of bounds");
+    // assert(anim->anim_end_frame_x < anim->number_of_columns, "anim_end_frame_x is out of bounds");
+    // assert(anim->anim_end_frame_y < anim->number_of_rows, "anim_end_frame_y is out of bounds");
+
+    anim_up->anim_start_index = 0;
+    anim_down->anim_start_index = 0;
+    anim_left->anim_start_index = 0;
+    anim_right->anim_start_index = 0;
+
+    anim_up->anim_end_index = 3;
+    anim_down->anim_end_index = 3;
+    anim_left->anim_end_index = 3;
+    anim_right->anim_end_index = 3;
+
+    anim_up->anim_number_of_frames = anim_up->anim_end_index - anim_up->anim_start_index + 1;
+    anim_down->anim_number_of_frames = anim_down->anim_end_index - anim_down->anim_start_index + 1;
+    anim_left->anim_number_of_frames = anim_left->anim_end_index - anim_left->anim_start_index + 1;
+    anim_right->anim_number_of_frames = anim_right->anim_end_index - anim_right->anim_start_index + 1;
+
+    anim_up->playback_fps = 10;
+    anim_down->playback_fps = 10;
+    anim_left->playback_fps = 10;
+    anim_right->playback_fps = 10;
+
+    anim_up->anim_time_per_frame = 1.0 / anim_up->playback_fps;
+    anim_down->anim_time_per_frame = 1.0 / anim_down->playback_fps;
+    anim_left->anim_time_per_frame = 1.0 / anim_left->playback_fps;
+    anim_right->anim_time_per_frame = 1.0 / anim_right->playback_fps;
+
+    anim_up->cycle_duration = anim_up->anim_time_per_frame * (float32)anim_up->anim_number_of_frames;
+    anim_down->cycle_duration = anim_down->anim_time_per_frame * (float32)anim_down->anim_number_of_frames;
+    anim_left->cycle_duration = anim_left->anim_time_per_frame * (float32)anim_left->anim_number_of_frames;
+    anim_right->cycle_duration = anim_right->anim_time_per_frame * (float32)anim_right->anim_number_of_frames;
+
+    // anim->has_offset = true;
+    // anim->offset = v2(3, -1);
+
+    // anim->active = false;
+    // anim->looping = true;
+    // anim->has_custom_size = false;
+    // anim->custom_size = v2(8, 12);
+    // anim->unique_id = get_new_id();
+
+    // return anim_up, anim_down, anim_left, anim_right;
+    return anim_up;
 }
 
 Animation* setup_held_torch_animation(){
