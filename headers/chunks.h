@@ -233,10 +233,11 @@ void spawn_chunk_entities(Chunk* chunk){
                 case ARCH_tree: setup_tree(en, spawnable.tree_type); break;
                 case ARCH_rock: setup_rock(en, spawnable.rock_type); break;
                 case ARCH_foliage: setup_foliage(en, spawnable.foliage_type); break;
+                case ARCH_ore: setup_ore(en, spawnable.ore_type); break;
                 default: log_error("Missing case @ 'spawn_chunk_entities'"); break;
             }
             en->pos = v2(entity_positions[entity_pos_index].x + chunk->pos_in_world.x, entity_positions[entity_pos_index].y + chunk->pos_in_world.y);
-            en->pos = round_v2_to_tile(en->pos);
+            // en->pos = round_v2_to_tile(en->pos);
             entity_pos_index++;
         }
     }

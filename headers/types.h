@@ -60,33 +60,6 @@
 
 // :ENUMS -------------------------------------------------------------------------------------------->
 
-    // old way
-    // typedef enum EntityArchetype {
-    //     // TODO: un-number these
-    //     ARCH_nil = 0,
-    //     ARCH_rock = 1,
-    //     ARCH_tree = 2,
-    //     ARCH_bush = 3,
-    //     ARCH_twig = 4,
-    //     ARCH_player = 5,
-
-    //     ARCH_item = 6,
-    //     ARCH_tool = 7,
-    //     ARCH_building = 8,
-
-    //     ARCH_ore = 9,
-
-    //     ARCH_mushroom = 10,
-
-    //     ARCH_portal = 11,
-
-    //     ARCH_torch = 12,
-        
-    //     ARCH_parallax = 13,
-
-    //     ARCH_MAX,
-    // } EntityArchetype;
-
     typedef enum EntityArchetype {
         ARCH_nil,
 
@@ -318,15 +291,11 @@
     typedef enum TextureID {
         TEXTURE_nil,
 
-        TEXTURE_grass,
-        TEXTURE_cave_floor,
         TEXTURE_vignette_torch,
         TEXTURE_vignette_no_torch,
         TEXTURE_torch_light,
 
         TEXTURE_TILE_forest,
-        TEXTURE_TILE_pine_forest,
-        TEXTURE_TILE_cave,
 
         TEXTURE_MAX,
     } TextureID;
@@ -349,6 +318,25 @@
         // UX_map,
         // UX_settings,
     } UXState;
+
+    typedef enum AudioID{
+        AUDIO_nil,
+
+        // hits
+        AUDIO_hit_metal1,
+        AUDIO_hit_metal2,
+
+        // stuff breaking
+        AUDIO_rock_breaking1,
+
+
+        // swings
+        AUDIO_swing_slow,
+        AUDIO_swing_fast,
+
+
+        AUDIO_MAX,
+    } AudioID;
 
     // Entity
     typedef enum TreeType {
@@ -436,6 +424,15 @@
 
 
 // :STRUCTS ------------------------------------------------------------------------------------------>
+
+    typedef struct Audio {
+        Audio_Source source;
+        string name;
+        string path;
+        bool ok;
+        // AudioID id;
+    } Audio;
+
 
     // :Portal -------------------------->
     typedef struct PortalData {
@@ -630,6 +627,7 @@
         TreeType tree_type;
         RockType rock_type;
         FoliageType foliage_type;
+        OreID ore_type;
 
         int weight;
         bool enabled;
@@ -877,6 +875,7 @@
     Texture textures[TEXTURE_MAX];
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
     dim_change_animation animation_dim_change = {};
+    Audio audioFiles[AUDIO_MAX];
 
 
     // ui rendering

@@ -13,14 +13,10 @@ void setup_item(Entity* en, ItemID item_id);
 Entity* get_ore(OreID id);
 DimensionData *get_dimensionData(DimensionID);
 
+void initialize_chunks(DimensionData* dimension);
 Chunk* get_player_chunk();
 Entity* entity_create_to_chunk(Chunk* chunk);
 typedef struct Chunk Chunk;
-
-// worldgen stuff
-// https://chatgpt.com/c/66dc8408-64f4-800a-82f0-7f65897ea243
-
-
 
 
 // ESSENTIALS -------------------------------------------------------------------------------------------->
@@ -28,7 +24,6 @@ typedef struct Chunk Chunk;
 		float mouse_x = input_frame.mouse_x;
 		float mouse_y = input_frame.mouse_y;
 		Matrix4 proj = draw_frame.projection;
-		// Matrix4 view = draw_frame.view;			// deprecated
 		Matrix4 view = draw_frame.camera_xform;
 		float window_w = window.width;
 		float window_h = window.height;
@@ -69,23 +64,23 @@ typedef struct Chunk Chunk;
 		return v2(pos.x * (0.5 * screen_width) + (0.5 * screen_width), pos.y * (0.5 * screen_height) + (0.5 * screen_height));
 	}
 
-	int world_pos_to_tile_pos(float world_pos) {
-		return roundf(world_pos / (float)tile_width);
-	}
+	// int world_pos_to_tile_pos(float world_pos) {
+	// 	return roundf(world_pos / (float)tile_width);
+	// }
 
-	Vector2i v2_world_pos_to_tile_pos(Vector2 world_pos) {
-		return (Vector2i) { world_pos_to_tile_pos(world_pos.x), world_pos_to_tile_pos(world_pos.y) };
-	}
+	// Vector2i v2_world_pos_to_tile_pos(Vector2 world_pos) {
+	// 	return (Vector2i) { world_pos_to_tile_pos(world_pos.x), world_pos_to_tile_pos(world_pos.y) };
+	// }
 
 	float tile_pos_to_world_pos(int tile_pos) {
 		return ((float)tile_pos * (float)tile_width);
 	}
 
-	Vector2 round_v2_to_tile(Vector2 world_pos) {
-		world_pos.x = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.x));
-		world_pos.y = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.y));
-		return world_pos;
-	}
+	// Vector2 round_v2_to_tile(Vector2 world_pos) {
+	// 	world_pos.x = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.x));
+	// 	world_pos.y = tile_pos_to_world_pos(world_pos_to_tile_pos(world_pos.y));
+	// 	return world_pos;
+	// }
 
 	float sin_breathe(float time, float rate) {	// 0 -> 1
 		return (sin(time * rate) + 1.0) / 2.0;
@@ -466,16 +461,16 @@ typedef struct Chunk Chunk;
 		memset(entity, 0, sizeof(Entity));
 	}
 
-	int add_biomeID_to_entity(Entity* entity, BiomeID id){
-		if (entity->biome_count < BIOME_MAX){
-			entity->biome_ids[entity->biome_count] = id;
-			entity->biome_count++;
-			return 1;
-		}
-		else{
-			return 0; // biome_ids list is full
-		}
-	}
+	// int add_biomeID_to_entity(Entity* entity, BiomeID id){
+	// 	if (entity->biome_count < BIOME_MAX){
+	// 		entity->biome_ids[entity->biome_count] = id;
+	// 		entity->biome_count++;
+	// 		return 1;
+	// 	}
+	// 	else{
+	// 		return 0; // biome_ids list is full
+	// 	}
+	// }
 
 
 	// :PLAYER ------------------------>
@@ -714,7 +709,7 @@ typedef struct Chunk Chunk;
 			// en->pos.y -= get_sprite_size(get_sprite(en->sprite_id)).y * 0.5;
 
 			// add_biomeID_to_entity(en, world->current_biome_id);
-			add_biomeID_to_entity(en, world->dimension->current_biome_id);
+			// add_biomeID_to_entity(en, world->dimension->current_biome_id);
 			en->is_valid = true;
 			en->portal_data.enabled = true;
 			en->portal_data.id = id;	// link portals
@@ -1381,6 +1376,13 @@ typedef struct Chunk Chunk;
 
 // SETUPS ------------------------------------------------------------------------------------------------>
 
+	void setup_audio_player(){
+		Audio_Playback_Config config = {0};
+		config.volume                = 0.5;
+		config.playback_speed        = 1.0;
+		config.enable_spacialization = true;
+	}
+
 	void setup_item(Entity* en, ItemID item_id) {
 
 		if (item_id == ITEM_nil) {
@@ -1397,7 +1399,7 @@ typedef struct Chunk Chunk;
 		en->enable_shadow = true;
 		en->pickup_text_col = v4(1,1,1,1);
 		// add_biomeID_to_entity(en, world->current_biome_id);
-		add_biomeID_to_entity(en, world->dimension->current_biome_id);
+		// add_biomeID_to_entity(en, world->dimension->current_biome_id);
 
 		// naming (maybe figure out a better solution. Or just hardcode everything but only once! @pin2)
 		// #crash: happens when get_ore can't find the name of the ore. prolly not because of get_ore func but because of this switch case. Happens prolly because trying to assing the result from get_ore to an entity which doesn't exist. idk why the setups above swich dont crash. idk
@@ -1493,14 +1495,14 @@ typedef struct Chunk Chunk;
 		en->destroyable = true;
 		en->rendering_prio = 0;
 		en->enable_shadow = true;
-		add_biomeID_to_entity(en, BIOME_forest);
-		add_biomeID_to_entity(en, BIOME_cave);
+		// add_biomeID_to_entity(en, BIOME_forest);
+		// add_biomeID_to_entity(en, BIOME_cave);
 
 		switch (type){
-			case ROCK_normal_small: en->sprite_id = SPRITE_rock_normal_small; en->name = STR("Small rock"); break;
+			case ROCK_normal_small: en->sprite_id = SPRITE_rock_normal_small; en->name = STR("Small rock"); en->health = 1;  break;
 			case ROCK_normal_medium: en->sprite_id = SPRITE_rock_normal_medium; en->name = STR("Medium rock"); break;
 			case ROCK_normal_large: en->sprite_id = SPRITE_rock_normal_large; en->name = STR("Large rock"); break;
-			case ROCK_mossy_small: en->sprite_id = SPRITE_rock_mossy_small; en->name = STR("Small mossy rock"); break;
+			case ROCK_mossy_small: en->sprite_id = SPRITE_rock_mossy_small; en->name = STR("Small mossy rock"); en->health = 1; break;
 			case ROCK_mossy_medium: en->sprite_id = SPRITE_rock_mossy_medium; en->name = STR("Medium mossy rock"); break;
 			case ROCK_mossy_large: en->sprite_id = SPRITE_rock_mossy_large; en->name = STR("Large mossy rock"); break;
 			default: en->sprite_id = SPRITE_nil; en->name = STR("Rock"); break;
@@ -1595,8 +1597,8 @@ typedef struct Chunk Chunk;
 		en->item_id = ITEM_TOOL_torch;
 		en->rendering_prio = 0;
 		en->tool_id = TOOL_torch;
-		add_biomeID_to_entity(en, BIOME_forest);
-		add_biomeID_to_entity(en, BIOME_cave);
+		// add_biomeID_to_entity(en, BIOME_forest);
+		// add_biomeID_to_entity(en, BIOME_cave);
 	}
 
 
@@ -1612,14 +1614,15 @@ typedef struct Chunk Chunk;
 		en->destroyable = false;
 		en->rendering_prio = 0;
 		en->enable_shadow = false;
-		add_biomeID_to_entity(en, BIOME_forest);
+		// add_biomeID_to_entity(en, BIOME_forest);
 	}
 
 	void setup_ore(Entity* en, OreID id) {
-		// universal
 		en->arch = ARCH_ore;
+		en->health = rock_health;
+		en->destroyable = true;
+		en->rendering_prio = 0;
 		en->enable_shadow = true;
-		add_biomeID_to_entity(en, BIOME_cave);
 
 		switch (id){
 			case ORE_iron:{
@@ -1657,7 +1660,7 @@ typedef struct Chunk Chunk;
 				}
 			} break;
 
-			default:{} break;
+			default: log_error("switch defaulted @'setup_ore'"); assert(1==0); break;
 		}
 	}
 
@@ -1726,8 +1729,6 @@ typedef struct Chunk Chunk;
 
 
 
-	// void setup_dimension_chunks(DimensionData* dimension);
-	void initialize_chunks(DimensionData* dimension);
 
 	void setup_dimension(DimensionID id) {
 
@@ -1795,7 +1796,7 @@ typedef struct Chunk Chunk;
 		en->is_selectable_by_mouse = false;
 		// BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		BiomeID current_biome = get_dimensionData(current_dim)->current_biome_id;
-		add_biomeID_to_entity(en, current_biome);
+		// add_biomeID_to_entity(en, current_biome);
 		// add_biomeID_to_entity(en, BIOME_cave);
 		en->rendering_prio = -1;
 
@@ -1833,333 +1834,6 @@ typedef struct Chunk Chunk;
 		setup_loot_table_rock();
 		setup_loot_table_pine_tree();
 	}
-
-
-
-
-	// void setup_biome_old(BiomeID id){
-	// 	// spawn weigth = spawn amount per chunk
-	// 	// drop chace = drop chance in %
-
-	// 	BiomeData* biome = 0;
-	// 	biome = alloc(get_heap_allocator(), sizeof(BiomeData));
-	// 	biome->id = BIOME_nil;
-	// 	biome->grass_color = v4(0, 0, 0, 1);
-
-	// 	switch (id){
-
-	// 		// Overworld biomes
-
-	// 		case BIOME_forest:{
-	// 			{
-	// 				biome->name = STR("Forest");
-	// 				biome->id = BIOME_forest;
-	// 				biome->size = v2(400, 400); // actually the biome position
-	// 				biome->enabled = true;
-	// 				biome->spawn_animals = false;
-	// 				biome->spawn_water = false;
-	// 				// biome->grass_color = v4(0, 0.784, 0, 1);
-	// 				biome->grass_color = v4(0.8, 1, 0.8, 1);
-	// 				// biome->ground_texture = TEXTURE_grass;
-	// 				biome->ground_texture = TEXTURE_TILE_forest;
-					
-	// 				biome->enable_parallax = false;
-	// 				biome->parallax_weight = 2;
-
-	// 				// trees
-	// 				biome->spawn_pine_trees = true;
-	// 				biome->pine_tree_weight = 50;
-	// 				biome->spawn_spruce_trees = true;
-	// 				biome->spruce_tree_weight = 40;
-	// 				biome->spawn_magical_trees = false;
-	// 				biome->magical_tree_weight = 0;
-	// 				biome->spawn_birch_trees = false;
-	// 				biome->birch_tree_weight = 0;
-	// 				biome->spawn_palm_trees = false;
-	// 				biome->palm_tree_weight = 0;
-
-	// 				// entities
-	// 				biome->spawn_rocks = true;
-	// 				biome->rocks_weight = 40;
-	// 				biome->spawn_mushrooms = true;
-	// 				biome->mushrooms_weight = 15;
-	// 				biome->spawn_twigs = true;
-	// 				biome->twigs_weight = 25;
-	// 				biome->spawn_berries = true;
-	// 				biome->berries_weight = 20;
-
-	// 				// fossils
-	// 				biome->spawn_fossils = false;
-	// 				biome->fossil0_drop_chance = 5;
-	// 				biome->fossil1_drop_chance = 5;
-	// 				biome->fossil2_drop_chance = 5;
-	// 				// biome->fossil_rarity_level = 2;
-	// 			}
-	// 		} break;
-
-	// 		case BIOME_pine_forest:{
-	// 			{
-	// 				biome->name = STR("Pine forest");
-	// 				biome->id = BIOME_pine_forest;
-	// 				biome->size = v2(400, -400); // actually the biome position
-	// 				// TODO: maybe make a Vector4 with biome corners
-	// 				// biome->biome_pos;
-	// 				biome->enabled = true;
-	// 				biome->spawn_animals = false;
-	// 				biome->spawn_water = false;
-	// 				// biome->grass_color = v4(0.6, 0.7, 1.0, 1);
-	// 				biome->grass_color = v4(0, 1, 1, 1);
-	// 				// biome->ground_texture = TEXTURE_grass;
-	// 				// biome->ground_texture = TEXTURE_TILE_pine_forest;
-	// 				biome->ground_texture = TEXTURE_TILE_forest;
-
-	// 				// trees
-	// 				biome->spawn_pine_trees = true;
-	// 				biome->pine_tree_weight = 10;
-	// 				biome->spawn_spruce_trees = false;
-	// 				biome->spruce_tree_weight = 0;
-	// 				biome->spawn_magical_trees = false;
-	// 				biome->magical_tree_weight = 0;
-	// 				biome->spawn_birch_trees = false;
-	// 				biome->birch_tree_weight = 0;
-	// 				biome->spawn_palm_trees = false;
-	// 				biome->palm_tree_weight = 0;
-
-	// 				// entities
-	// 				biome->spawn_rocks = true;
-	// 				biome->rocks_weight = 45;
-	// 				biome->spawn_mushrooms = true;
-	// 				biome->mushrooms_weight = 35;
-	// 				biome->spawn_twigs = true;
-	// 				biome->twigs_weight = 15;
-	// 				biome->spawn_berries = true;
-	// 				biome->berries_weight = 25;
-
-	// 				// ores
-	// 				biome->spawn_ores = false;
-	// 				biome->spawn_ore_iron = false;
-	// 				biome->spawn_ore_gold = false;
-	// 				biome->spawn_ore_copper = false;
-	// 				biome->ore_iron_weight = 0;
-	// 				biome->ore_gold_weight = 0;
-	// 				biome->ore_copper_weight = 0;
-
-	// 				// fossils
-	// 				biome->spawn_fossils = true;
-	// 				biome->fossil0_drop_chance = 15;
-	// 				biome->fossil1_drop_chance = 15;
-	// 				biome->fossil2_drop_chance = 15;
-	// 				// biome->fossil_rarity_level = 2;
-	// 			}
-	// 		} break;
-
-	// 		case BIOME_magical_forest:{
-	// 			{
-	// 				biome->name = STR("Magical forest");
-	// 				biome->id = BIOME_magical_forest;
-	// 				biome->size = v2(400, 400); // actually the biome position
-	// 				// TODO: maybe make a Vector4 with biome corners
-	// 				// biome->biome_pos;
-	// 				biome->enabled = true;
-	// 				biome->spawn_animals = false;
-	// 				biome->spawn_water = false;
-	// 				// biome->grass_color = v4(0.8, 0.6, 0.8, 1);
-	// 				biome->grass_color = hex_to_rgba(0x57e0c0ff);
-	// 				// biome->grass_color = v4(1, 0, 1, 1);
-	// 				biome->ground_texture = TEXTURE_TILE_forest;
-
-	// 				biome->enable_parallax = true;
-	// 				biome->parallax_weight = 3;
-
-	// 				// trees
-	// 				biome->spawn_pine_trees = false;
-	// 				biome->pine_tree_weight = 0;
-	// 				biome->spawn_spruce_trees = false;
-	// 				biome->spruce_tree_weight = 0;
-	// 				biome->spawn_magical_trees = true;
-	// 				biome->magical_tree_weight = 60;
-	// 				biome->spawn_birch_trees = false;
-	// 				biome->birch_tree_weight = 0;
-	// 				biome->spawn_palm_trees = false;
-	// 				biome->palm_tree_weight = 0;
-
-	// 				// entities
-	// 				biome->spawn_rocks = true;
-	// 				biome->rocks_weight = 20;
-	// 				biome->spawn_mushrooms = true;
-	// 				biome->mushrooms_weight = 45;
-	// 				biome->spawn_twigs = true;
-	// 				biome->twigs_weight = 15;
-
-	// 				// ores
-	// 				biome->spawn_ores = false;
-	// 				biome->spawn_ore_iron = false;
-	// 				biome->spawn_ore_gold = false;
-	// 				biome->spawn_ore_copper = false;
-	// 				biome->ore_iron_weight = 0;
-	// 				biome->ore_gold_weight = 0;
-	// 				biome->ore_copper_weight = 0;
-
-	// 				// fossils
-	// 				biome->spawn_fossils = true;
-	// 				biome->fossil0_drop_chance = 15;
-	// 				biome->fossil1_drop_chance = 15;
-	// 				biome->fossil2_drop_chance = 15;
-	// 				// biome->fossil_rarity_level = 2;
-	// 			}
-	// 		} break;
-
-	// 		case BIOME_desert:{
-	// 			{
-	// 				biome->name = STR("Desert");
-	// 				biome->id = BIOME_desert;
-	// 				biome->size = v2(400, 400); // actually the biome position
-	// 				// TODO: maybe make a Vector4 with biome corners
-	// 				// biome->biome_pos;
-	// 				biome->enabled = true;
-	// 				biome->spawn_animals = false;
-	// 				biome->spawn_water = false;
-	// 				// biome->grass_color = v4(0, 1, 1, 1);
-	// 				biome->grass_color = v4(1, 1, 0, 1);
-	// 				biome->ground_texture = TEXTURE_TILE_forest;
-
-	// 				// trees
-	// 				biome->spawn_pine_trees = false;
-	// 				biome->pine_tree_weight = 0;
-	// 				biome->spawn_spruce_trees = false;
-	// 				biome->spruce_tree_weight = 0;
-	// 				biome->spawn_magical_trees = false;
-	// 				biome->magical_tree_weight = 0;
-	// 				biome->spawn_birch_trees = false;
-	// 				biome->birch_tree_weight = 0;
-	// 				biome->spawn_palm_trees = false;
-	// 				biome->palm_tree_weight = 0;
-
-	// 				// entities
-	// 				biome->spawn_rocks = true;
-	// 				biome->rocks_weight = 85;
-	// 				biome->spawn_mushrooms = false;
-	// 				biome->mushrooms_weight = 0;
-	// 				biome->spawn_twigs = true;
-	// 				biome->twigs_weight = 15;
-
-	// 				// ores
-	// 				biome->spawn_ores = false;
-	// 				biome->spawn_ore_iron = false;
-	// 				biome->spawn_ore_gold = false;
-	// 				biome->spawn_ore_copper = false;
-	// 				biome->ore_iron_weight = 0;
-	// 				biome->ore_gold_weight = 0;
-	// 				biome->ore_copper_weight = 0;
-
-	// 				// fossils
-	// 				biome->spawn_fossils = true;
-	// 				biome->fossil0_drop_chance = 25;
-	// 				biome->fossil1_drop_chance = 25;
-	// 				biome->fossil2_drop_chance = 25;
-	// 				// biome->fossil_rarity_level = 2;
-	// 			}
-	// 		} break;
-
-	// 		case BIOME_polar:{
-	// 			{
-	// 				biome->name = STR("Polar");
-	// 				biome->id = BIOME_polar;
-	// 				biome->size = v2(400, 400); // actually the biome position
-	// 				// TODO: maybe make a Vector4 with biome corners
-	// 				// biome->biome_pos;
-	// 				biome->enabled = true;
-	// 				biome->spawn_animals = false;
-	// 				biome->spawn_water = false;
-	// 				biome->grass_color = v4(1, 1, 1, 1);
-	// 				biome->ground_texture = TEXTURE_TILE_forest;
-
-	// 				// trees
-	// 				biome->spawn_pine_trees = true;
-	// 				biome->pine_tree_weight = 15;
-	// 				biome->spawn_spruce_trees = true;
-	// 				biome->spruce_tree_weight = 15;
-	// 				biome->spawn_magical_trees = false;
-	// 				biome->magical_tree_weight = 0;
-	// 				biome->spawn_birch_trees = false;
-	// 				biome->birch_tree_weight = 0;
-	// 				biome->spawn_palm_trees = false;
-	// 				biome->palm_tree_weight = 0;
-
-	// 				// entities
-	// 				biome->spawn_rocks = true;
-	// 				biome->rocks_weight = 40;
-	// 				biome->spawn_mushrooms = false;
-	// 				biome->mushrooms_weight = 0;
-	// 				biome->spawn_twigs = true;
-	// 				biome->twigs_weight = 25;
-
-	// 				// ores
-	// 				biome->spawn_ores = false;
-	// 				biome->spawn_ore_iron = false;
-	// 				biome->spawn_ore_gold = false;
-	// 				biome->spawn_ore_copper = false;
-	// 				biome->ore_iron_weight = 0;
-	// 				biome->ore_gold_weight = 0;
-	// 				biome->ore_copper_weight = 0;
-
-	// 				// fossils
-	// 				biome->spawn_fossils = true;
-	// 				biome->fossil0_drop_chance = 15;
-	// 				biome->fossil1_drop_chance = 15;
-	// 				biome->fossil2_drop_chance = 15;
-	// 				// biome->fossil_rarity_level = 2;
-	// 			}
-	// 		} break;
-
-	// 		// Cavern biomes
-
-	// 		case BIOME_cave:{
-	// 			{
-	// 				biome->name = STR("Cave");
-	// 				biome->id = BIOME_cave;
-	// 				biome->size = v2(400, 400); // actually the biome position
-	// 				biome->enabled = true;
-	// 				biome->spawn_animals = false;
-	// 				biome->spawn_water = false;
-	// 				biome->ground_texture = TEXTURE_TILE_cave;
-
-	// 				// entities
-	// 				biome->spawn_rocks = true;
-	// 				biome->rocks_weight = 75;
-	// 				biome->spawn_mushrooms = true;
-	// 				biome->mushrooms_weight = 15;
-	// 				// biome->spawn_twigs = false;
-	// 				// biome->twigs_weight = 0;
-
-	// 				// ores
-	// 				biome->spawn_ores = true;
-	// 				biome->spawn_ore_iron = true;
-	// 				biome->spawn_ore_gold = true;
-	// 				biome->spawn_ore_copper = true;
-	// 				biome->ore_iron_weight = 20;
-	// 				biome->ore_gold_weight = 20;
-	// 				biome->ore_copper_weight = 5;
-
-	// 				// fossils
-	// 				biome->spawn_fossils = true;
-	// 				biome->fossil0_drop_chance = 15;
-	// 				biome->fossil1_drop_chance = 15;
-	// 				biome->fossil2_drop_chance = 15;
-	// 				// biome->fossil_rarity_level = 2;
-	// 			}
-	// 		} break;
-
-
-	// 		default:{}break;
-
-	// 	}
-
-	// 	// add biome to biomes list
-	// 	biomes[id] = *biome;
-	// }
-
-
 
 
 	void setup_biome(BiomeID id){
