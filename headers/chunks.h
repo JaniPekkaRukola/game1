@@ -41,11 +41,12 @@ Chunk* get_chunk(DimensionData* dimension, Vector2 pos) {
 
 Chunk* get_player_chunk(){
     Vector2 player_pos = get_player_pos();
-    // player_pos.x += CHUNK_OFFSET_X;
-    // player_pos.y += CHUNK_OFFSET_Y;
-
     int x = (int)(player_pos.x / CHUNK_SIZE) + CHUNK_OFFSET_X;
     int y = (int)(player_pos.y / CHUNK_SIZE) + CHUNK_OFFSET_Y;
+
+    // fix for negative coords
+    if (player_pos.x < 0) x -= 1;
+    if (player_pos.y < 0) y -= 1;
 
     return world->dimension->chunks[x][y];
 }
@@ -237,7 +238,10 @@ void spawn_chunk_entities(Chunk* chunk){
                 default: log_error("Missing case @ 'spawn_chunk_entities'"); break;
             }
             en->pos = v2(entity_positions[entity_pos_index].x + chunk->pos_in_world.x, entity_positions[entity_pos_index].y + chunk->pos_in_world.y);
-            // en->pos = round_v2_to_tile(en->pos);
+            if (spawnable.color_adj){
+                en->col_adj = true;
+                en->col_adj_val = spawnable.color_adj_val;
+            }
             entity_pos_index++;
         }
     }
@@ -441,8 +445,16 @@ void render_chunk_entities(){
                                         Sprite* sprite = get_sprite(en->sprite_id);
 
                                         Vector4 col = COLOR_WHITE;
-                                        if (world_frame.selected_entity == en){
-                                            col = v4(0.7, 0.7, 0.7, 1.0);
+
+                                        if (en->col_adj){
+                                            col = en->col_adj_val;
+                                        }
+
+                                        if (world_frame.selected_entity == en && !en->unselectable){
+                                            // col = v4(0.7, 0.7, 0.7, 1.0);
+                                            col.r -= 0.3;
+                                            col.g -= 0.3;
+                                            col.b -= 0.3;
                                         }
 
                                         Matrix4 xform = m4_identity;
