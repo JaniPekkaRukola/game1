@@ -2,7 +2,7 @@
 #define CHUNKS2_H
 
 
-#define CHUNK_RENDER_DISTANCE 2 // how many chunks are loaded into each direction from center. value of 2 is 25 chunks total (5x5). value of 1 is 9 chunks total (3x3) etc. NOTE: atleast with only 1 tree type rendering the total fps drop from values 1 to 2 is about -10%
+#define CHUNK_RENDER_DISTANCE 1 // how many chunks are loaded into each direction from center. value of 2 is 25 chunks total (5x5). value of 1 is 9 chunks total (3x3) etc. NOTE: atleast with only 1 tree type rendering the total fps drop from values 1 to 2 is about -10%
 
 // chunk offsets. These must be used to store negative values. So now the (0.0) chunk is in the middle of the chunks array
 #define CHUNK_OFFSET_X WORLD_WIDTH / 2
@@ -250,11 +250,11 @@ void spawn_chunk_entities(Chunk* chunk){
 }
 
 void load_chunk(DimensionData* dimension, Vector2 pos) {
-    int x = (int)pos.x + CHUNK_OFFSET_X;
-    int y = (int)pos.y + CHUNK_OFFSET_Y;
+    // NOTE: the "CHUNK_OFFSET" should already be applied to par "pos", when calling this func
+    int x = pos.x;
+    int y = pos.y;
 
     if (x >= 0 && x < WORLD_WIDTH && y >= 0 && y < WORLD_HEIGHT) {
-    // if (x < WORLD_WIDTH && y < WORLD_HEIGHT) {
         Chunk* chunk = dimension->chunks[x][y];
         if (chunk == NULL) {
             chunk = alloc(get_heap_allocator(), sizeof(Chunk));
@@ -265,7 +265,7 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
             world->dimension->chunk_count++;
             world->dimension->chunks[x][y] = chunk;
 
-            printf("Loaded a new chunk\n");
+            printf("Loaded a chunk[%d][%d]\n", x, y);
 
             if (chunk->biome_id != BIOME_nil){
                 spawn_chunk_entities(dimension->chunks[x][y]);
@@ -278,8 +278,9 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
 }
 
 void unload_chunk(DimensionData* dimension, Vector2 pos) {
-    int x = (int)pos.x + CHUNK_OFFSET_X;
-    int y = (int)pos.y + CHUNK_OFFSET_Y;
+    // NOTE: the "CHUNK_OFFSET" should already be applied to par "pos", when calling this func
+    int x = pos.x;
+    int y = pos.y;
 
     // TODO: does the entities list also need to be freed???
 
@@ -290,7 +291,7 @@ void unload_chunk(DimensionData* dimension, Vector2 pos) {
             dimension->chunks[x][y] = NULL;
             world->dimension->chunk_count--;
 
-            printf(" UN-Loaded a chunk\n");
+            printf(" UN-Loaded chunk[%d][%d]\n", x, y);
         }
     }
 }
@@ -299,26 +300,27 @@ void load_chunks_renderdistance() {
 
     DimensionData* dimension = world->dimension;
 
-    int render_distance = CHUNK_RENDER_DISTANCE;
-
     Vector2 player_pos = get_player_pos();
 
-    int chunk_size = dimension->chunk_size;
-
     // Convert player world position to chunk coordinates
-    int player_chunk_x = (int)(player_pos.x / chunk_size);
-    int player_chunk_y = (int)(player_pos.y / chunk_size);
+    int player_chunk_x = (int)(player_pos.x / CHUNK_SIZE);
+    int player_chunk_y = (int)(player_pos.y / CHUNK_SIZE);
 
     // Iterate over the chunks within the render distance
-    for (int dx = -render_distance; dx <= render_distance; dx++) {
-        for (int dy = -render_distance; dy <= render_distance; dy++) {
+    for (int dx = -CHUNK_RENDER_DISTANCE; dx <= CHUNK_RENDER_DISTANCE; dx++) {
+        for (int dy = -CHUNK_RENDER_DISTANCE; dy <= CHUNK_RENDER_DISTANCE; dy++) {
             int chunk_x = player_chunk_x + dx;
             int chunk_y = player_chunk_y + dy;
 
+            chunk_x += CHUNK_OFFSET_X;
+            chunk_y += CHUNK_OFFSET_Y;
+
+            if (player_pos.x < 0) chunk_x -= 1;
+            if (player_pos.y < 0) chunk_y -= 1;
+
             // make sure chunk coordinates are within world bounds
             if (chunk_x < WORLD_WIDTH && chunk_y < WORLD_HEIGHT) {
-                Vector2 chunk_pos = v2(chunk_x, chunk_y);
-                load_chunk(dimension, chunk_pos);  // Load chunk if not already loaded
+                load_chunk(dimension, v2(chunk_x, chunk_y));
                 // printf("LOADED CHUNK AT (grid pos) = %d, %d\n", chunk_x, chunk_y);
             }
         }
@@ -328,15 +330,14 @@ void load_chunks_renderdistance() {
 void unload_chunks_renderdistance() {
 
     DimensionData* dimension = world->dimension;
-
     Vector2 player_pos = get_player_pos();
-    int render_distance = CHUNK_RENDER_DISTANCE;
-
-    int chunk_size = dimension->chunk_size;
 
     // Convert player world position to chunk coordinates
-    int player_chunk_x = (int)(player_pos.x / chunk_size) + CHUNK_OFFSET_X;
-    int player_chunk_y = (int)(player_pos.y / chunk_size) + CHUNK_OFFSET_Y;
+    int player_chunk_x = (int)(player_pos.x / CHUNK_SIZE) + CHUNK_OFFSET_X;
+    int player_chunk_y = (int)(player_pos.y / CHUNK_SIZE) + CHUNK_OFFSET_Y;
+
+    if (player_pos.x < 0) player_chunk_x -= 1;
+    if (player_pos.y < 0) player_chunk_y -= 1;
 
     // Iterate over all chunks in the world
     for (int x = 0; x < WORLD_WIDTH; x++) {
@@ -344,21 +345,12 @@ void unload_chunks_renderdistance() {
             Chunk* chunk = dimension->chunks[x][y];
 
             if (chunk != NULL) {
-                // Check the chunk's position relative to the player
-                // int chunk_x = (int)chunk->pos_in_grid.x + CHUNK_OFFSET_X;
-                // int chunk_y = (int)chunk->pos_in_grid.y + CHUNK_OFFSET_Y;
-                // int chunk_x = (int)chunk->pos_in_grid.x;
-                // int chunk_y = (int)chunk->pos_in_grid.y;
-                int chunk_x = x;
-                int chunk_y = y;
-
-                int dx = abs(chunk_x - player_chunk_x);
-                int dy = abs(chunk_y - player_chunk_y);
+                int dx = abs(x - player_chunk_x);
+                int dy = abs(y - player_chunk_y);
 
                 // If the chunk is outside the render distance, unload it
-                if (dx > render_distance || dy > render_distance) {
-                    // unload_chunk(dimension, chunk->pos_in_grid);
-                    unload_chunk(dimension, chunk->pos_in_grid);
+                if (dx > CHUNK_RENDER_DISTANCE || dy > CHUNK_RENDER_DISTANCE) {
+                    unload_chunk(dimension, v2(x,y));
                 }
             }
         }
