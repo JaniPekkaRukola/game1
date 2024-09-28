@@ -140,6 +140,12 @@ Animation* setup_player_animation(){
     anim_left->anim_sheet = load_image_from_disk(STR("res/animations/player_walk_left.png"), get_heap_allocator());
     anim_right->anim_sheet = load_image_from_disk(STR("res/animations/player_walk_right.png"), get_heap_allocator());
 
+    assert(anim_up->anim_sheet, "Failed to setup player animation");
+    assert(anim_down->anim_sheet, "Failed to setup player animation");
+    assert(anim_left->anim_sheet, "Failed to setup player animation");
+    assert(anim_right->anim_sheet, "Failed to setup player animation");
+
+
     anim_up->number_of_columns = 4;
     anim_down->number_of_columns = 4;
     anim_left->number_of_columns = 4;
@@ -229,6 +235,7 @@ Animation* setup_held_torch_animation(){
     anim->anim_id = ANIM_held_torch;
     anim->name = "Torch animation";
     anim->anim_sheet = load_image_from_disk(STR("res/animations/animation_torch.png"), get_heap_allocator());
+    assert(anim->anim_sheet, "Failed to setup torch animation");
 
     anim->number_of_columns = 4;
     anim->number_of_rows = 1;
@@ -277,6 +284,7 @@ Animation* setup_ground_torch_animation(){
     anim->anim_id = ANIM_ground_torch;
     anim->name = "Torch animation (ground)";
     anim->anim_sheet = load_image_from_disk(STR("res/animations/animation_torch.png"), get_heap_allocator());
+    assert(anim->anim_sheet, "Failed to setup torch animation");
 
     anim->number_of_columns = 4;
     anim->number_of_rows = 1;
@@ -325,6 +333,7 @@ Animation* setup_crafting_animation(){
     anim->anim_id = ANIM_crafting;
     anim->name = "Crafting animation";
     anim->anim_sheet = load_image_from_disk(STR("res/animations/crafting_animation3.png"), get_heap_allocator());
+    assert(anim->anim_sheet, "Failed to setup crafting animation");
 
     anim->number_of_columns = 10;
     anim->number_of_rows = 1;
@@ -373,6 +382,7 @@ Animation* setup_smelting_animation() {
     anim->anim_id = ANIM_crafting;
     anim->name = "Smelting animation";
     anim->anim_sheet = load_image_from_disk(STR("res/animations/smoke_test.png"), get_heap_allocator());
+    assert(anim->anim_sheet, "Failed to setup smelting animation");
 
     anim->number_of_columns = 8;
     anim->number_of_rows = 7;

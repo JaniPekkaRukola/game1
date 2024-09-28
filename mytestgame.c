@@ -61,7 +61,7 @@ float float_alpha(float x, float min, float max) {
 }
 
 inline float64 now() {
-	// return os_get_current_time_in_seconds(); // deprecated
+	// TODO: replace "os_get_elapsed_seconds" with "world->time_elapsed"
 	return os_get_elapsed_seconds();
 }
 
@@ -2158,10 +2158,14 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_rock_normal_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_normal_large.png"), get_heap_allocator())};
 			sprites[SPRITE_rock_mossy_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_mossy_small.png"), get_heap_allocator())};
 			sprites[SPRITE_rock_mossy_medium] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_mossy_medium.png"), get_heap_allocator())};
-			sprites[SPRITE_rock_mossy_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_mossy_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_mossy_large.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_sandy_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/rock_sandy_small.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_sandy_medium] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
+			sprites[SPRITE_rock_sandy_large] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/missing_texture.png"), get_heap_allocator())};
 
 			// foliage
 			sprites[SPRITE_bush_small] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush_small.png"), get_heap_allocator())};
+			sprites[SPRITE_bush_medium] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush_medium.png"), get_heap_allocator())};
 			sprites[SPRITE_bush_berry] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/bush_berry.png"), get_heap_allocator())};
 			sprites[SPRITE_short_grass] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/short_grass.png"), get_heap_allocator())};
 			sprites[SPRITE_tall_grass] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tall_grass.png"), get_heap_allocator())};
@@ -2224,6 +2228,8 @@ int entry(int argc, char **argv)
 			textures[TEXTURE_torch_light] = (Texture){ .image=load_image_from_disk(STR("res/textures/torch_light.png"), get_heap_allocator())};
 			
 			textures[TEXTURE_TILE_forest] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/tile_forest2.png"), get_heap_allocator())};
+			textures[TEXTURE_TILE_grass] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/grass.png"), get_heap_allocator())};
+			textures[TEXTURE_TILE_sand] = (Texture){ .image=load_image_from_disk(STR("res/textures/tileset/sand.png"), get_heap_allocator())};
 		// 
 
 		// :Load audio
@@ -2371,7 +2377,7 @@ int entry(int argc, char **argv)
 	held_torch_animation = setup_held_torch_animation();
 	ground_torch_animation = setup_ground_torch_animation();
 	crafting_animation = setup_crafting_animation();
-	smelting_animation = setup_smelting_animation();
+	// smelting_animation = setup_smelting_animation();
 
 
 	// world->ux_state = UX_mainmenu;
@@ -2580,7 +2586,7 @@ int entry(int argc, char **argv)
 
 				Range2f en_range = range2f_make(en->pos, v2(en->pos.x + sprite->image->width, en->pos.y + sprite->image->height));
 
-				if (!world_frame.selected_entity && range2f_contains(en_range, get_mouse_pos_in_world_space())){
+				if (!world_frame.selected_entity && range2f_contains(en_range, get_mouse_pos_in_world_space()) && !en->unselectable){
 
 					if (IS_DEBUG) draw_rect(en->pos, get_sprite_size(sprite), COLOR_RED);
 
@@ -2953,7 +2959,7 @@ int entry(int argc, char **argv)
 
 
 
-		// :Player attack || :Spawn item || :MOUSE BUTTON LEFT
+		// :Player attack || ::attack || :Spawn item || :MOUSE BUTTON LEFT
 		{
 			// @PIN1: instead of switch case, maybe just do "generateLoot(selected_en->arch, 0, selected_en->pos);"
 			// and in the generateLoot func decide what loot table to use based on the passed arch
@@ -3001,9 +3007,9 @@ int entry(int argc, char **argv)
 
 									// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_wood1].path, audio_pos);
 
-									selected_en->health -= 1;
+									selected_en->health -= world->player->damage;
 									if (selected_en->health <= 0) {
-										generateLoot(lootTable_pine_tree, 0, selected_en->pos);
+										generateLoot(lootTable_pine_tree, 0, v2(selected_en->pos.x + get_sprite(selected_en->sprite_id)->image->width * 0.5, selected_en->pos.y));
 										// Entity* en = entity_create();
 										// setup_item(en, ITEM_pine_wood);
 										// en->pos = selected_en->pos;
@@ -3022,7 +3028,7 @@ int entry(int argc, char **argv)
 									// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
 									play_one_audio_clip_with_config(audioFiles[AUDIO_hit_metal1].path, audio_config);
 
-									selected_en->health -= 1;
+									selected_en->health -= world->player->damage;
 									if (selected_en->health <= 0) {
 										// entity_destroy(selected_en);
 										generateLoot(lootTable_rock, 0, selected_en->pos);
@@ -3051,7 +3057,7 @@ int entry(int argc, char **argv)
 								if (item_in_hand->arch == ARCH_tool && item_in_hand->tool_id == TOOL_pickaxe){
 									// play_one_audio_clip_at_position(audioFiles[AUDIO_hit_metal1].path, audio_pos);
 									play_one_audio_clip_with_config(audioFiles[AUDIO_hit_metal1].path, audio_config);
-									selected_en->health -= 1;
+									selected_en->health -= world->player->damage;
 									if (selected_en->health <= 0){
 										Entity* en = entity_create();
 										setup_item(en, selected_en->item_id);
@@ -3189,7 +3195,6 @@ int entry(int argc, char **argv)
 		
 		update_pickup_text(delta_t);
 
-
 		// render keybinding
 		if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_portal){
 			render_keybinding(world_frame.selected_entity, KEY_player_use);
@@ -3203,11 +3208,15 @@ int entry(int argc, char **argv)
 
 
 		if (IS_DEBUG){
+			world->player->damage = 10;
 			set_screen_space();
 			draw_text(font, STR("DEBUG"), font_height, v2(screen_width/2-15,screen_height-10), v2(0.2, 0.2), COLOR_RED);
 			set_world_space();
 
 		    chunk_debug_print();
+		}
+		else{
+			world->player->damage = 1;
 		}
 
 		// #animation test
@@ -3216,13 +3225,13 @@ int entry(int argc, char **argv)
 		// ::DEBUG STUFF ------------------------------------------------------------------------------->
 
 		// runtime debug
-		if (is_key_just_pressed(KEY_CTRL)){
+		if (is_key_just_pressed('P')){
 			if (!runtime_debug){
 				runtime_debug = true;
 			}
 			else{
 				runtime_debug = false;
-				}
+			}
 			// update_biome();
 			// player->en->pos.x -= 10; 
 			// world_frame.player->pos.x -= 10;
@@ -3281,7 +3290,7 @@ int entry(int argc, char **argv)
 				case (INPUT_EVENT_SCROLL):
 				{
 					if (e.yscroll > 0){
-						if (IS_DEBUG){view_zoom -= 0.03;}
+						if (is_key_down(KEY_CTRL)){view_zoom -= 0.03;}
 						else{
 							selected_slot_index -= 1;
 							if (selected_slot_index < 0){
@@ -3290,7 +3299,7 @@ int entry(int argc, char **argv)
 						}
 					}
 					else{
-						if (IS_DEBUG){view_zoom += 0.03;}
+						if (is_key_down(KEY_CTRL)){view_zoom += 0.03;}
 						else{
 							selected_slot_index += 1;
 							if (selected_slot_index > 8){

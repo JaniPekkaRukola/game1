@@ -60,6 +60,10 @@ Vector2 get_chunk_world_position(int x, int y) {
     return v2(world_x, world_y);
 }
 
+Vector2 get_chunk_world_position_v2(Vector2 v){
+    return get_chunk_world_position(v.x, v.y);
+}
+
 
 Entity* entity_create_to_chunk(Chunk* chunk) {
 
@@ -238,6 +242,8 @@ void spawn_chunk_entities(Chunk* chunk){
                 default: log_error("Missing case @ 'spawn_chunk_entities'"); break;
             }
             en->pos = v2(entity_positions[entity_pos_index].x + chunk->pos_in_world.x, entity_positions[entity_pos_index].y + chunk->pos_in_world.y);
+            // en->pos.x -= get_sprite(en->sprite_id)->image->width * 0.5;
+
             if (spawnable.color_adj){
                 en->col_adj = true;
                 en->col_adj_val = spawnable.color_adj_val;
@@ -267,6 +273,8 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
 
             printf("Loaded a chunk[%d][%d]\n", x, y);
 
+            ENTITIES_NEED_SORTING = true;
+
             if (chunk->biome_id != BIOME_nil){
                 spawn_chunk_entities(dimension->chunks[x][y]);
             }
@@ -275,6 +283,7 @@ void load_chunk(DimensionData* dimension, Vector2 pos) {
             }
         }
     }
+
 }
 
 void unload_chunk(DimensionData* dimension, Vector2 pos) {
@@ -451,7 +460,10 @@ void render_chunk_entities(){
 
                                         Matrix4 xform = m4_identity;
                                         xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-                                        draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
+                                        // xform = m4_translate(xform, v3(sprite->image->width*-0.5,0,0));
+
+                                        if (en->has_custom_rendering_size) draw_image_xform(sprite->image, xform, en->custom_rendering_size, col);
+                                        else draw_image_xform(sprite->image, xform, get_sprite_size(sprite), col);
                                     }
                                 }
                             }
@@ -462,6 +474,8 @@ void render_chunk_entities(){
         }
     }
 }
+
+
 
 void chunk_debug_print(){
     set_screen_space();

@@ -190,6 +190,12 @@ typedef struct Chunk Chunk;
 		return v2_length(v2_sub(a, b));
 	}
 
+	Range2f m4_transform_range2f(Matrix4 m, Range2f r) { // by: randy
+		r.min = m4_transform(m, v4(r.min.x, r.min.y, 0, 1)).xy;
+		r.max = m4_transform(m, v4(r.max.x, r.max.y, 0, 1)).xy;
+		return r;
+	}
+
 // 
 
 
@@ -319,7 +325,7 @@ typedef struct Chunk Chunk;
 		Vector4 NIL = v4(255, 0, 0, 1);
 
 		string png;
-		bool ok = os_read_entire_file("res/world.png", &png, get_heap_allocator());
+		bool ok = os_read_entire_file("res/world2.png", &png, get_heap_allocator());
 		assert(ok, "Failed to read world.png");
 
 		int width, height, channels;
@@ -913,6 +919,75 @@ typedef struct Chunk Chunk;
 		}
 	}
 
+	Draw_Quad* draw_sprite_in_rect_with_xform(SpriteID sprite_id, Range2f rect, Vector4 col, float pad_pct, Matrix4 xform) { // by: randy
+		Sprite* sprite = get_sprite(sprite_id);
+		Vector2 sprite_size = get_sprite_size(sprite);
+
+		// make it smoller (padding)
+		{
+			Vector2 size = range2f_size(rect);
+			Vector2 offset = rect.min;
+			rect = range2f_shift(rect, v2_mulf(rect.min, -1));
+			rect.min.x += size.x * pad_pct * 0.5;
+			rect.min.y += size.y * pad_pct * 0.5;
+			rect.max.x -= size.x * pad_pct * 0.5;
+			rect.max.y -= size.y * pad_pct * 0.5;
+			rect = range2f_shift(rect, offset);
+		}
+
+		// this shrinks the rect if the sprite is too smol
+		{
+			Vector2 rect_size = range2f_size(rect);
+			float size_diff_x = rect_size.x - sprite_size.x;
+			if (size_diff_x < 0) {
+				size_diff_x = 0;
+			}
+
+			float size_diff_y = rect_size.y - sprite_size.y;
+			if (size_diff_y < 0) {
+				size_diff_y = 0;
+			}
+
+			Vector2 offset = rect.min;
+			rect = range2f_shift(rect, v2_mulf(rect.min, -1));
+			rect.min.x += size_diff_x * 0.5;
+			rect.min.y += size_diff_y * 0.5;
+			rect.max.x -= size_diff_x * 0.5;
+			rect.max.y -= size_diff_y * 0.5;
+			rect = range2f_shift(rect, offset);
+		}
+
+		// ratio render lock
+		if (sprite_size.x > sprite_size.y) { // long boi
+
+			// height is a ratio of width
+			Vector2 range_size = range2f_size(rect);
+			rect.max.y = rect.min.y + (range_size.x * (sprite_size.y/sprite_size.x));
+			// center along the Y
+			float new_height = rect.max.y - rect.min.y;
+			rect = range2f_shift(rect, v2(0, (range_size.y - new_height) * 0.5));
+
+		} else if (sprite_size.y > sprite_size.x) { // tall boi
+			
+			// width is a ratio of height
+			Vector2 range_size = range2f_size(rect);
+			rect.max.x = rect.min.x + (range_size.y * (sprite_size.x/sprite_size.y));
+			// center along the X
+			float new_width = rect.max.x - rect.min.x;
+			rect = range2f_shift(rect, v2((range_size.x - new_width) * 0.5, 0));
+		}
+
+		// apply xform
+		rect = m4_transform_range2f(xform, rect);
+
+		return draw_image(sprite->image, rect.min, range2f_size(rect), col);
+	}
+
+	Draw_Quad* draw_sprite_in_rect(SpriteID sprite_id, Range2f rect, Vector4 col, float pad_pct) { // by: randy
+		// pad_pct just shrinks the rect by a % of itself ... 0.2 is a nice default
+		return draw_sprite_in_rect_with_xform(sprite_id, rect, col, pad_pct, m4_identity);
+	}
+
 
 	// :ITEM -------------------------->
 	string get_item_name(ItemID id) {
@@ -1467,6 +1542,7 @@ typedef struct Chunk Chunk;
 		player->item_pickup_radius = 15.0f;
 		player->selected_building = NULL;
 		player->inventory_items_count = 0;
+		player->damage = 1;
 
 		// add player to world struct
 		world->player = player;
@@ -1505,7 +1581,14 @@ typedef struct Chunk Chunk;
 			case ROCK_mossy_small: en->sprite_id = SPRITE_rock_mossy_small; en->name = STR("Small mossy rock"); en->health = 1; break;
 			case ROCK_mossy_medium: en->sprite_id = SPRITE_rock_mossy_medium; en->name = STR("Medium mossy rock"); break;
 			case ROCK_mossy_large: en->sprite_id = SPRITE_rock_mossy_large; en->name = STR("Large mossy rock"); break;
+			case ROCK_sandy_small: en->sprite_id = SPRITE_rock_sandy_small; en->name = STR("Small sandy rock"); en->health = 1; break;
+			case ROCK_sandy_medium: en->sprite_id = SPRITE_rock_sandy_medium; en->name = STR("Medium sandy rock"); break;
+			case ROCK_sandy_large: en->sprite_id = SPRITE_rock_sandy_large; en->name = STR("Large sandy rock"); break;
 			default: en->sprite_id = SPRITE_nil; en->name = STR("Rock"); break;
+		}
+
+		if (type == ROCK_normal_large || type == ROCK_mossy_large || type == ROCK_sandy_large || type == ROCK_snowy_large){
+			en->unselectable = true;
 		}
 	}
 
@@ -1531,6 +1614,7 @@ typedef struct Chunk Chunk;
 		}
 	}
 
+	// ::foliage
 	void setup_foliage(Entity* en, FoliageType type) {
 		en->arch = ARCH_foliage;
 		// arch = bush, twig, mushroom, ????!?!??!??!?!
@@ -1552,6 +1636,15 @@ typedef struct Chunk Chunk;
 				en->sprite_id = SPRITE_bush_small;
 				// en->item_id = ITEM_sprout;
 				en->name = STR("Bush");
+			} break;
+
+			case FOLIAGE_bush_medium:{
+				en->arch = ARCH_foliage;
+				en->sprite_id = SPRITE_bush_medium;
+				// en->item_id = ITEM_sprout;
+				en->name = STR("Bush medium");
+				en->has_custom_rendering_size = true;
+				en->custom_rendering_size = v2(get_sprite(en->sprite_id)->image->width * 0.5, get_sprite(en->sprite_id)->image->height * 0.5);
 			} break;
 
 			case FOLIAGE_berry_bush:{
@@ -1793,7 +1886,8 @@ typedef struct Chunk Chunk;
 		en->destroyable = false;
 		en->enable_shadow = false;
 		en->portal_data.dim_destination = dest;
-		en->is_selectable_by_mouse = false;
+		// en->is_selectable_by_mouse = false;
+		en->unselectable = true;
 		// BiomeID current_biome = get_dimensionData(current_dim)->biomes[0];
 		BiomeID current_biome = get_dimensionData(current_dim)->current_biome_id;
 		// add_biomeID_to_entity(en, current_biome);
@@ -1835,10 +1929,16 @@ typedef struct Chunk Chunk;
 		setup_loot_table_pine_tree();
 	}
 
-
+	// ::setup biome
 	void setup_biome(BiomeID id){
 		// spawn weigth = spawn amount per chunk
 		// drop chace = drop chance in %
+
+		// colors
+		Vector4 col_forest 	= v4(0.0, 1.0, 0.5, 1);
+		Vector4 col_pine 	= v4(0.6, 0.9, 0.7, 1);
+		Vector4 col_magic 	= v4(0.3, 0.9, 0.8, 1);
+		Vector4 col_desert 	= v4(0.9, 0.9, 0.5, 1);
 
 		BiomeData* biome = 0;
 		biome = alloc(get_heap_allocator(), sizeof(BiomeData));
@@ -1849,13 +1949,138 @@ typedef struct Chunk Chunk;
 		biome->spawn_table.entity_count = 0;
 
 		switch (id){
-		// ##### PINE FOREST #############################################
+		// ##### FOREST ##################################################
+			case BIOME_forest:{
+				{
+					biome->name = STR("Forest");
+					biome->id = BIOME_forest;
+					// biome->ground_texture = TEXTURE_TILE_forest;
+					biome->ground_texture = TEXTURE_TILE_grass;
+					biome->ground_color = col_forest;
+					biome->enabled = true;
+
+					// Setup spawntable
+					
+					// Trees --------------------------->
+					biome->spawn_trees = true;
+
+						// PINE TREE
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_tree, 
+							.tree_type = TREE_pine, 
+							.weight = 30, 
+							.enabled = true
+						};
+						// SPRUCE TREE
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_tree, 
+							.tree_type = TREE_spruce, 
+							.weight = 30,
+							.enabled = true
+						};
+
+						// BIRCH TREE
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_tree,
+							.tree_type = TREE_birch,
+							.weight = 30,
+							.enabled = true,
+						};
+
+					// Rocks --------------------------->
+					biome->spawn_rocks = true;
+
+						// SMALL ROCK
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_small,
+							.weight = 20,
+							.enabled = true
+						};
+						// MEDIUM ROCK
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_medium,
+							.weight = 10,
+							.enabled = true
+						};
+						// LARGE ROCK
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_rock,
+							.rock_type = ROCK_normal_large,
+							.weight = 5,
+							.enabled = true
+						};
+
+					// Foliage ------------------------->
+					biome->spawn_foliage = true;
+
+						// SHORT GRASS
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_short_grass,
+							.weight = 20,
+							.enabled = true
+						};
+						// TALL GRASS
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_tall_grass,
+							.weight = 20,
+							.enabled = true,
+						};
+						// TWIG SMALL
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_twig_small,
+							.weight = 25,
+							.enabled = true,
+						};
+						// BUSH SMALL
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_bush_small,
+							.weight = 10,
+							.enabled = true,
+						};
+						// BUSH MEDIUM
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_bush_medium,
+							.weight = 10,
+							.enabled = true,
+						};
+						// BUSH BERRY
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_berry_bush,
+							.weight = 9,
+							.enabled = true,
+						};
+
+				}
+			} break;
+
+			// ##### PINE FOREST #############################################
 			case BIOME_pine_forest:{
 				{
 					biome->name = STR("Pine Forest");
 					biome->id = BIOME_pine_forest;
-					biome->ground_texture = TEXTURE_TILE_forest;
-					biome->ground_color = v4(0.4, 0.7, 0.5, 1);
+					// biome->ground_texture = TEXTURE_TILE_forest;
+					biome->ground_texture = TEXTURE_TILE_grass;
+					biome->ground_color = col_pine;
 					biome->enabled = true;
 
 					// Setup spawntable
@@ -1956,14 +2181,20 @@ typedef struct Chunk Chunk;
 			} break;
 
 
-
-		// ##### FOREST ##################################################
-			case BIOME_forest:{
+			// ##### MAGICAL FOREST ##########################################
+			case BIOME_magical_forest:{
 				{
-					biome->name = STR("Forest");
-					biome->id = BIOME_forest;
-					biome->ground_texture = TEXTURE_TILE_forest;
-					biome->ground_color = v4(0, 1, 0.5, 1);
+					biome->name = STR("Magical Forest");
+					biome->id = BIOME_magical_forest;
+					// biome->ground_texture = TEXTURE_TILE_forest;
+					biome->ground_texture = TEXTURE_TILE_grass;
+					biome->ground_color = col_magic;
+					// biome->ground_color = hex_to_rgba(0x111111ff);
+					// biome->ground_color = hex_to_rgba(0x111111ff);
+
+					// const char* asd = "#FF5733";
+
+
 					biome->enabled = true;
 
 					// Setup spawntable
@@ -1971,57 +2202,43 @@ typedef struct Chunk Chunk;
 					// Trees --------------------------->
 					biome->spawn_trees = true;
 
-						// PINE TREE
-						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
-						{
-							.arch = ARCH_tree, 
-							.tree_type = TREE_pine, 
-							.weight = 30, 
-							.enabled = true
-						};
-						// SPRUCE TREE
-						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
-						{
-							.arch = ARCH_tree, 
-							.tree_type = TREE_spruce, 
-							.weight = 50, 
-							.enabled = true
-						};
-						// BIRCH TREE
+						// Magical TREE
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
 							.arch = ARCH_tree,
-							.tree_type = TREE_birch,
-							.weight = 30,
+							.tree_type = TREE_magical,
+							.weight = 70,
 							.enabled = true,
 						};
 
 					// Rocks --------------------------->
 					biome->spawn_rocks = true;
 
-						// SMALL ROCK
+						// SMALL ROCK MOSSY
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
 							.arch = ARCH_rock,
-							.rock_type = ROCK_normal_small,
+							.rock_type = ROCK_mossy_small,
 							.weight = 20,
 							.enabled = true
 						};
-						// MEDIUM ROCK
+						// MEDIUM ROCK MOSSY
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
 							.arch = ARCH_rock,
-							.rock_type = ROCK_normal_medium,
-							.weight = 10,
+							.rock_type = ROCK_mossy_medium,
+							.weight = 20,
 							.enabled = true
 						};
-						// LARGE ROCK
+						// LARGE ROCK MOSSY
 						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
 						{
 							.arch = ARCH_rock,
-							.rock_type = ROCK_normal_large,
-							.weight = 5,
-							.enabled = true
+							.rock_type = ROCK_mossy_large,
+							.weight = 2,
+							.enabled = true,
+							.color_adj = false,
+							.color_adj_val = col_magic,
 						};
 
 					// Foliage ------------------------->
@@ -2032,7 +2249,7 @@ typedef struct Chunk Chunk;
 						{
 							.arch = ARCH_foliage,
 							.foliage_type = FOLIAGE_short_grass,
-							.weight = 20,
+							.weight = 40,
 							.enabled = true
 						};
 						// TALL GRASS
@@ -2040,7 +2257,7 @@ typedef struct Chunk Chunk;
 						{
 							.arch = ARCH_foliage,
 							.foliage_type = FOLIAGE_tall_grass,
-							.weight = 20,
+							.weight = 40,
 							.enabled = true,
 						};
 						// TWIG SMALL
@@ -2056,7 +2273,7 @@ typedef struct Chunk Chunk;
 						{
 							.arch = ARCH_foliage,
 							.foliage_type = FOLIAGE_bush_small,
-							.weight = 10,
+							.weight = 15,
 							.enabled = true,
 						};
 						// BUSH BERRY
@@ -2064,12 +2281,49 @@ typedef struct Chunk Chunk;
 						{
 							.arch = ARCH_foliage,
 							.foliage_type = FOLIAGE_berry_bush,
-							.weight = 9,
+							.weight = 5,
+							.enabled = true,
+						};
+						biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+						{
+							.arch = ARCH_foliage,
+							.foliage_type = FOLIAGE_mushroom_red,
+							.weight = 50,
 							.enabled = true,
 						};
 
 				}
 			} break;
+
+			case BIOME_desert:{
+				{
+					biome->name = STR("Desert");
+					biome->id = BIOME_desert;
+					biome->ground_texture = TEXTURE_TILE_sand;
+					biome->ground_color = col_desert;
+					biome->enabled = true;
+
+					// Setup spawntable
+					biome->spawn_trees = false;
+
+					biome->spawn_rocks = false;
+					biome->spawn_table.entities[biome->spawn_table.entity_count++] = (Spawnable)
+					{
+						.arch = ARCH_rock,
+						.rock_type = ROCK_sandy_small,
+						.weight = 40,
+						.enabled = true,
+					};
+
+					biome->spawn_foliage = false;
+
+					
+
+				}
+			} break;
+
+
+
 
 
 

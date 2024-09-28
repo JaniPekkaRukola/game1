@@ -17,9 +17,10 @@
     // #CHUNK
     #define CHUNK_SIZE 512
     #define MAX_CHUNKS 100
-    #define MAX_CHUNK_ENTITIES 64 * 4
+    #define MAX_CHUNK_ENTITIES 64 * 8
     
-    float entity_render_distance = 230; // used with rendering entities from chunks (chunks.h)
+    float entity_render_distance = 240; // used with rendering entities from chunks (chunks.h)
+    bool ENTITIES_NEED_SORTING = false;
 
     const float screen_width = 240.0;
     const float screen_height = 135.0;
@@ -143,9 +144,13 @@
         SPRITE_rock_mossy_small,
         SPRITE_rock_mossy_medium,
         SPRITE_rock_mossy_large,
+        SPRITE_rock_sandy_small,
+        SPRITE_rock_sandy_medium,
+        SPRITE_rock_sandy_large,
 
         // foliage
         SPRITE_bush_small,
+        SPRITE_bush_medium,
         SPRITE_bush_berry,
         SPRITE_short_grass,
         SPRITE_tall_grass,
@@ -296,6 +301,8 @@
         TEXTURE_torch_light,
 
         TEXTURE_TILE_forest,
+        TEXTURE_TILE_grass,
+        TEXTURE_TILE_sand,
 
         TEXTURE_MAX,
     } TextureID;
@@ -384,6 +391,7 @@
 
         // bushes
         FOLIAGE_bush_small,
+        FOLIAGE_bush_medium,
         FOLIAGE_bush_normal,
         FOLIAGE_berry_bush,
 
@@ -507,6 +515,9 @@
         Vector2 pos;
         int health;
 
+        bool col_adj;
+        Vector4 col_adj_val;
+
         // id
         SpriteID sprite_id;
         ParallaxID parallax_id;
@@ -527,10 +538,14 @@
         bool is_item;
         bool is_ore;
         bool is_crafting_station;
-        bool is_selectable_by_mouse;
+        // bool is_selectable_by_mouse;
+        bool unselectable;
         bool enable_shadow;
         bool has_animation;
         // bool render_sprite;
+
+        bool has_custom_rendering_size;
+        Vector2 custom_rendering_size;
 
         // other
         int biome_count;				// how many biomes the entity is in
@@ -629,12 +644,15 @@
         FoliageType foliage_type;
         OreID ore_type;
 
+        bool color_adj;
+        Vector4 color_adj_val;
+
         int weight;
         bool enabled;
     } Spawnable;
 
     typedef struct BiomeSpawnTable {
-        Spawnable entities[ARCH_MAX];
+        Spawnable entities[32]; // 32 is max different types of entities per chunk
         int entity_count;
     } BiomeSpawnTable;
 
@@ -714,6 +732,8 @@
         float running_speed_amount;
         bool is_running;
         DimensionID dimension_id;
+
+        int damage;
 
         float health;
         float item_pickup_radius;
