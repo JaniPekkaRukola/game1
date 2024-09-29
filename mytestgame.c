@@ -37,7 +37,7 @@ const Vector4 entity_shadow_color = {0, 0, 0, 0.15};
 
 // rendering layers
 const s32 layer_ui = 20;
-const s32 layer_building_ui = 15;
+const s32 layer_workstation_ui = 15;
 const s32 layer_world = 10;
 
 // Global app stuff
@@ -388,69 +388,69 @@ void render_ui(){
 	}
 
 
-	// Open Building Menu
+	// Open Workstation Menu
 	if (is_key_just_pressed('C'))
 	{
 		consume_key_just_pressed('C');
-		world->ux_state = (world->ux_state == UX_nil ? UX_building : UX_nil);
+		world->ux_state = (world->ux_state == UX_nil ? UX_workstation : UX_nil);
 		world->player->inventory_ui_open = false;
 	}
-	// :Render building menu
-	if (world->ux_state == UX_building)
+	// :Render workstation menu
+	if (world->ux_state == UX_workstation)
 	{
-		const int building_count = BUILDING_MAX - 1; // how many different TYPES of buildings there is in the game		// "BUILDING_MAX - 1" because we dont want to include the BUILDING_nil
-		const int building_icon_size = 16;
+		const int workstation_count = WORKSTATION_MAX - 1; // how many different TYPES of workstations there is in the game		// "WORKSTATION_MAX - 1" because we dont want to include the WORKSTATION_nil
+		const int workstation_icon_size = 16;
 		const int padding = 3;
 		const int padding_border = 2;
 		int slot_index = 0;
-		Vector2 building_menu_size = v2((building_icon_size * building_count) + (padding * (building_count - 1)) + (padding_border * 2), building_icon_size + (padding * 2));
-		Vector2 building_menu_pos = v2((screen_width * 0.5) - (building_menu_size.x * 0.5), 0);
+		Vector2 workstation_menu_size = v2((workstation_icon_size * workstation_count) + (padding * (workstation_count - 1)) + (padding_border * 2), workstation_icon_size + (padding * 2));
+		Vector2 workstation_menu_pos = v2((screen_width * 0.5) - (workstation_menu_size.x * 0.5), 0);
 		Draw_Quad* quad_icon = NULL;
 
 		// colors
 		Vector4 icon_background_col = v4(1.0, 1.0, 1.0, 0.2);
-		Vector4 building_menu_bg_col = v4(0.0, 0.0, 0.0, 0.5);
+		Vector4 workstation_menu_bg_col = v4(0.0, 0.0, 0.0, 0.5);
 		Vector4 slot_col = v4(0.3, 0.3, 0.3, 1);
 		Vector4 slot_border_col = v4(0.7, 0.7, 0.7, 0.9);
 		Vector4 selected_slot_border_col = v4(1, 0, 0, 0.6);
 
 
 		// draw bg
-		Matrix4 xform_building_slot_bg = m4_identity;
-		xform_building_slot_bg = m4_translate(xform_building_slot_bg, v3(building_menu_pos.x, building_menu_pos.y, 0));
-		draw_rect_xform(xform_building_slot_bg, building_menu_size, building_menu_bg_col);
+		Matrix4 xform_workstation_slot_bg = m4_identity;
+		xform_workstation_slot_bg = m4_translate(xform_workstation_slot_bg, v3(workstation_menu_pos.x, workstation_menu_pos.y, 0));
+		draw_rect_xform(xform_workstation_slot_bg, workstation_menu_size, workstation_menu_bg_col);
 
 		// draw empty slots
-		for (int i = 0; i < building_count; i++) {
+		for (int i = 0; i < workstation_count; i++) {
 
-			Vector2 pos = v2(building_menu_pos.x + (slot_index * building_icon_size) + (slot_index * padding) + padding_border, building_menu_pos.y + padding);
+			Vector2 pos = v2(workstation_menu_pos.x + (slot_index * workstation_icon_size) + (slot_index * padding) + padding_border, workstation_menu_pos.y + padding);
 
 			Matrix4 xform_slot = m4_identity;
 			xform_slot = m4_translate(xform_slot, v3(pos.x, pos.y, 0));
 
-			// draw_rect_xform(xform_slot, v2(building_icon_size, building_icon_size), COLOR_RED);
-			draw_rect_with_border(xform_slot, v2(building_icon_size, building_icon_size), 2, slot_col, slot_border_col);
+			// draw_rect_xform(xform_slot, v2(workstation_icon_size, workstation_icon_size), COLOR_RED);
+			draw_rect_with_border(xform_slot, v2(workstation_icon_size, workstation_icon_size), 2, slot_col, slot_border_col);
 
 			slot_index++;
 		}
 
-		// draw building icons
+		// draw workstation icons
 		slot_index = 0;
-		for (int i = 0; i < BUILDING_MAX; i++){ 
+		for (int i = 0; i < WORKSTATION_MAX; i++){ 
 
-			BuildingData* building = &buildings[i];
-			if (building->building_id != BUILDING_nil){
+			WorkstationData* workstation = &workstations[i];
+			if (workstation->workstation_id != WORKSTATION_nil){
 
-				Sprite* sprite = get_sprite(building->sprite_id);
+				Sprite* sprite = get_sprite(workstation->sprite_id);
 				if (!sprite){
 					continue;
 				}
 
-				Vector2 pos = v2(building_menu_pos.x + (slot_index * building_icon_size) + (slot_index * padding) + padding_border, building_menu_pos.y + padding);
+				Vector2 pos = v2(workstation_menu_pos.x + (slot_index * workstation_icon_size) + (slot_index * padding) + padding_border, workstation_menu_pos.y + padding);
 
 				Matrix4 xform_icon = m4_identity;
 				xform_icon = m4_translate(xform_icon, v3(pos.x, pos.y, 0));
-				quad_icon = draw_image_xform(sprite->image, xform_icon, v2(building_icon_size, building_icon_size), v4(0,0,0,0));
+				quad_icon = draw_image_xform(sprite->image, xform_icon, v2(workstation_icon_size, workstation_icon_size), v4(0,0,0,0));
 
 				slot_index++;
 
@@ -465,32 +465,32 @@ void render_ui(){
 					
 					if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 						consume_key_just_pressed(MOUSE_BUTTON_LEFT);
-						selected_building_buildmode = building;
+						selected_workstation_buildmode = workstation;
 						world->ux_state = UX_place_mode;
 					}
 				}
 
-				draw_image_xform(sprite->image, xform_icon, v2(building_icon_size, building_icon_size), COLOR_WHITE);
+				draw_image_xform(sprite->image, xform_icon, v2(workstation_icon_size, workstation_icon_size), COLOR_WHITE);
 			}
 		}
 
 	}
 
 	
-	// :Render building placement mode || :Build mode
+	// :Render workstation placement mode || :Build mode
 	if (world->ux_state == UX_place_mode){
 		world->player->inventory_ui_open = false;
-		if (selected_building_buildmode){
+		if (selected_workstation_buildmode){
 
 			set_world_space();
 			
 			Vector4 ghost_col = v4(0.5, 0.5, 0.5, 0.7);
 
-			Sprite* sprite = get_sprite(selected_building_buildmode->sprite_id);
+			Sprite* sprite = get_sprite(selected_workstation_buildmode->sprite_id);
 			Vector2 sprite_size = get_sprite_size(sprite);
 
 			if (!sprite){
-				printf("FAILED TO GET SPRITE FROM SELECTED BUILDING\n");
+				printf("FAILED TO GET SPRITE FROM SELECTED WORKSTATION\n");
 			}
 
 			Matrix4 xform_ghost = m4_identity;
@@ -500,24 +500,25 @@ void render_ui(){
 			xform_ghost = m4_translate(xform_ghost, v3(mouse_pos.x, mouse_pos.y, 0));
 			xform_ghost = m4_translate(xform_ghost, v3(sprite_size.x * -0.5, sprite_size.y * -0.5, 0));
 
-			// draw ghost image of building
+			// draw ghost image of workstation
 			draw_image_xform(sprite->image, xform_ghost, sprite_size, ghost_col);
 
 			if (is_key_just_pressed(MOUSE_BUTTON_LEFT)){
 				consume_key_just_pressed(MOUSE_BUTTON_LEFT);
 
-				// create building
-				Entity* en = entity_create();
-				setup_building(en, selected_building_buildmode->building_id);
+				// create workstation
+				// Entity* en = entity_create();
+				Entity* en = entity_create_to_chunk(get_player_chunk());
+				setup_workstation(en, selected_workstation_buildmode->workstation_id);
 				en->pos = mouse_pos;
 				// en->pos = round_v2_to_tile(en->pos);
-				selected_building_buildmode = NULL;
+				selected_workstation_buildmode = NULL;
 				world->ux_state = UX_nil;
 			}
 		}
 	}
 	// :Render Hotbar || ::hotbar
-	if (render_hotbar && world->ux_state != UX_building && world->ux_state != UX_place_mode)
+	if (render_hotbar && world->ux_state != UX_workstation && world->ux_state != UX_place_mode)
 	{
 		// NOTE: could replace this long if statement with just the "render_hotbar" bool
 		const int slot_size = 8;
@@ -642,11 +643,11 @@ bool smelt_button(string label, Vector2 pos, Vector2 size, bool enabled) {
 }
 
 
-// :render building ui || ::building ui
-void render_building_ui(UXState ux_state)
+// :render workstation ui || ::workstation ui
+void render_workstation_ui(UXState ux_state)
 {
 
-	// close building ui
+	// close workstation ui
 	if (is_key_just_pressed(KEY_ESCAPE) || is_key_just_pressed(KEY_player_use) || is_key_just_pressed(KEY_toggle_inventory)){
 		consume_key_just_pressed(KEY_ESCAPE);
 		consume_key_just_pressed(KEY_player_use);
@@ -664,13 +665,13 @@ void render_building_ui(UXState ux_state)
 	// }
 
 	set_screen_space();
-	push_z_layer(layer_building_ui);
+	push_z_layer(layer_workstation_ui);
 
 	// :RENDER WORKBENCH UI || :workbench ui
 	if (ux_state == UX_workbench){
 		world->player->inventory_ui_open = true;
 
-		BuildingData* selected_building = world->player->selected_building;
+		WorkstationData* selected_workstation = world->player->selected_workstation;
 
 		// printf("RENDERING WORKBENCH UI\n");
 
@@ -719,7 +720,7 @@ void render_building_ui(UXState ux_state)
 		{
 			// Tabs
 			const int tab_count = 4;
-			EntityArchetype tab_order[4] = {ARCH_nil, ARCH_item, ARCH_tool, ARCH_building};		// compiler gives a warning if using the tab_count as the size of the array. #remember to keep these values the same
+			EntityArchetype tab_order[4] = {ARCH_nil, ARCH_item, ARCH_tool, ARCH_workstation};		// compiler gives a warning if using the tab_count as the size of the array. #remember to keep these values the same
 			float tab_padding = 4.0;
 			const int tab_border_size = 1;
 			Vector2 tab_size = v2((workbench_ui_size.x - ((tab_count - 1) * tab_padding)) / tab_count, 10);
@@ -962,8 +963,8 @@ void render_building_ui(UXState ux_state)
 						if (result >= selected_recipe_workbench->crafting_recipe_count){
 							
 							
-							selected_building->selected_crafting_item = selected_recipe_workbench;
-							selected_building->crafting_queue++;
+							selected_workstation->selected_crafting_item = selected_recipe_workbench;
+							selected_workstation->crafting_queue++;
 							delete_recipe_items_from_inventory(*selected_recipe_workbench);
 						}
 					}
@@ -1039,7 +1040,7 @@ void render_building_ui(UXState ux_state)
 
 		// @pin4 could this be the issue why pointer points to player inventory instead of chest inventory?
 		//                            VV     '&' missing
-	    BuildingData* selected_chest = world->player->selected_building;
+	    WorkstationData* selected_chest = world->player->selected_workstation;
 
 		world->chest_alpha_target = (world->ux_state == UX_chest ? 1.0 : 0.0);
 		animate_f32_to_target(&world->chest_alpha, world->chest_alpha_target, delta_t, 15.0);
@@ -1234,7 +1235,7 @@ void render_building_ui(UXState ux_state)
 				row_index = 0;
 
 				// NOTE: this is how to add items straight to the chest inventory
-				// world->dimension->entities[937].building_data.inventory[0] = (InventoryItemData){.item_id=ITEM_berry, .amount=1,.arch=ARCH_item,.name=STR("BERRY"),.valid=true,.sprite_id=SPRITE_item_berry};
+				// world->dimension->entities[937].workstation_data.inventory[0] = (InventoryItemData){.item_id=ITEM_berry, .amount=1,.arch=ARCH_item,.name=STR("BERRY"),.valid=true,.sprite_id=SPRITE_item_berry};
 
 				// draw items
 				for(int i = 0; i < ITEM_MAX; i++){
@@ -1369,7 +1370,7 @@ void render_building_ui(UXState ux_state)
 		world->player->inventory_ui_open = true;
 		// printf("RENDERING FURNACE UI\n");
 
-		BuildingData* selected_building = world->player->selected_building;
+		WorkstationData* selected_workstation = world->player->selected_workstation;
 
 		// furnace ui size variables
 		const int max_icons_row = 6;
@@ -1583,8 +1584,8 @@ void render_building_ui(UXState ux_state)
 
 							if (result == 1){
 
-								selected_building->selected_crafting_item = selected_recipe_furnace;
-								selected_building->crafting_queue++;
+								selected_workstation->selected_crafting_item = selected_recipe_furnace;
+								selected_workstation->crafting_queue++;
 
 								delete_item_from_inventory(recipe_item->id, recipe_item->amount);
 								// add_item_to_inventory(selected_recipe_furnace->item_id, selected_recipe_furnace->name, 1, ARCH_item, selected_recipe_furnace->sprite_id, TOOL_nil, true);
@@ -2010,10 +2011,10 @@ void render_entities(World* world) {
 								}
 							}
 							
-							if (en->building_id){
+							if (en->workstation_id){
 								if (runtime_debug){
 									int asdasd = 1;
-									printf("BUILDING\n");
+									printf("workstation\n");
 								}
 							}
 
@@ -2046,14 +2047,14 @@ void render_entities(World* world) {
 		}
 
 		// :render crafting progress bar || :crafting animation
-		if (en->arch == ARCH_building && en->is_crafting_station && en->building_data.selected_crafting_item) {
+		if (en->arch == ARCH_workstation && en->is_crafting_station && en->workstation_data.selected_crafting_item) {
 			{
 
-				ItemData item = *en->building_data.selected_crafting_item;
+				ItemData item = *en->workstation_data.selected_crafting_item;
 				Sprite icon = *get_sprite(get_sprite_from_itemID(item.item_id));
 				Vector4 col = v4(1, 1, 1, 0.1);
 
-				float alpha = alpha_from_end_time(en->building_data.crafting_end_time, item.cooking_time);
+				float alpha = alpha_from_end_time(en->workstation_data.crafting_end_time, item.cooking_time);
 				col.a = alpha;
 
 				Matrix4 xform_item = m4_identity;
@@ -2075,8 +2076,8 @@ void render_entities(World* world) {
 				// 	draw_circle_xform(xform, v2(radius*2, radius*2), inside_col);
 				// }
 
-				// ItemData craft_item_data = *en->building_data.selected_crafting_item;
-				// float alpha = alpha_from_end_time(en->building_data.crafting_end_time, craft_item_data.cooking_time);
+				// ItemData craft_item_data = *en->workstation_data.selected_crafting_item;
+				// float alpha = alpha_from_end_time(en->workstation_data.crafting_end_time, craft_item_data.cooking_time);
 
 				// {
 				// 	Matrix4 xform = m4_identity;
@@ -2204,16 +2205,16 @@ int entry(int argc, char **argv)
 			sprites[SPRITE_TOOL_shovel] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/tool_shovel.png"), get_heap_allocator())};
 			sprites[SPRITE_TOOL_torch] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/torch.png"), get_heap_allocator())};
 
-			// :Load building sprites
-			sprites[SPRITE_building_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_furnace.png"), get_heap_allocator())};
-			sprites[SPRITE_building_workbench] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_workbench.png"), get_heap_allocator())};
-			sprites[SPRITE_building_chest] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/building_chest.png"), get_heap_allocator())};
+			// :Load workstation sprites
+			sprites[SPRITE_WORKSTATION_furnace] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/workstation_furnace.png"), get_heap_allocator())};
+			sprites[SPRITE_WORKSTATION_workbench] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/workstation_workbench.png"), get_heap_allocator())};
+			sprites[SPRITE_WORKSTATION_chest] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/workstation_chest.png"), get_heap_allocator())};
 
 			// Load category sprites
 			sprites[SPRITE_CATEGORY_all] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_all.png"), get_heap_allocator())};
 			sprites[SPRITE_CATEGORY_items] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_item.png"), get_heap_allocator())};
 			sprites[SPRITE_CATEGORY_tools] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_tool.png"), get_heap_allocator())};
-			sprites[SPRITE_CATEGORY_buildings] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_building.png"), get_heap_allocator())};
+			sprites[SPRITE_CATEGORY_workstations] = (Sprite){ .image=load_image_from_disk(STR("res/sprites/category_workstation.png"), get_heap_allocator())};
 		// 
 
 		// :Load parallax
@@ -2304,7 +2305,7 @@ int entry(int argc, char **argv)
 
 
 	#if defined(DEV_TESTING)
-	// test adding buildings to world
+	// test adding workstations to world
 	{
 		// FURNACE:
 		{
@@ -2342,8 +2343,8 @@ int entry(int argc, char **argv)
 	}
 	#endif
 
-	// Building resource setup
-	setup_all_building_resources();
+	// Workstation resource setup
+	setup_all_workstation_resources();
 
 
 	// crafting & smelting recipes setup
@@ -2394,7 +2395,9 @@ int entry(int argc, char **argv)
 		float64 current_time = os_get_elapsed_seconds();
 		delta_t = current_time - last_time;
 		last_time = current_time;
-		os_update(); 
+		os_update();
+
+		// world_frame.hover_consumed = false;
 
 		if (world->ux_state == UX_mainmenu){
 			{
@@ -2486,6 +2489,9 @@ int entry(int argc, char **argv)
 		if (IS_DEBUG) draw_rect(player_chunk->pos_in_world, v2(CHUNK_SIZE, CHUNK_SIZE), v4(0, 0, 1, 0.5));
 
 
+		if (world->ux_state != UX_nil) world_frame.hover_consumed = true;
+		else world_frame.hover_consumed = false;
+
 
 		// Render ui
 		// should prolly move this way down
@@ -2563,10 +2569,10 @@ int entry(int argc, char **argv)
 		// 						// 	world->open_crafting_station = en;
 		// 						// }
 
-		// 						if (en->arch == ARCH_building){
-		// 							// printf("UPDATED 'world->player->selected_building' to %d\n", en->arch);
-		// 							world->player->selected_building = &en->building_data;
-		// 							world->player->selected_building->en = en;
+		// 						if (en->arch == ARCH_workstation){
+		// 							// printf("UPDATED 'world->player->selected_workstation' to %d\n", en->arch);
+		// 							world->player->selected_workstation = &en->workstation_data;
+		// 							world->player->selected_workstation->en = en;
 		// 						}
 		// 						// smallest_dist = dist; // imo entity selection works better with this line commented
 		// 					}
@@ -2590,6 +2596,12 @@ int entry(int argc, char **argv)
 
 					if (IS_DEBUG) draw_rect(en->pos, get_sprite_size(sprite), COLOR_RED);
 
+					if (en->arch == ARCH_workstation){
+						world->player->selected_workstation = &en->workstation_data;
+						world->player->selected_workstation->en = en;
+						// printf("SELECTTED workstation '%s'\n", en->name);
+					}
+
 					world_frame.selected_entity = en;
 				}
 
@@ -2609,7 +2621,7 @@ int entry(int argc, char **argv)
 			for (int i = 0; i < world->dimension->entity_count; i++){
 				Entity* en = &world->dimension->entities[i];
 				if (en->is_valid){
-					if (en->arch == ARCH_portal || en->arch == ARCH_building){ // #portal or #building
+					if (en->arch == ARCH_portal || en->arch == ARCH_workstation){ // #portal or #workstation
 						float dist = fabsf(v2_dist(en->pos, get_player_pos()));
 						if (dist < entity_selection_radius){
 							if (!world_frame.selected_entity || (dist < smallest_dist)){
@@ -2879,31 +2891,31 @@ int entry(int argc, char **argv)
 
 					// :crafting
 					else if (en->is_crafting_station){
-						if (en->building_data.selected_crafting_item){
-							float cooking_time = en->building_data.selected_crafting_item->cooking_time;
-							if (en->building_data.crafting_end_time == 0){
-								en->building_data.crafting_end_time = now() + cooking_time;
-								assert(world->player->selected_building != NULL, "Selected building was a NULLPTR, when trying to trigger an animation");
-								trigger_animation(crafting_animation, v2(world->player->selected_building->en->pos.x, world->player->selected_building->en->pos.y), selected_recipe_workbench->cooking_time);
+						if (en->workstation_data.selected_crafting_item){
+							float cooking_time = en->workstation_data.selected_crafting_item->cooking_time;
+							if (en->workstation_data.crafting_end_time == 0){
+								en->workstation_data.crafting_end_time = now() + cooking_time;
+								assert(world->player->selected_workstation != NULL, "Selected workstation was a NULLPTR, when trying to trigger an animation");
+								trigger_animation(crafting_animation, v2(world->player->selected_workstation->en->pos.x, world->player->selected_workstation->en->pos.y), selected_recipe_workbench->cooking_time);
 
 							}
 
-							float alpha = alpha_from_end_time(en->building_data.crafting_end_time, cooking_time);
+							float alpha = alpha_from_end_time(en->workstation_data.crafting_end_time, cooking_time);
 
-							if (has_reached_end_time(en->building_data.crafting_end_time)){
+							if (has_reached_end_time(en->workstation_data.crafting_end_time)){
 								printf("CRAFTED ITEM\n");
 								// craft item
 								{
 									Entity* item = entity_create();
-									setup_item(item, en->building_data.selected_crafting_item->item_id);
+									setup_item(item, en->workstation_data.selected_crafting_item->item_id);
 									item->pos = en->pos;
 								}
 
-								en->building_data.crafting_queue--;
-								en->building_data.crafting_end_time = 0;
-								assert(en->building_data.crafting_queue >= 0, "asd");
-								if (en->building_data.crafting_queue == 0){
-									en->building_data.selected_crafting_item = 0;
+								en->workstation_data.crafting_queue--;
+								en->workstation_data.crafting_end_time = 0;
+								assert(en->workstation_data.crafting_queue >= 0, "asd");
+								if (en->workstation_data.crafting_queue == 0){
+									en->workstation_data.selected_crafting_item = 0;
 								}
 							}
 						}
@@ -2914,10 +2926,10 @@ int entry(int argc, char **argv)
 
 		// if (world_frame.selected_entity) printf("selected en = %d\n", world_frame.selected_entity->arch);
 
-		// :player use || :trigger building ui || MOUSE BUTTON RIGHT
+		// :player use || :trigger workstation ui || MOUSE BUTTON RIGHT
 		{
 			// Chunk* chunk = get_player_chunk();
-			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_building){
+			if (world_frame.selected_entity && world_frame.selected_entity->arch == ARCH_workstation){
 				// open chest
 				if (is_key_just_pressed(MOUSE_BUTTON_RIGHT) || is_key_just_pressed(KEY_player_use)) {
 					consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
@@ -2929,12 +2941,13 @@ int entry(int argc, char **argv)
 
 					// world->ux_state = (world->ux_state == UX_chest ? UX_nil : UX_chest);
 					// Entity* selected_en = world_frame.selected_entity;
-					switch (world_frame.selected_entity->building_id){
-						case BUILDING_chest: {world->ux_state = UX_chest;}break;
-						case BUILDING_furnace: {world->ux_state = UX_furnace;}break;
-						case BUILDING_workbench: {world->ux_state = UX_workbench;}break;
+					switch (world_frame.selected_entity->workstation_id){
+						case WORKSTATION_chest: {world->ux_state = UX_chest;}break;
+						case WORKSTATION_furnace: {world->ux_state = UX_furnace;}break;
+						case WORKSTATION_workbench: {world->ux_state = UX_workbench;}break;
 						default:{}break;
 					}
+					printf("UX STATE = '%d'\n", world->ux_state);
 				}
 			}
 			else if (!world_frame.selected_entity && item_in_hand && item_in_hand->item_id == ITEM_TOOL_torch){
@@ -2954,7 +2967,7 @@ int entry(int argc, char **argv)
 
 		// idk what this is doing here!? move somewhere idk!?
 		if (world->ux_state != UX_nil){
-			render_building_ui(world->ux_state);
+			render_workstation_ui(world->ux_state);
 		}
 
 
@@ -3041,11 +3054,11 @@ int entry(int argc, char **argv)
 							}
 						} break;
 
-						case ARCH_building: {	// |------- BUILDING -------|
+						case ARCH_workstation: {	// |------- WORKSTATION -------|
 							{
 								Entity* en = entity_create();
-								setup_item_building(en, selected_en->building_id);
-								// printf("SELECTED EN BUILDING ID = %d\n", en->building_id);
+								setup_item_workstation(en, selected_en->workstation_id);
+								// printf("SELECTED EN WORKSTATION ID = %d\n", en->workstation_id);
 								en->pos = selected_en->pos;
 								allow_destroy = true;
 
@@ -3148,9 +3161,9 @@ int entry(int argc, char **argv)
 							}
 						} break;
 
-						case ARCH_building:{
+						case ARCH_workstation:{
 							{
-								printf("SELECTED BUILDING\n");
+								printf("SELECTED WORKSTATION\n");
 							}
 						} break;
 

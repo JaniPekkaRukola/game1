@@ -70,7 +70,7 @@
         ARCH_tree,
         ARCH_item,
         ARCH_tool,
-        ARCH_building,
+        ARCH_workstation,
         ARCH_ore,
         ARCH_portal,
         ARCH_torch,
@@ -190,16 +190,16 @@
         SPRITE_item_fossil1,
         SPRITE_item_fossil2,
 
-        // Buildings
-        SPRITE_building_furnace,
-        SPRITE_building_workbench,
-        SPRITE_building_chest,
+        // Workstations
+        SPRITE_WORKSTATION_furnace,
+        SPRITE_WORKSTATION_workbench,
+        SPRITE_WORKSTATION_chest,
 
         // Categories
         SPRITE_CATEGORY_all,
         SPRITE_CATEGORY_items,
         SPRITE_CATEGORY_tools,
-        SPRITE_CATEGORY_buildings,
+        SPRITE_CATEGORY_workstations,
 
         // other
         SPRITE_portal0,
@@ -262,10 +262,10 @@
         ITEM_TOOL_shovel,
         ITEM_TOOL_torch,
 
-        // buildings (test)
-        ITEM_BUILDING_furnace,
-        ITEM_BUILDING_workbench,
-        ITEM_BUILDING_chest,
+        // workstations (test)
+        ITEM_WORKSTATION_furnace,
+        ITEM_WORKSTATION_workbench,
+        ITEM_WORKSTATION_chest,
         
         ITEM_MAX,
     } ItemID;
@@ -282,15 +282,15 @@
     } OreID;
 
 
-    typedef enum BuildingID {
-        BUILDING_nil,
+    typedef enum WorkStationID {
+        WORKSTATION_nil,
 
-        BUILDING_furnace,	
-        BUILDING_workbench,
-        BUILDING_chest,
+        WORKSTATION_furnace,	
+        WORKSTATION_workbench,
+        WORKSTATION_chest,
         
-        BUILDING_MAX,
-    } BuildingID;
+        WORKSTATION_MAX,
+    } WorkStationID;
 
 
     typedef enum TextureID {
@@ -311,10 +311,10 @@
     typedef enum UXState {
         UX_nil,
         // UX_inventory,
-        UX_building,
+        UX_workstation,
         UX_place_mode,
 
-        // buildings
+        // workstations
         UX_chest,
         UX_furnace,
         UX_workbench,
@@ -490,11 +490,11 @@
         float cooking_time;
     } ItemData;
 
-    // :BuildingData -------------------->
-    typedef struct BuildingData { 
+    // :WorkstationData -------------------->
+    typedef struct WorkstationData { 
         EntityArchetype to_build;
         SpriteID sprite_id;
-        BuildingID building_id;
+        WorkStationID workstation_id;
         bool has_inventory;
         InventoryItemData inventory[ITEM_MAX];
         ItemData *selected_crafting_item;
@@ -505,7 +505,7 @@
         // cost
         // health
         // etc
-    } BuildingData;
+    } WorkstationData;
 
     // :Entity -------------------------->
     typedef struct Entity {
@@ -522,14 +522,14 @@
         SpriteID sprite_id;
         ParallaxID parallax_id;
         ItemID item_id;
-        BuildingID building_id;
+        WorkStationID workstation_id;
         ToolID tool_id;
         OreID ore_id;
         BiomeID biome_ids[BIOME_MAX];	// all biomes where the entity can spawn
 
         // data
         PortalData portal_data;
-        BuildingData building_data;
+        WorkstationData workstation_data;
         ItemData *current_crafting_item;
 
         // booleans
@@ -740,7 +740,7 @@
         float entity_selection_radius;
         // ItemData *selected_item;
         Entity *selected_entity;
-        BuildingData* selected_building; // selected building || currently open building
+        WorkstationData* selected_workstation; // selected workstation || currently open workstation
 
         // UXState ux_state;
 
@@ -774,8 +774,8 @@
         // ui stuff
         float inventory_alpha;
         float inventory_alpha_target;
-        float building_menu_alpha;
-        float building_menu_alpha_target;
+        float workstation_menu_alpha;
+        float workstation_menu_alpha_target;
         float chest_alpha;
         float chest_alpha_target;
         float furnace_alpha;
@@ -783,7 +783,7 @@
         float workbench_alpha;
         float workbench_alpha_target;
 
-        BuildingID placing_building; // bad name
+        WorkStationID placing_workstation; // bad name
         Entity* open_crafting_station; // currently opened crafting station
 
         Entity portals[MAX_PORTAL_COUNT];
@@ -891,7 +891,7 @@
     BiomeData biomes[BIOME_MAX];
     Sprite sprites[SPRITE_MAX];
     Parallax parallaxes[PARALLAX_MAX];
-    BuildingData buildings[BUILDING_MAX];
+    WorkstationData workstations[WORKSTATION_MAX];
     Texture textures[TEXTURE_MAX];
     pickup_text_animation pickup_texts[MAX_PICKUP_TEXTS];
     dim_change_animation animation_dim_change = {};
@@ -903,7 +903,7 @@
     InventoryItemData inventory_selected_item_in_chest_ui;	// hardcopy of item from inventory, when starting to drag item
     InventoryItemData chest_selected_item;	// hardcopy of item from chest, when starting to drag item
     InventoryItemData* item_in_hand = NULL;	// selected item in hotbar. Renders in hand
-    BuildingData* selected_building_buildmode = NULL; // selected building in build mode
+    WorkstationData* selected_workstation_buildmode = NULL; // selected workstation in build mode
     int selected_slot_index = 0;
     Draw_Quad* chest_quad = NULL;
     EntityArchetype workbench_tab_category = ARCH_nil; // workbench recipes sorting. ARCH_nil = all recipes

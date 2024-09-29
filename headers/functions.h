@@ -850,7 +850,7 @@ typedef struct Chunk Chunk;
 			case ARCH_nil:{  return get_sprite(SPRITE_CATEGORY_all); } break;
 			case ARCH_item:{ return get_sprite(SPRITE_CATEGORY_items); } break;
 			case ARCH_tool:{ return get_sprite(SPRITE_CATEGORY_tools); } break;
-			case ARCH_building:{ return get_sprite(SPRITE_CATEGORY_buildings); } break;
+			case ARCH_workstation:{ return get_sprite(SPRITE_CATEGORY_workstations); } break;
 			default: {log_error("missing case @ 'get_category_sprite'\n");} break;
 		}
 		log_error("Failed to get category sprite @ 'get_category_sprite'");
@@ -875,9 +875,9 @@ typedef struct Chunk Chunk;
 			case ITEM_sprout: return SPRITE_item_sprout; break;
 			case ITEM_berry: return SPRITE_item_berry; break;
 			case ITEM_mushroom0: return SPRITE_mushroom0; break;
-			case ITEM_furnace: return SPRITE_building_furnace; break;
-			case ITEM_workbench: return SPRITE_building_workbench; break;
-			case ITEM_chest: return SPRITE_building_chest; break;
+			case ITEM_furnace: return SPRITE_WORKSTATION_furnace; break;
+			case ITEM_workbench: return SPRITE_WORKSTATION_workbench; break;
+			case ITEM_chest: return SPRITE_WORKSTATION_chest; break;
 			case ITEM_fossil0: return SPRITE_item_fossil0; break;
 			case ITEM_fossil1: return SPRITE_item_fossil1; break;
 			case ITEM_fossil2: return SPRITE_item_fossil2; break;
@@ -910,11 +910,11 @@ typedef struct Chunk Chunk;
 		}
 	}
 
-	SpriteID get_sprite_id_from_building(BuildingID building_id) {
-		switch (building_id) {
-			case BUILDING_furnace: return SPRITE_building_furnace; break;
-			case BUILDING_workbench: return SPRITE_building_workbench; break;
-			case BUILDING_chest: return SPRITE_building_chest; break;
+	SpriteID get_sprite_id_from_workstation(WorkStationID workstation_id) {
+		switch (workstation_id) {
+			case WORKSTATION_furnace: return SPRITE_WORKSTATION_furnace; break;
+			case WORKSTATION_workbench: return SPRITE_WORKSTATION_workbench; break;
+			case WORKSTATION_chest: return SPRITE_WORKSTATION_chest; break;
 			default: return 0; break;
 		}
 	}
@@ -1141,22 +1141,22 @@ typedef struct Chunk Chunk;
 	}
 
 
-	// :BUILDING ---------------------->
-	BuildingData get_building_data(BuildingID id) {
-		return buildings[id];
+	// :WORKSTATION ---------------------->
+	WorkstationData get_workstation_data(WorkStationID id) {
+		return workstations[id];
 	}
 
-	string get_building_name(BuildingID id) {
+	string get_workstation_name(WorkStationID id) {
 		switch (id) {
-			case BUILDING_furnace: return STR("Furnace"); break;
-			case BUILDING_workbench: return STR("Workbench"); break;
-			case BUILDING_chest: return STR("Chest"); break;
-			default: return STR("Error: Missing get_building_name case."); break;
+			case WORKSTATION_furnace: return STR("Furnace"); break;
+			case WORKSTATION_workbench: return STR("Workbench"); break;
+			case WORKSTATION_chest: return STR("Chest"); break;
+			default: return STR("Error: Missing 'get_workstation_name' case."); break;
 		}
 	}
 
 	void add_item_to_chest(InventoryItemData item){
-		BuildingData *chest = world->player->selected_building;
+		WorkstationData *chest = world->player->selected_workstation;
 
 		// printf("ADDED ITEM %d TO CHEST\n", item.item_id);
 
@@ -1192,11 +1192,11 @@ typedef struct Chunk Chunk;
 		// NOTE: #FIX #BUG @release @pin4
 		// this pointer points to player inventory for some fucking reason
 		// fix this mf
-		// BuildingData* selected_chest = &world->player->selected_building;
+		// WorkstationData* selected_chest = &world->player->selected_workstation;
 		
 		
 		// printf("DELETED ITEM %d FROM CHEST\n", item_id);
-		InventoryItemData* inventory = world->player->selected_building->inventory;
+		InventoryItemData* inventory = world->player->selected_workstation->inventory;
 
 		for (int i = 0; i < ITEM_MAX; i++){
 			InventoryItemData* chest_item = &inventory[i];
@@ -1499,9 +1499,9 @@ typedef struct Chunk Chunk;
 			case ITEM_TOOL_axe:{en->name = STR("Axe"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_shovel:{en->name = STR("Shovel"); en->arch = ARCH_tool;}break;
 			case ITEM_TOOL_torch:{en->name = STR("Torch"); en->arch = ARCH_torch;}break;
-			case ITEM_BUILDING_furnace:{en->name = STR("WTF");}break;
-			case ITEM_BUILDING_workbench:{en->name = STR("WTF");}break;
-			case ITEM_BUILDING_chest:{en->name = STR("WTF");}break;
+			case ITEM_WORKSTATION_furnace:{en->name = STR("WTF");}break;
+			case ITEM_WORKSTATION_workbench:{en->name = STR("WTF");}break;
+			case ITEM_WORKSTATION_chest:{en->name = STR("WTF");}break;
 			case ITEM_ingot_iron:{en->name = STR("Iron ingot");}break;
 			case ITEM_ingot_gold:{en->name = STR("Iron gold");}break;
 			case ITEM_ingot_copper:{en->name = STR("Iron copper");}break;
@@ -1540,7 +1540,7 @@ typedef struct Chunk Chunk;
 		player->is_running = false;
 		player->entity_selection_radius = 5.0f;
 		player->item_pickup_radius = 15.0f;
-		player->selected_building = NULL;
+		player->selected_workstation = NULL;
 		player->inventory_items_count = 0;
 		player->damage = 1;
 
@@ -1758,18 +1758,18 @@ typedef struct Chunk Chunk;
 	}
 
 
-	void setup_building(Entity* en, BuildingID id) {
+	void setup_workstation(Entity* en, WorkStationID id) {
 		// universal
-		en->arch = ARCH_building;
+		en->arch = ARCH_workstation;
 		en->enable_shadow = true;
 		en->is_item = false;
-		en->building_id = id;
-		en->building_data.crafting_queue = 0;
+		en->workstation_id = id;
+		en->workstation_data.crafting_queue = 0;
 
 		switch (id) {
-			case BUILDING_furnace: {
+			case WORKSTATION_furnace: {
 				{
-					en->sprite_id = SPRITE_building_furnace;
+					en->sprite_id = SPRITE_WORKSTATION_furnace;
 					en->destroyable = true;
 					en->health = 3;
 					en->is_crafting_station = true;
@@ -1777,45 +1777,45 @@ typedef struct Chunk Chunk;
 				}
 			} break;
 
-			case BUILDING_workbench: {
+			case WORKSTATION_workbench: {
 				{
-					en->sprite_id = SPRITE_building_workbench;
+					en->sprite_id = SPRITE_WORKSTATION_workbench;
 					en->destroyable = true;
 					en->health = 3;
 					en->is_crafting_station = true;
 
 				}
 			} break;
-			case BUILDING_chest: {
+			case WORKSTATION_chest: {
 				{
-					en->sprite_id = SPRITE_building_chest;
+					en->sprite_id = SPRITE_WORKSTATION_chest;
 					en->destroyable = true;
 					en->health = 3;
-					en->building_data.has_inventory = true;
+					en->workstation_data.has_inventory = true;
 					en->is_crafting_station = false;
 
 				}
 			} break;
 
-			default: log_error("Missing building_setup case entry"); break;
+			default: log_error("Missing 'setup_workstation' case entry"); break;
 		}
 	}
 
-	void setup_all_building_resources(){
-		buildings[BUILDING_furnace] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_furnace, .building_id=BUILDING_furnace};
-		buildings[BUILDING_workbench] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_workbench, .building_id=BUILDING_workbench};
-		buildings[BUILDING_chest] = (BuildingData){.to_build=ARCH_building, .sprite_id=SPRITE_building_chest, .building_id=BUILDING_chest};
+	void setup_all_workstation_resources(){
+		workstations[WORKSTATION_furnace] = (WorkstationData){.to_build=ARCH_workstation, .sprite_id=SPRITE_WORKSTATION_furnace, .workstation_id=WORKSTATION_furnace};
+		workstations[WORKSTATION_workbench] = (WorkstationData){.to_build=ARCH_workstation, .sprite_id=SPRITE_WORKSTATION_workbench, .workstation_id=WORKSTATION_workbench};
+		workstations[WORKSTATION_chest] = (WorkstationData){.to_build=ARCH_workstation, .sprite_id=SPRITE_WORKSTATION_chest, .workstation_id=WORKSTATION_chest};
 	}
 
 
-	void setup_item_building(Entity* en, BuildingID building_id) {
+	void setup_item_workstation(Entity* en, WorkStationID workstation_id) {
 		en->arch = ARCH_item;
-		en->sprite_id = get_sprite_id_from_building(building_id);
+		en->sprite_id = get_sprite_id_from_workstation(workstation_id);
 		en->is_item = true;
-		en->building_id = building_id;
+		en->workstation_id = workstation_id;
 		
 		// TODO: fix this
-		en->item_id = ITEM_BUILDING_furnace;
+		en->item_id = ITEM_WORKSTATION_furnace;
 
 		// en->render_sprite = true;
 	}
